@@ -5,17 +5,24 @@ snapdragon-social-ui. The snapdragon.systems host federates this remote's
 exposed `ADMIN_ROUTES` at runtime and mounts them at **/admin**, so they
 resolve to:
 
-| Host path          | View                        | Component                  |
-| ------------------ | --------------------------- | -------------------------- |
-| `/admin`           | Registration allowlist      | `AdminComponent`           |
-| `/admin/usage`     | ClickHouse usage dashboard  | `UsageComponent`           |
-| `/admin/namespaces`| Namespace access grants     | `NamespaceAccessComponent` |
+| Host path             | View                              | Component                  |
+| --------------------- | --------------------------------- | -------------------------- |
+| `/admin`              | Registration allowlist            | `AdminComponent`           |
+| `/admin/usage`        | ClickHouse usage dashboard        | `UsageComponent`           |
+| `/admin/namespaces`   | Namespace access grants           | `NamespaceAccessComponent` |
+| `/admin/route-access` | Per-gateway role→URL access rules | `RouteAccessComponent`     |
+| `/admin/isos`         | CI ISO download links             | `IsoDownloadsComponent`    |
 
 Casdoor-**admin-role** only — the host route-guards `/admin` (this repo also
 ships `adminGuard` for standalone use). Manages the Gmail/Discord registration
-allowlist, per-user namespace access grants, and the ClickHouse-backed usage
-dashboard (links to Uptrace). Backed by snapdragon-admin-bff behind the gateway;
-reads the shared `snap.session` (roles + bffToken) written by the login remote.
+allowlist, per-user namespace access grants, the ClickHouse-backed usage
+dashboard (links to Uptrace), per-gateway role→URL external-access rules
+(`/bff/admin/route-access` — persisted in Postgres, Cassandra-cached by each
+gateway; just role-based locking of known services, no random app URLs), and
+links to the latest CI-delivered ISO artifacts (`/bff/admin/isos`; KEYS
+material is never in these images, so nothing secret is exposed). Backed by
+snapdragon-admin-bff behind the gateway; reads the shared `snap.session`
+(roles + bffToken) written by the login remote.
 
 ## Federation
 

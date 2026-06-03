@@ -65,4 +65,46 @@ export class BffService {
     const r = await fetch(`${CFG.bff}/bff/me/namespaces`, { headers: { authorization: `Bearer ${t}` } });
     return r.ok ? (await r.json()).namespaces : [];
   }
+
+  // ── Per-gateway role->URL external access rules ──────────────────
+  // The admin-api persists these in Postgres (gateway_route_access); each
+  // gateway caches them in Cassandra and denies external access unless the
+  // caller's Casdoor roles match. Roles are owned by Casdoor.
+  async routeAccess(): Promise<RouteRule[]> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/route-access`, { headers: { authorization: `Bearer ${t}` } });
+    return r.ok ? (await r.json()).rules : [];
+  }
+  async addRouteRule(rule: Omit<RouteRule, 'id'>): Promise<RouteRule[]> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/route-access`, {
+      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      body: JSON.stringify(rule),
+    });
+    return r.ok ? (await r.json()).rules : [];
+  }
+  async removeRouteRule(id: string): Promise<RouteRule[]> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/route-access`, {
+      method: 'DELETE', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      body: JSON.stringify({ id }),
+    });
+    return r.ok ? (await r.json()).rules : [];
+  }
+
+  /** Latest delivered ISO download links (from the CI pipeline). */
+  async isos(): Promise<{ name: string; url: string }[]> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/isos`, { headers: { authorization: `Bearer ${t}` } });
+    return r.ok ? (await r.json()).isos : [];
+  }
+}
+
+export interface RouteRule {
+  id: string;
+  gateway: string;
+  url_pattern: string;
+  role: string;
+  casdoor_user?: string | null;
+  allow: boolean;
 }
