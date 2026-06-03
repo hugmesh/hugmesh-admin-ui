@@ -1,0 +1,16 @@
+{
+  "name": "@snapdragon/admin",
+  "version": "0.1.0",
+  "description": "Admin console (allowlist, usage, namespace access) — Angular micro-frontend (native-federation remote) for the snapdragon.systems host.",
+  "license": "MIT", "private": true,
+  "scripts": { "build": "ng build", "start": "ng serve" },
+  "dependencies": {
+    "@angular/common": "^18.2.0", "@angular/core": "^18.2.0", "@angular/forms": "^18.2.0",
+    "@angular/platform-browser": "^18.2.0", "@angular/router": "^18.2.0",
+    "@angular-architects/native-federation": "^18.2.0", "rxjs": "~7.8.0", "tslib": "^2.6.0", "zone.js": "~0.14.10"
+  },
+  "devDependencies": {
+    "@angular-devkit/build-angular": "^18.2.0", "@angular/cli": "^18.2.0",
+    "@angular/compiler-cli": "^18.2.0", "ng-packagr": "^18.2.0", "typescript": "~5.5.0"
+  }
+}
