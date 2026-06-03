@@ -17,17 +17,32 @@ export interface SnapSession {
 @Injectable({ providedIn: 'root' })
 export class SessionService {
   private readonly key = 'snap.session';
+  private readonly channel = 'snap-session-change';
   readonly session = signal<SnapSession | null>(this.load());
   readonly loggedIn = computed(() => this.session() !== null);
   readonly isAdmin = computed(() => (this.session()?.roles ?? []).includes('admin'));
   /** Matrix/Mastodon are usable only after full registration completes. */
   readonly fullyRegistered = computed(() => this.session()?.registrationComplete === true);
 
+  constructor() {
+    // The host shell and each federated remote each hold their OWN SessionService
+    // instance over the same localStorage key. Re-read on a same-document broadcast
+    // (dispatched by whichever instance wrote) and on cross-tab storage events, so
+    // every nav/guard reading this signal stays in sync — e.g. the login remote
+    // completing registration must unlock the host shell's Matrix/Mastodon nav.
+    if (typeof window !== 'undefined') {
+      window.addEventListener(this.channel, () => this.session.set(this.load()));
+      window.addEventListener('storage', (e) => { if (e.key === this.key) this.session.set(this.load()); });
+    }
+  }
+
   private load(): SnapSession | null {
     try { const raw = localStorage.getItem(this.key); return raw ? JSON.parse(raw) : null; }
     catch { return null; }
   }
-  set(s: SnapSession): void { localStorage.setItem(this.key, JSON.stringify(s)); this.session.set(s); }
+  set(s: SnapSession): void { localStorage.setItem(this.key, JSON.stringify(s)); this.session.set(s); this.broadcast(); }
   patch(p: Partial<SnapSession>): void { const s = this.session(); if (s) this.set({ ...s, ...p }); }
-  clear(): void { localStorage.removeItem(this.key); this.session.set(null); }
+  clear(): void { localStorage.removeItem(this.key); this.session.set(null); this.broadcast(); }
+  /** Notify the other in-page SessionService instances (host + remotes) to re-read. */
+  private broadcast(): void { if (typeof window !== 'undefined') window.dispatchEvent(new Event(this.channel)); }
 }
