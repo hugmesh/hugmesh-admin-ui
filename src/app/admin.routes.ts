@@ -3,6 +3,7 @@ import { AdminComponent } from './admin.component';
 import { UsageComponent } from './usage.component';
 import { NamespaceAccessComponent } from './namespace-access.component';
 import { RouteAccessComponent } from './route-access.component';
+import { RouteDefinitionsComponent } from './route-definitions.component';
 import { IsoDownloadsComponent } from './iso-downloads.component';
 
 /** Routes exposed by the Admin native-federation remote. The snapdragon.systems
@@ -15,5 +16,6 @@ export const ADMIN_ROUTES: Routes = [
   { path: 'usage', component: UsageComponent },
   { path: 'namespaces', component: NamespaceAccessComponent },
   { path: 'route-access', component: RouteAccessComponent },
+  { path: 'routes', component: RouteDefinitionsComponent },
   { path: 'isos', component: IsoDownloadsComponent },
 ];

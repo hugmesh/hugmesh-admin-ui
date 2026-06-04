@@ -92,6 +92,31 @@ export class BffService {
     return r.ok ? (await r.json()).rules : [];
   }
 
+  // Gateway route DEFINITIONS — admin-editable url_registry rows the gateway turns
+  // into live Spring Cloud Gateway routes (path_prefix -> downstream_uri). Distinct
+  // from route-access above (which is role→URL allow/deny). The BFF wraps the list
+  // as { routes: [...] }, same convention as route-access's { rules: [...] }.
+  async routeDefinitions(): Promise<RouteDefinition[]> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/routes`, { headers: { authorization: `Bearer ${t}` } });
+    return r.ok ? (await r.json()).routes : [];
+  }
+  async upsertRouteDefinition(def: RouteDefinition): Promise<RouteDefinition[]> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/routes`, {
+      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      body: JSON.stringify(def),
+    });
+    return r.ok ? (await r.json()).routes : [];
+  }
+  async removeRouteDefinition(pathPrefix: string): Promise<RouteDefinition[]> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/routes/${encodeURIComponent(pathPrefix)}`, {
+      method: 'DELETE', headers: { authorization: `Bearer ${t}` },
+    });
+    return r.ok ? (await r.json()).routes : [];
+  }
+
   /** Latest delivered ISO download links (from the CI pipeline). */
   async isos(): Promise<{ name: string; url: string }[]> {
     const t = this.session.session()?.bffToken;
@@ -107,4 +132,11 @@ export interface RouteRule {
   role: string;
   casdoor_user?: string | null;
   allow: boolean;
+}
+
+export interface RouteDefinition {
+  pathPrefix: string;
+  downstreamUri: string;
+  serviceName?: string | null;
+  requiredRole?: string | null;
 }
