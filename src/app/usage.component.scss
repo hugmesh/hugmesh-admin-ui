@@ -1,0 +1,23 @@
+@use '../styles/tokens' as t;
+
+:host {
+  display: block;
+}
+
+.snap-usage {
+  display: block;
+  padding: 1rem;
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1rem;
+
+    th,
+    td {
+      text-align: left;
+      padding: 0.5rem;
+      border-bottom: 1px solid var(--sd-border);
+    }
+  }
+}

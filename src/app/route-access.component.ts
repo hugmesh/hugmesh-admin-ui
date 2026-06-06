@@ -16,6 +16,7 @@ import { BffService, RouteRule } from './bff.service';
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './route-access.component.html',
+  styleUrl: './route-access.component.scss',
 })
 export class RouteAccessComponent implements OnInit {
   private readonly bff = inject(BffService);
@@ -25,10 +26,13 @@ export class RouteAccessComponent implements OnInit {
   urlPattern = '';
   role = 'ROLE_USER';
   allow = true;
+  /** Inline validation surfaced in a role=alert live region. Empty = valid. */
+  readonly formError = signal('');
 
   async ngOnInit(): Promise<void> { this.rules.set(await this.bff.routeAccess()); }
   async add(): Promise<void> {
-    if (!this.urlPattern.trim() || !this.role.trim()) return;
+    if (!this.urlPattern.trim() || !this.role.trim()) { this.formError.set('A URL pattern and a role are required.'); return; }
+    this.formError.set('');
     this.rules.set(await this.bff.addRouteRule({
       gateway: this.gateway, url_pattern: this.urlPattern.trim(), role: this.role.trim(), allow: this.allow,
     }));

@@ -1,13 +1,36 @@
-<section class="snap-ns" data-testid="ns-view">
-  <h2>Namespace access</h2>
-  <form (ngSubmit)="grant()">
-    <input data-testid="ns-user" [(ngModel)]="user" name="user" placeholder="user (email/discord)" />
-    <select data-testid="ns-select" [(ngModel)]="namespace" name="namespace">
+<section class="snap-ns" data-testid="ns-view" aria-labelledby="ns-heading">
+  <h2 id="ns-heading">Namespace access</h2>
+
+  <form (ngSubmit)="grant()" novalidate>
+    <label for="ns-user">User (email or Discord handle)</label>
+    <input
+      id="ns-user"
+      data-testid="ns-user"
+      [(ngModel)]="user"
+      name="user"
+      placeholder="user (email/discord)"
+      [attr.aria-invalid]="userError() ? 'true' : null"
+      [attr.aria-describedby]="userError() ? 'ns-user-error' : null"
+    />
+
+    <label for="ns-select">Namespace</label>
+    <select id="ns-select" data-testid="ns-select" [(ngModel)]="namespace" name="namespace">
       <option *ngFor="let n of namespaces()" [value]="n">{{ n }}</option>
     </select>
+
     <button data-testid="ns-grant" type="submit">Grant</button>
+
+    <span
+      *ngIf="userError()"
+      id="ns-user-error"
+      class="field-error"
+      data-testid="ns-user-error"
+      role="alert"
+      aria-live="assertive"
+    >{{ userError() }}</span>
   </form>
-  <ul data-testid="ns-grants">
+
+  <ul data-testid="ns-grants" aria-label="Existing namespace grants">
     <li *ngFor="let g of grants()" [attr.data-user]="g.user">
       <strong>{{ g.user }}</strong>: {{ g.namespaces.join(', ') }}
     </li>

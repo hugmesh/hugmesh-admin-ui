@@ -1,19 +1,59 @@
-<section class="snap-admin" data-testid="admin-view">
-  <h2>Admin — invited accounts</h2>
-  <form (ngSubmit)="inviteEmail()">
-    <input data-testid="admin-email" [(ngModel)]="email" name="email" placeholder="invitee@gmail.com" />
+<section class="snap-admin" data-testid="admin-view" aria-labelledby="admin-heading">
+  <h2 id="admin-heading">Admin — invited accounts</h2>
+
+  <form (ngSubmit)="inviteEmail()" novalidate>
+    <label for="admin-email">Gmail address to invite</label>
+    <input
+      id="admin-email"
+      data-testid="admin-email"
+      type="email"
+      [(ngModel)]="email"
+      name="email"
+      placeholder="invitee@gmail.com"
+      autocomplete="email"
+      [attr.aria-invalid]="emailError() ? 'true' : null"
+      [attr.aria-describedby]="emailError() ? 'admin-email-error' : null"
+    />
     <button data-testid="admin-invite" type="submit">Invite Gmail</button>
+    <span
+      *ngIf="emailError()"
+      id="admin-email-error"
+      class="field-error"
+      data-testid="admin-email-error"
+      role="alert"
+      aria-live="assertive"
+    >{{ emailError() }}</span>
   </form>
-  <form (ngSubmit)="inviteDiscord()">
-    <input data-testid="admin-discord" [(ngModel)]="discord" name="discord" placeholder="discord-username" />
+
+  <form (ngSubmit)="inviteDiscord()" novalidate>
+    <label for="admin-discord">Discord username to invite</label>
+    <input
+      id="admin-discord"
+      data-testid="admin-discord"
+      [(ngModel)]="discord"
+      name="discord"
+      placeholder="discord-username"
+      [attr.aria-invalid]="discordError() ? 'true' : null"
+      [attr.aria-describedby]="discordError() ? 'admin-discord-error' : null"
+    />
     <button data-testid="admin-invite-discord" type="submit">Invite Discord</button>
+    <span
+      *ngIf="discordError()"
+      id="admin-discord-error"
+      class="field-error"
+      data-testid="admin-discord-error"
+      role="alert"
+      aria-live="assertive"
+    >{{ discordError() }}</span>
   </form>
-  <h3>Gmail</h3>
-  <ul data-testid="admin-allowlist">
+
+  <h3 id="admin-gmail-heading">Gmail</h3>
+  <ul data-testid="admin-allowlist" aria-labelledby="admin-gmail-heading">
     <li *ngFor="let e of emails()" [attr.data-email]="e">{{ e }}</li>
   </ul>
-  <h3>Discord</h3>
-  <ul data-testid="admin-allowlist-discord">
+
+  <h3 id="admin-discord-heading">Discord</h3>
+  <ul data-testid="admin-allowlist-discord" aria-labelledby="admin-discord-heading">
     <li *ngFor="let d of discordUsers()" [attr.data-discord]="d">{{ d }}</li>
   </ul>
 </section>

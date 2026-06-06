@@ -68,4 +68,57 @@ describe('AdminComponent', () => {
 
     expect(bff.invite).not.toHaveBeenCalled();
   });
+
+  describe('accessibility', () => {
+    it('associates each text input with a visible <label for>', () => {
+      fixture.detectChanges();
+      const el: HTMLElement = fixture.nativeElement;
+      for (const id of ['admin-email', 'admin-discord']) {
+        const input = el.querySelector<HTMLInputElement>(`#${id}`);
+        const label = el.querySelector<HTMLLabelElement>(`label[for="${id}"]`);
+        expect(input).withContext(`#${id} input`).not.toBeNull();
+        expect(label).withContext(`label for #${id}`).not.toBeNull();
+        expect(label!.textContent!.trim().length).toBeGreaterThan(0);
+      }
+    });
+
+    it('marks a blank Gmail submit invalid and announces the error in role=alert/assertive', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      component.email = '   ';
+      await component.inviteEmail();
+      fixture.detectChanges();
+
+      expect(component.emailError()).not.toBe('');
+      const el: HTMLElement = fixture.nativeElement;
+      const alert = el.querySelector('[data-testid="admin-email-error"]');
+      expect(alert).withContext('error live region rendered').not.toBeNull();
+      expect(alert!.getAttribute('role')).toBe('alert');
+      expect(alert!.getAttribute('aria-live')).toBe('assertive');
+
+      const input = el.querySelector<HTMLInputElement>('#admin-email')!;
+      expect(input.getAttribute('aria-invalid')).toBe('true');
+      expect(input.getAttribute('aria-describedby')).toBe('admin-email-error');
+    });
+
+    it('clears aria-invalid + the alert once a valid invite succeeds', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      // first trip the error
+      component.email = '';
+      await component.inviteEmail();
+      fixture.detectChanges();
+      expect(component.emailError()).not.toBe('');
+
+      bff.invite.and.resolveTo({ emails: ['ok@gmail.com'], discord: [] });
+      component.email = 'ok@gmail.com';
+      await component.inviteEmail();
+      fixture.detectChanges();
+
+      expect(component.emailError()).toBe('');
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.querySelector('[data-testid="admin-email-error"]')).toBeNull();
+      expect(el.querySelector<HTMLInputElement>('#admin-email')!.getAttribute('aria-invalid')).toBeNull();
+    });
+  });
 });

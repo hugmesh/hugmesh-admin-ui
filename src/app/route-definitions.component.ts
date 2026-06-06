@@ -16,6 +16,7 @@ import { BffService, RouteDefinition } from './bff.service';
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './route-definitions.component.html',
+  styleUrl: './route-definitions.component.scss',
 })
 export class RouteDefinitionsComponent implements OnInit {
   private readonly bff = inject(BffService);
@@ -24,10 +25,16 @@ export class RouteDefinitionsComponent implements OnInit {
   downstreamUri = '';
   serviceName = '';
   requiredRole = '';
+  /** Inline validation surfaced in a role=alert live region. Empty = valid. */
+  readonly formError = signal('');
 
   async ngOnInit(): Promise<void> { this.routes.set(await this.bff.routeDefinitions()); }
   async add(): Promise<void> {
-    if (!this.pathPrefix.trim() || !this.downstreamUri.trim()) return;
+    if (!this.pathPrefix.trim() || !this.downstreamUri.trim()) {
+      this.formError.set('A path prefix and a downstream URI are required.');
+      return;
+    }
+    this.formError.set('');
     this.routes.set(await this.bff.upsertRouteDefinition({
       pathPrefix: this.pathPrefix.trim(),
       downstreamUri: this.downstreamUri.trim(),

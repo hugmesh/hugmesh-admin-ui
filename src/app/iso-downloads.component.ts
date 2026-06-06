@@ -13,6 +13,7 @@ import { BffService } from './bff.service';
   standalone: true,
   imports: [CommonModule],
   templateUrl: './iso-downloads.component.html',
+  styleUrl: './iso-downloads.component.scss',
 })
 export class IsoDownloadsComponent implements OnInit {
   private readonly bff = inject(BffService);

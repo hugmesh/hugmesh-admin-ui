@@ -13,6 +13,7 @@ import { BffService } from './bff.service';
   standalone: true,
   imports: [CommonModule],
   templateUrl: './usage.component.html',
+  styleUrl: './usage.component.scss',
 })
 export class UsageComponent implements OnInit {
   private readonly bff = inject(BffService);

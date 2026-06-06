@@ -1,0 +1,19 @@
+@use '../styles/tokens' as t;
+
+:host {
+  display: block;
+}
+
+.snap-isos {
+  display: block;
+  padding: 1rem;
+
+  ul {
+    margin: 0.5rem 0;
+    padding-inline-start: 1.25rem;
+  }
+
+  a {
+    color: var(--sd-accent-soft);
+  }
+}
