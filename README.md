@@ -22,7 +22,7 @@ dashboard (links to Uptrace), per-gateway role→URL external-access rules
 gateway; just role-based locking of known services, no random app URLs), and
 links to the latest CI-delivered ISO artifacts (`/bff/admin/isos`; KEYS
 material is never in these images, so nothing secret is exposed). Backed by
-snapdragon-admin-bff behind the gateway; reads the shared `snap.session`
+snapdragon-admin-bff-api behind the gateway; reads the shared `snap.session`
 (roles + bffToken) written by the login remote.
 
 ## Federation
