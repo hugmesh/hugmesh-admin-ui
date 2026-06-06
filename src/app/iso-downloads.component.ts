@@ -12,17 +12,7 @@ import { BffService } from './bff.service';
   selector: 'snap-iso-downloads',
   standalone: true,
   imports: [CommonModule],
-  template: `
-    <section class="snap-isos" data-testid="iso-view">
-      <h2>ISO downloads</h2>
-      <p *ngIf="!isos().length" data-testid="iso-empty">No ISO builds delivered yet.</p>
-      <ul data-testid="iso-list">
-        <li *ngFor="let iso of isos()" [attr.data-iso]="iso.name">
-          <a [attr.href]="iso.url" [attr.data-iso-url]="iso.url" download>{{ iso.name }}</a>
-        </li>
-      </ul>
-    </section>
-  `,
+  templateUrl: './iso-downloads.component.html',
 })
 export class IsoDownloadsComponent implements OnInit {
   private readonly bff = inject(BffService);

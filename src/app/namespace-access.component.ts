@@ -13,23 +13,7 @@ import { BffService } from './bff.service';
   selector: 'snap-namespace-access',
   standalone: true,
   imports: [CommonModule, FormsModule],
-  template: `
-    <section class="snap-ns" data-testid="ns-view">
-      <h2>Namespace access</h2>
-      <form (ngSubmit)="grant()">
-        <input data-testid="ns-user" [(ngModel)]="user" name="user" placeholder="user (email/discord)" />
-        <select data-testid="ns-select" [(ngModel)]="namespace" name="namespace">
-          <option *ngFor="let n of namespaces()" [value]="n">{{ n }}</option>
-        </select>
-        <button data-testid="ns-grant" type="submit">Grant</button>
-      </form>
-      <ul data-testid="ns-grants">
-        <li *ngFor="let g of grants()" [attr.data-user]="g.user">
-          <strong>{{ g.user }}</strong>: {{ g.namespaces.join(', ') }}
-        </li>
-      </ul>
-    </section>
-  `,
+  templateUrl: './namespace-access.component.html',
 })
 export class NamespaceAccessComponent implements OnInit {
   private readonly bff = inject(BffService);

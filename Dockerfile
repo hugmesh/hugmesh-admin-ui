@@ -3,10 +3,11 @@
 # snapdragon.systems host can fetch its remoteEntry.json cross-origin.
 # Deployed to the snapdragon-frontend namespace, fronted by the fe-gateway at
 # /admin. Casdoor-admin-role guarded by the host.
-FROM node:22-alpine AS build
+# Angular CLI 22 requires Node >= 24.15.
+FROM node:24-alpine AS build
 WORKDIR /app
 COPY package*.json ./
-RUN npm install --no-audit --no-fund
+RUN npm ci
 COPY . .
 RUN npm run build:admin
 

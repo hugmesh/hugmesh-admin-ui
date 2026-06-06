@@ -10,6 +10,6 @@ import { RouterOutlet } from '@angular/router';
   selector: 'snap-admin-root',
   standalone: true,
   imports: [RouterOutlet],
-  template: `<router-outlet />`,
+  templateUrl: './app.component.html',
 })
 export class AppComponent {}
