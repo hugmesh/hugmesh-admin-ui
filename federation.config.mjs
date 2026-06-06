@@ -1,6 +1,5 @@
-const { withNativeFederation, shareAll } = require('@angular-architects/native-federation/config');
-
-module.exports = withNativeFederation({
+import { withNativeFederation, shareAll } from '@angular-architects/native-federation/config';
+export default withNativeFederation({
 
   name: 'admin',
 
@@ -22,5 +21,5 @@ module.exports = withNativeFederation({
 
   // Please read our FAQ about sharing libs:
   // https://shorturl.at/jmzH0
-  
+
 });

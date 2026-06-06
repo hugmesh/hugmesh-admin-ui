@@ -1,6 +1,6 @@
 # snapdragon-admin-ui
 
-Admin console as an **Angular 18 native-federation REMOTE**, split out of
+Admin console as an **Angular 22 native-federation REMOTE**, split out of
 snapdragon-social-ui. The snapdragon.systems host federates this remote's
 exposed `ADMIN_ROUTES` at runtime and mounts them at **/admin**, so they
 resolve to:
@@ -11,6 +11,7 @@ resolve to:
 | `/admin/usage`        | ClickHouse usage dashboard        | `UsageComponent`           |
 | `/admin/namespaces`   | Namespace access grants           | `NamespaceAccessComponent` |
 | `/admin/route-access` | Per-gateway role→URL access rules | `RouteAccessComponent`     |
+| `/admin/routes`       | Gateway route definitions         | `RouteDefinitionsComponent`|
 | `/admin/isos`         | CI ISO download links             | `IsoDownloadsComponent`    |
 
 Casdoor-**admin-role** only — the host route-guards `/admin` (this repo also
@@ -26,7 +27,7 @@ snapdragon-admin-bff behind the gateway; reads the shared `snap.session`
 
 ## Federation
 
-`federation.config.js` exposes `./routes` → `src/app/admin.routes.ts`
+`federation.config.mjs` exposes `./routes` → `src/app/admin.routes.ts`
 (`ADMIN_ROUTES`). The build emits `dist/admin/browser/remoteEntry.json`, whose
 `exposes` entry the host consumes to lazy-load the routes.
 

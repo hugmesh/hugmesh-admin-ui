@@ -1,0 +1,20 @@
+<section class="snap-route-access" data-testid="route-access-view">
+  <h2>Gateway access — role → URL</h2>
+  <form (ngSubmit)="add()">
+    <select data-testid="ra-gateway" [(ngModel)]="gateway" name="gateway">
+      <option *ngFor="let g of gateways" [value]="g">{{ g }}</option>
+    </select>
+    <input data-testid="ra-pattern" [(ngModel)]="urlPattern" name="pattern" placeholder="/api/admin/**" />
+    <input data-testid="ra-role" [(ngModel)]="role" name="role" placeholder="ROLE_ADMIN" />
+    <label><input type="checkbox" [(ngModel)]="allow" name="allow" /> allow</label>
+    <button data-testid="ra-add" type="submit">Add rule</button>
+  </form>
+  <table data-testid="route-access-rules">
+    <tr><th>Gateway</th><th>URL pattern</th><th>Role</th><th>Allow</th><th></th></tr>
+    <tr *ngFor="let r of rules()" [attr.data-rule-id]="r.id">
+      <td>{{ r.gateway }}</td><td>{{ r.url_pattern }}</td><td>{{ r.role }}</td>
+      <td>{{ r.allow ? 'allow' : 'deny' }}</td>
+      <td><button [attr.data-remove]="r.id" (click)="remove(r.id)">remove</button></td>
+    </tr>
+  </table>
+</section>

@@ -2,17 +2,44 @@
   "name": "@snapdragon/admin",
   "version": "0.1.0",
   "description": "Admin console (allowlist, usage, namespace access) — Angular micro-frontend (native-federation remote) for the snapdragon.systems host.",
-  "license": "MIT", "private": true,
-  "scripts": { "ng": "ng", "build": "ng build admin", "build:admin": "ng build admin", "start": "ng serve admin" },
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve admin",
+    "build": "ng build admin",
+    "build:admin": "ng build admin",
+    "test": "ng test admin --watch=false --browsers=ChromeHeadlessCI",
+    "test:watch": "ng test admin"
+  },
   "dependencies": {
-    "@angular/animations": "^18.2.0",
-    "@angular/common": "^18.2.0", "@angular/core": "^18.2.0", "@angular/forms": "^18.2.0",
-    "@angular/platform-browser": "^18.2.0", "@angular/router": "^18.2.0",
-    "@angular-architects/native-federation": "^18.2.0", "@softarc/native-federation-node": "^2.0.10",
-    "es-module-shims": "^1.5.12", "rxjs": "~7.8.0", "tslib": "^2.6.0", "zone.js": "~0.14.10"
+    "@angular-architects/native-federation": "^22.0.0",
+    "@angular/animations": "^22.0.0",
+    "@angular/common": "^22.0.0",
+    "@angular/compiler": "^22.0.0",
+    "@angular/core": "^22.0.0",
+    "@angular/forms": "^22.0.0",
+    "@angular/platform-browser": "^22.0.0",
+    "@angular/platform-browser-dynamic": "^22.0.0",
+    "@angular/router": "^22.0.0",
+    "@softarc/native-federation-node": "^3.5.5",
+    "es-module-shims": "^2.8.1",
+    "rxjs": "^7.8.2",
+    "tslib": "^2.6.0",
+    "zone.js": "^0.16.1"
   },
   "devDependencies": {
-    "@angular-devkit/build-angular": "^18.2.0", "@angular/cli": "^18.2.0",
-    "@angular/compiler-cli": "^18.2.0", "ng-packagr": "^18.2.0", "typescript": "~5.5.0"
+    "@angular-devkit/build-angular": "^22.0.0",
+    "@angular/cli": "^22.0.0",
+    "@angular/compiler-cli": "^22.0.0",
+    "@types/jasmine": "^5.1.15",
+    "jasmine-core": "^5.13.0",
+    "karma": "^6.4.4",
+    "karma-chrome-launcher": "^3.2.0",
+    "karma-coverage": "^2.2.1",
+    "karma-jasmine": "^5.1.0",
+    "karma-jasmine-html-reporter": "^2.2.0",
+    "ng-packagr": "^22.0.0",
+    "typescript": "~6.0.3"
   }
 }

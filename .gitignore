@@ -1,4 +1,8 @@
-/dist
 /node_modules
-/.angular
+/dist
 /out-tsc
+/.angular
+/coverage
+*.log
+.DS_Store
+.env

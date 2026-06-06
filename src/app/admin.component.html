@@ -1,0 +1,19 @@
+<section class="snap-admin" data-testid="admin-view">
+  <h2>Admin — invited accounts</h2>
+  <form (ngSubmit)="inviteEmail()">
+    <input data-testid="admin-email" [(ngModel)]="email" name="email" placeholder="invitee@gmail.com" />
+    <button data-testid="admin-invite" type="submit">Invite Gmail</button>
+  </form>
+  <form (ngSubmit)="inviteDiscord()">
+    <input data-testid="admin-discord" [(ngModel)]="discord" name="discord" placeholder="discord-username" />
+    <button data-testid="admin-invite-discord" type="submit">Invite Discord</button>
+  </form>
+  <h3>Gmail</h3>
+  <ul data-testid="admin-allowlist">
+    <li *ngFor="let e of emails()" [attr.data-email]="e">{{ e }}</li>
+  </ul>
+  <h3>Discord</h3>
+  <ul data-testid="admin-allowlist-discord">
+    <li *ngFor="let d of discordUsers()" [attr.data-discord]="d">{{ d }}</li>
+  </ul>
+</section>
