@@ -14,6 +14,7 @@ import { BffService } from './bff.service';
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './namespace-access.component.html',
+  styleUrl: './namespace-access.component.scss',
 })
 export class NamespaceAccessComponent implements OnInit {
   private readonly bff = inject(BffService);
@@ -21,6 +22,8 @@ export class NamespaceAccessComponent implements OnInit {
   namespace = '';
   readonly namespaces = signal<string[]>([]);
   readonly grants = signal<{ user: string; namespaces: string[] }[]>([]);
+  /** Inline validation surfaced in a role=alert live region. Empty = valid. */
+  readonly userError = signal('');
 
   async ngOnInit(): Promise<void> { this.load(await this.bff.namespaceAccess()); }
   private load(a: { namespaces: string[]; grants: { user: string; namespaces: string[] }[] }): void {
@@ -28,7 +31,8 @@ export class NamespaceAccessComponent implements OnInit {
     if (!this.namespace && a.namespaces.length) this.namespace = a.namespaces[0];
   }
   async grant(): Promise<void> {
-    if (!this.user.trim() || !this.namespace) return;
+    if (!this.user.trim() || !this.namespace) { this.userError.set('Enter a user and pick a namespace.'); return; }
+    this.userError.set('');
     this.load(await this.bff.grantNamespace(this.user.trim().toLowerCase(), this.namespace));
     this.user = '';
   }

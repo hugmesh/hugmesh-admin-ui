@@ -53,7 +53,7 @@
 						],
 						"tsConfig": "tsconfig.app.json",
 						"assets": [],
-						"styles": []
+						"styles": ["src/styles.scss"]
 					},
 					"configurations": {
 						"production": {
@@ -82,7 +82,7 @@
 						"tsConfig": "tsconfig.spec.json",
 						"karmaConfig": "karma.conf.js",
 						"assets": [],
-						"styles": [],
+						"styles": ["src/styles.scss"],
 						"scripts": []
 					}
 				}

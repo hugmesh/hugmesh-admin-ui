@@ -1,18 +1,71 @@
-<section class="snap-route-definitions" data-testid="route-definitions-view">
-  <h2>Gateway routes — path → downstream</h2>
-  <form (ngSubmit)="add()">
-    <input data-testid="rd-prefix" [(ngModel)]="pathPrefix" name="prefix" placeholder="/api/games/" />
-    <input data-testid="rd-uri" [(ngModel)]="downstreamUri" name="uri" placeholder="http://svc.ns.svc.cluster.local:8080" />
-    <input data-testid="rd-service" [(ngModel)]="serviceName" name="service" placeholder="service (optional)" />
-    <input data-testid="rd-role" [(ngModel)]="requiredRole" name="role" placeholder="required role (optional)" />
+<section class="snap-route-definitions" data-testid="route-definitions-view" aria-labelledby="rd-heading">
+  <h2 id="rd-heading">Gateway routes — path → downstream</h2>
+
+  <form (ngSubmit)="add()" novalidate>
+    <label for="rd-prefix">Path prefix</label>
+    <input
+      id="rd-prefix"
+      data-testid="rd-prefix"
+      [(ngModel)]="pathPrefix"
+      name="prefix"
+      placeholder="/api/games/"
+      [attr.aria-invalid]="formError() ? 'true' : null"
+      [attr.aria-describedby]="formError() ? 'rd-error' : null"
+    />
+
+    <label for="rd-uri">Downstream URI</label>
+    <input
+      id="rd-uri"
+      data-testid="rd-uri"
+      [(ngModel)]="downstreamUri"
+      name="uri"
+      placeholder="http://svc.ns.svc.cluster.local:8080"
+      [attr.aria-invalid]="formError() ? 'true' : null"
+      [attr.aria-describedby]="formError() ? 'rd-error' : null"
+    />
+
+    <label for="rd-service">Service (optional)</label>
+    <input id="rd-service" data-testid="rd-service" [(ngModel)]="serviceName" name="service" placeholder="service (optional)" />
+
+    <label for="rd-role">Required role (optional)</label>
+    <input id="rd-role" data-testid="rd-role" [(ngModel)]="requiredRole" name="role" placeholder="required role (optional)" />
+
     <button data-testid="rd-add" type="submit">Add / update</button>
+
+    <span
+      *ngIf="formError()"
+      id="rd-error"
+      class="field-error"
+      data-testid="rd-error"
+      role="alert"
+      aria-live="assertive"
+    >{{ formError() }}</span>
   </form>
+
   <table data-testid="route-definitions-rows">
-    <tr><th>Path prefix</th><th>Downstream URI</th><th>Service</th><th>Required role</th><th></th></tr>
-    <tr *ngFor="let d of routes()" [attr.data-route-prefix]="d.pathPrefix">
-      <td>{{ d.pathPrefix }}</td><td>{{ d.downstreamUri }}</td>
-      <td>{{ d.serviceName }}</td><td>{{ d.requiredRole }}</td>
-      <td><button [attr.data-remove]="d.pathPrefix" (click)="remove(d.pathPrefix)">remove</button></td>
-    </tr>
+    <caption class="sr">Gateway route definitions: path prefix to downstream URI</caption>
+    <thead>
+      <tr>
+        <th scope="col">Path prefix</th>
+        <th scope="col">Downstream URI</th>
+        <th scope="col">Service</th>
+        <th scope="col">Required role</th>
+        <th scope="col"><span class="sr">Actions</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let d of routes()" [attr.data-route-prefix]="d.pathPrefix">
+        <td>{{ d.pathPrefix }}</td><td>{{ d.downstreamUri }}</td>
+        <td>{{ d.serviceName }}</td><td>{{ d.requiredRole }}</td>
+        <td>
+          <button
+            type="button"
+            [attr.data-remove]="d.pathPrefix"
+            [attr.aria-label]="'Remove route definition ' + d.pathPrefix"
+            (click)="remove(d.pathPrefix)"
+          >remove</button>
+        </td>
+      </tr>
+    </tbody>
   </table>
 </section>
