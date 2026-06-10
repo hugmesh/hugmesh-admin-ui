@@ -1,0 +1,113 @@
+<section class="snap-task-wizard" data-testid="task-wizard-view" aria-labelledby="wizard-heading">
+  <h2 id="wizard-heading">Guided admin tasks</h2>
+
+  <!-- Task picker. -->
+  <div class="task-picker" *ngIf="!task()">
+    <p id="wizard-pick-label">Choose a task to start a guided, validated flow.</p>
+    <ul class="task-list" data-testid="task-list" aria-labelledby="wizard-pick-label">
+      <li *ngFor="let t of tasks()" [attr.data-task]="t.id">
+        <button type="button" [attr.data-choose]="t.id" (click)="chooseTask(t.id)">
+          <span class="task-title">{{ t.title }}</span>
+          <span class="task-desc">{{ t.description }}</span>
+        </button>
+      </li>
+      <li *ngIf="!tasks().length" class="empty">No admin tasks available.</li>
+    </ul>
+  </div>
+
+  <!-- Wizard for the chosen task. -->
+  <div class="wizard" *ngIf="task() as t">
+    <button type="button" class="link-back" data-testid="wizard-change-task" (click)="chooseTask('')">← Choose another task</button>
+    <h3>{{ t.title }}</h3>
+
+    <!-- Progress: step N of M, announced politely. -->
+    <p
+      class="progress"
+      data-testid="wizard-progress"
+      role="status"
+      aria-live="polite"
+    >Step {{ stepIndex() + 1 }} of {{ t.steps.length }}: {{ currentStep()?.title }}</p>
+    <ol class="step-rail" aria-hidden="true">
+      <li *ngFor="let s of t.steps; let i = index" [class.active]="i === stepIndex()" [class.done]="i < stepIndex()">{{ s.title }}</li>
+    </ol>
+
+    <!-- Data-driven fields for the current step. -->
+    <form *ngIf="currentStep() as step" (ngSubmit)="next()" novalidate>
+      <div *ngFor="let f of step.fields" class="field">
+        <label [attr.for]="'f-' + f.key">{{ f.label }}<span *ngIf="f.required" aria-hidden="true"> *</span></label>
+
+        <input
+          *ngIf="f.type !== 'boolean'"
+          [id]="'f-' + f.key"
+          [attr.data-field]="f.key"
+          [attr.placeholder]="f.placeholder"
+          [ngModel]="form()[f.key]"
+          (ngModelChange)="setField(f.key, $event)"
+          [name]="f.key"
+          [attr.aria-required]="f.required ? 'true' : null"
+          [attr.aria-invalid]="fieldError(f.key) ? 'true' : null"
+          [attr.aria-describedby]="fieldError(f.key) ? ('err-' + f.key) : null"
+        />
+
+        <label *ngIf="f.type === 'boolean'" class="check-inline" [attr.for]="'f-' + f.key">
+          <input
+            [id]="'f-' + f.key"
+            type="checkbox"
+            [attr.data-field]="f.key"
+            [ngModel]="form()[f.key]"
+            (ngModelChange)="setField(f.key, $event)"
+            [name]="f.key"
+          /> {{ f.label }}
+        </label>
+
+        <span
+          *ngIf="fieldError(f.key) as msg"
+          [id]="'err-' + f.key"
+          class="field-error"
+          [attr.data-error]="f.key"
+          role="alert"
+          aria-live="assertive"
+        >{{ msg }}</span>
+      </div>
+
+      <!-- Non-blocking warnings (e.g. reserved-prefix advisory). -->
+      <ul
+        *ngIf="validation()?.warnings?.length"
+        class="warnings"
+        data-testid="wizard-warnings"
+        role="status"
+        aria-live="polite"
+      >
+        <li *ngFor="let w of validation()!.warnings">{{ w }}</li>
+      </ul>
+
+      <div class="wizard-actions">
+        <button type="button" data-testid="wizard-back" [disabled]="stepIndex() === 0 || busy()" (click)="back()">Back</button>
+        <button type="button" data-testid="wizard-validate" [disabled]="busy()" (click)="validate()">Validate</button>
+        <button *ngIf="!isLastStep()" type="submit" data-testid="wizard-next" [disabled]="busy()">Next</button>
+      </div>
+    </form>
+
+    <!-- Final step: preview → apply. -->
+    <div *ngIf="isLastStep()" class="review" data-testid="wizard-review">
+      <button type="button" data-testid="wizard-preview" [disabled]="busy()" (click)="runPreview()">Preview changes</button>
+
+      <div *ngIf="preview() as p" class="preview-box" data-testid="wizard-preview-box" role="status" aria-live="polite">
+        <p class="preview-summary">{{ p.summary }}</p>
+        <ul><li *ngFor="let c of p.changes">{{ c }}</li></ul>
+      </div>
+
+      <button type="button" data-testid="wizard-apply" [disabled]="busy()" (click)="apply()">Apply</button>
+
+      <p
+        *ngIf="applied() as a"
+        class="apply-result"
+        data-testid="wizard-apply-result"
+        [class.ok]="a.applied"
+        [class.fail]="!a.applied"
+        role="status"
+        aria-live="polite"
+      >{{ a.applied ? '✓ ' : '✕ ' }}{{ a.message }}</p>
+    </div>
+  </div>
+</section>

@@ -5,6 +5,8 @@ import { NamespaceAccessComponent } from './namespace-access.component';
 import { RouteAccessComponent } from './route-access.component';
 import { RouteDefinitionsComponent } from './route-definitions.component';
 import { IsoDownloadsComponent } from './iso-downloads.component';
+import { ArgocdDashboardComponent } from './argocd-dashboard.component';
+import { AdminTaskWizardComponent } from './admin-task-wizard.component';
 
 /**
  * These specs lock down the federation contract: `./routes` (exposed under the
@@ -27,9 +29,11 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('route-access')!.component).toBe(RouteAccessComponent);
     expect(byPath('routes')!.component).toBe(RouteDefinitionsComponent);
     expect(byPath('isos')!.component).toBe(IsoDownloadsComponent);
+    expect(byPath('argocd')!.component).toBe(ArgocdDashboardComponent);
+    expect(byPath('tasks')!.component).toBe(AdminTaskWizardComponent);
   });
 
-  it('exposes exactly the six admin views the host expects', () => {
+  it('exposes exactly the eight admin views the host expects', () => {
     expect(ADMIN_ROUTES.map((r) => r.path)).toEqual([
       '',
       'usage',
@@ -37,6 +41,8 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
       'route-access',
       'routes',
       'isos',
+      'argocd',
+      'tasks',
     ]);
   });
 
