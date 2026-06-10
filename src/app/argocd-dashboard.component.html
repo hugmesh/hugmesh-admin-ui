@@ -1,0 +1,98 @@
+<section class="snap-argocd" data-testid="argocd-view" aria-labelledby="argocd-heading">
+  <h2 id="argocd-heading">ArgoCD — Applications</h2>
+
+  <p
+    *ngIf="status()"
+    class="status-line"
+    data-testid="argocd-status"
+    role="status"
+    aria-live="polite"
+  >{{ status() }}</p>
+
+  <p *ngIf="unavailable()" class="notice" data-testid="argocd-unavailable" role="alert">
+    ArgoCD is not connected (the admin BFF reports the integration is disabled or unreachable).
+  </p>
+
+  <p *ngIf="loading()" data-testid="argocd-loading">Loading applications…</p>
+
+  <ul *ngIf="!loading() && !unavailable()" class="app-grid" data-testid="argocd-app-grid">
+    <li *ngFor="let app of apps()" class="app-card" [attr.data-app]="app.name">
+      <button
+        type="button"
+        class="app-card-button"
+        [attr.aria-label]="'Open ' + app.name + ' — sync ' + app.syncStatus + ', health ' + app.health"
+        (click)="open(app.name)"
+      >
+        <span class="app-name">{{ app.name }}</span>
+        <span class="app-project">{{ app.project }}</span>
+        <span class="badges">
+          <span class="badge" [class]="'badge ' + syncClass(app.syncStatus)">
+            <span class="sr">Sync status:</span> {{ app.syncStatus }}
+          </span>
+          <span class="badge" [class]="'badge ' + healthClass(app.health)">
+            <span class="sr">Health:</span> {{ app.health }}
+          </span>
+        </span>
+        <span class="app-rev">rev {{ app.revision || '—' }}</span>
+      </button>
+      <button
+        type="button"
+        class="sync-button"
+        [attr.data-sync]="app.name"
+        [attr.aria-label]="'Sync ' + app.name"
+        (click)="askSync(app.name)"
+      >Sync</button>
+    </li>
+  </ul>
+
+  <!-- Detail panel: resource tree + sync/health. -->
+  <div *ngIf="selected() as detail" class="detail" data-testid="argocd-detail" aria-labelledby="argocd-detail-heading">
+    <div class="detail-header">
+      <h3 id="argocd-detail-heading">{{ detail.app.name }}</h3>
+      <button type="button" data-testid="argocd-detail-close" aria-label="Close detail" (click)="closeDetail()">×</button>
+    </div>
+    <p class="detail-status">
+      <span class="badge" [class]="'badge ' + syncClass(detail.app.syncStatus)">
+        <span class="sr">Sync status:</span> {{ detail.app.syncStatus }}
+      </span>
+      <span class="badge" [class]="'badge ' + healthClass(detail.app.health)">
+        <span class="sr">Health:</span> {{ detail.app.health }}
+      </span>
+    </p>
+    <p *ngIf="detail.message" class="detail-message">{{ detail.message }}</p>
+
+    <h4 id="argocd-tree-heading">Resource tree</h4>
+    <ul class="resource-tree" data-testid="argocd-resource-tree" aria-labelledby="argocd-tree-heading">
+      <li *ngFor="let node of detail.resourceTree.nodes" [attr.data-node]="node.kind + '/' + node.name">
+        <span class="node-kind">{{ node.kind }}</span>
+        <span class="node-name">{{ node.name }}</span>
+        <span class="badge" [class]="'badge ' + healthClass(node.health)">
+          <span class="sr">Health:</span> {{ node.health || 'Unknown' }}
+        </span>
+      </li>
+      <li *ngIf="!detail.resourceTree.nodes.length" class="empty">No resources reported.</li>
+    </ul>
+
+    <button type="button" data-testid="argocd-detail-sync" (click)="askSync(detail.app.name)">Sync this app</button>
+  </div>
+
+  <!-- aria-modal confirm dialog for the (mutating) sync. -->
+  <div
+    *ngIf="confirming() as name"
+    class="dialog-backdrop"
+    data-testid="argocd-sync-dialog"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="argocd-confirm-heading"
+    aria-describedby="argocd-confirm-body"
+  >
+    <div class="dialog">
+      <h3 id="argocd-confirm-heading">Confirm sync</h3>
+      <p id="argocd-confirm-body">Trigger a sync of <strong>{{ name }}</strong>? This applies the desired state to the cluster.</p>
+      <div class="dialog-actions">
+        <button type="button" data-testid="argocd-sync-cancel" (click)="cancelSync()">Cancel</button>
+        <button type="button" data-testid="argocd-sync-confirm" (click)="confirmSync()">Sync {{ name }}</button>
+      </div>
+    </div>
+  </div>
+</section>
