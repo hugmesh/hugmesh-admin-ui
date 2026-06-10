@@ -180,6 +180,126 @@ export class BffService {
     });
     return r.ok ? r.json() : fallback;
   }
+
+  // ── Cloud Backup & Recovery (ADMIN-only, BFF /bff/admin/backups|restores) ──
+  // The BFF orchestrates a Kubernetes backup/restore worker Job and streams its
+  // progress over SSE. The plaintext password is sent ONCE to start an encrypted
+  // backup / restore and is never stored client-side; only the BFF derives the
+  // PBKDF2 verifier (stored) and the worker derives the AES-256 key.
+
+  /** Start a backup. Returns the new backup id (or throws the BFF {error}). */
+  async startBackup(req: StartBackupRequest): Promise<StartJobResult> {
+    return this.postJob('/bff/admin/backups', req);
+  }
+
+  /** Start a restore of an existing backup. Returns the restore job id. */
+  async startRestore(req: StartRestoreRequest): Promise<StartJobResult> {
+    return this.postJob('/bff/admin/restores', req);
+  }
+
+  /** Backup + restore history (newest first). */
+  async backupHistory(): Promise<BackupRecord[]> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/backups`, { headers: { authorization: `Bearer ${t}` } });
+    return r.ok ? (await r.json()).backups : [];
+  }
+
+  /** Connected/mountable USB devices offered as targets/sources (+ backups on them). */
+  async usbDevices(): Promise<UsbDevice[]> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/usb-devices`, { headers: { authorization: `Bearer ${t}` } });
+    return r.ok ? (await r.json()).devices : [];
+  }
+
+  private async postJob(path: string, body: unknown): Promise<StartJobResult> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}${path}`, {
+      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      body: JSON.stringify(body),
+    });
+    if (r.ok) return r.json();
+    const err = (await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`;
+    throw new Error(err);
+  }
+
+  /**
+   * Subscribe to the SSE progress stream for a backup OR restore job id. Uses
+   * fetch (not EventSource) so the Casdoor bearer token can be sent. Parses the
+   * SSE `data:` JobEvent lines and invokes `onEvent` for each; resolves when the
+   * stream completes. `signal` lets the caller abort (component teardown).
+   */
+  async streamJobEvents(jobId: string, onEvent: (e: BackupJobEvent) => void,
+                        signal?: AbortSignal): Promise<void> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/backups/${encodeURIComponent(jobId)}/events`, {
+      headers: { authorization: `Bearer ${t}`, accept: 'text/event-stream' }, signal,
+    });
+    if (!r.ok || !r.body) throw new Error(`HTTP ${r.status}`);
+    const reader = r.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      // SSE frames are separated by a blank line; each frame may carry a data: line.
+      let sep: number;
+      while ((sep = buffer.indexOf('\n\n')) >= 0) {
+        const frame = buffer.slice(0, sep);
+        buffer = buffer.slice(sep + 2);
+        for (const line of frame.split('\n')) {
+          if (line.startsWith('data:')) {
+            try { onEvent(JSON.parse(line.slice(5).trim()) as BackupJobEvent); } catch { /* skip keep-alive */ }
+          }
+        }
+      }
+    }
+  }
+}
+
+// ── Backup & Recovery DTOs (mirror the BFF backup package shapes) ─────
+export interface StartBackupRequest {
+  scope: string[];
+  target: 'CLUSTER' | 'USB';
+  usbDeviceId?: string | null;
+  encrypt: boolean;
+  password?: string | null;
+}
+export interface StartRestoreRequest {
+  backupId: string;
+  scope?: string[] | null;
+  password?: string | null;
+}
+export interface StartJobResult { id: string; status: string; }
+export interface BackupRecord {
+  id: string;
+  created_at: string;
+  requested_by: string;
+  scope: string;
+  target: 'CLUSTER' | 'USB';
+  encrypted: boolean;
+  status: 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+  size_bytes?: number | null;
+  error?: string | null;
+  location_ref?: string | null;
+}
+export interface UsbBackup { ref: string; created_at: string; size_bytes?: number | null; encrypted: boolean; }
+export interface UsbDevice {
+  id: string;
+  label: string;
+  mount_point: string;
+  size_bytes?: number | null;
+  free_bytes?: number | null;
+  writable: boolean;
+  backups: UsbBackup[];
+}
+export interface BackupJobEvent {
+  jobId: string;
+  phase: string;
+  percent: number;
+  message: string;
+  done: boolean;
+  error?: string | null;
 }
 
 // ── ArgoCD DTOs (mirror the BFF proxy's flattened ArgoCD shapes) ──────

@@ -1,0 +1,34 @@
+<section class="snap-backup-history" data-testid="backup-history-view" aria-labelledby="backup-history-heading">
+  <h2 id="backup-history-heading">Backups</h2>
+  <p class="intro">History of backups taken on this platform.</p>
+
+  <table class="history" data-testid="backup-history-table">
+    <caption class="sr">Backup history</caption>
+    <thead>
+      <tr>
+        <th scope="col">Created</th>
+        <th scope="col">Scope</th>
+        <th scope="col">Target</th>
+        <th scope="col">Encrypted</th>
+        <th scope="col">Size</th>
+        <th scope="col">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let b of store.history()" [attr.data-backup]="b.id">
+        <td>{{ b.created_at }}</td>
+        <td>{{ b.scope }}</td>
+        <td>{{ b.target }}</td>
+        <td>{{ b.encrypted ? 'Yes' : 'No' }}</td>
+        <td>{{ size(b.size_bytes) }}</td>
+        <td>
+          <span class="status" [ngClass]="statusClass(b.status)" [attr.data-status]="b.status">{{ b.status }}</span>
+          <span *ngIf="b.error" class="row-error" [title]="b.error">⚠</span>
+        </td>
+      </tr>
+      <tr *ngIf="store.history().length === 0">
+        <td colspan="6" class="empty" data-testid="backup-history-empty">No backups recorded yet.</td>
+      </tr>
+    </tbody>
+  </table>
+</section>

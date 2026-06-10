@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { AdminComponent } from './admin.component';
 import { BffService } from './bff.service';
 
@@ -12,10 +13,23 @@ describe('AdminComponent', () => {
     bff.allowlist.and.resolveTo({ emails: ['a@gmail.com'], discord: ['bob'] });
     await TestBed.configureTestingModule({
       imports: [AdminComponent],
-      providers: [{ provide: BffService, useValue: bff }],
+      // The landing view now carries the admin menu (routerLinks), so the test
+      // module supplies a router.
+      providers: [{ provide: BffService, useValue: bff }, provideRouter([])],
     }).compileComponents();
     fixture = TestBed.createComponent(AdminComponent);
     component = fixture.componentInstance;
+  });
+
+  it('renders an admin menu linking to the Backup, Recovery and Backups modules', () => {
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    const menu = el.querySelector('[data-testid="admin-menu"]');
+    expect(menu).withContext('admin menu nav').not.toBeNull();
+    expect(menu!.getAttribute('aria-label')).toBe('Admin modules');
+    expect(el.querySelector('[data-menu="backup"]')).not.toBeNull();
+    expect(el.querySelector('[data-menu="recovery"]')).not.toBeNull();
+    expect(el.querySelector('[data-menu="backups"]')).not.toBeNull();
   });
 
   it('loads the allowlist on init and renders both lists', async () => {

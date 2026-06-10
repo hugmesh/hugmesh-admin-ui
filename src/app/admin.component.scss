@@ -9,6 +9,40 @@
   display: block;
   padding: 1rem;
 
+  .admin-menu {
+    margin-block-end: 1rem;
+
+    ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    .nav-link {
+      display: inline-block;
+      padding: 0.4rem 0.75rem;
+      border: 1px solid var(--sd-border);
+      border-radius: t.$radius-sm;
+      background: var(--sd-bg-1);
+      color: var(--sd-text);
+      text-decoration: none;
+
+      &:hover,
+      &:focus-visible {
+        text-decoration: underline;
+        text-decoration-thickness: 2px;
+      }
+
+      &.is-active {
+        border-color: var(--sd-accent);
+        box-shadow: 0 0 0 1px var(--sd-accent) inset;
+      }
+    }
+  }
+
   form {
     display: flex;
     flex-wrap: wrap;

@@ -147,4 +147,59 @@ describe('BffService', () => {
   it('exposes the configured Uptrace URL', () => {
     expect(service.uptraceUrl()).toContain('uptrace');
   });
+
+  // ── Backup & Recovery ────────────────────────────────────────────────
+  it('POSTs the start-backup body and returns the {id,status}', async () => {
+    fetchSpy.and.resolveTo(jsonResponse({ id: 'job-1', status: 'QUEUED' }));
+    const res = await service.startBackup({ scope: ['etcd'], target: 'CLUSTER', encrypt: false });
+    expect(lastUrl()).toContain('/bff/admin/backups');
+    expect(lastInit().method).toBe('POST');
+    expect(JSON.parse(String(lastInit().body))).toEqual({ scope: ['etcd'], target: 'CLUSTER', encrypt: false });
+    expect(res).toEqual({ id: 'job-1', status: 'QUEUED' });
+  });
+
+  it('throws the BFF {error} message when a start fails (e.g. wrong password 403)', async () => {
+    fetchSpy.and.resolveTo(jsonResponse({ error: 'incorrect decryption password' }, { ok: false, status: 403 }));
+    await expectAsync(
+      service.startRestore({ backupId: '11111111-2222-3333-4444-555555555555', password: 'nope' }),
+    ).toBeRejectedWithError('incorrect decryption password');
+  });
+
+  it('unwraps the { backups } history list', async () => {
+    fetchSpy.and.resolveTo(jsonResponse({ backups: [{ id: 'a1', status: 'COMPLETED' }] }));
+    const h = await service.backupHistory();
+    expect(lastUrl()).toContain('/bff/admin/backups');
+    expect(h.length).toBe(1);
+  });
+
+  it('unwraps the { devices } USB list', async () => {
+    fetchSpy.and.resolveTo(jsonResponse({ devices: [{ id: 'usb-1', writable: true }] }));
+    const d = await service.usbDevices();
+    expect(lastUrl()).toContain('/bff/admin/usb-devices');
+    expect(d[0].id).toBe('usb-1');
+  });
+
+  it('parses SSE data: frames into JobEvents via streamJobEvents', async () => {
+    const frames =
+      'event: progress\ndata: {"jobId":"j","phase":"etcd","percent":40,"message":"x","done":false}\n\n' +
+      'event: complete\ndata: {"jobId":"j","phase":"complete","percent":100,"message":"done","done":true}\n\n';
+    const body = readableFrom(frames);
+    fetchSpy.and.resolveTo({ ok: true, status: 200, body } as unknown as Response);
+
+    const got: unknown[] = [];
+    await service.streamJobEvents('j', (e) => got.push(e));
+    expect(got.length).toBe(2);
+    expect((got[1] as { percent: number }).percent).toBe(100);
+  });
 });
+
+/** A minimal ReadableStream whose single chunk is the given SSE text. */
+function readableFrom(text: string): ReadableStream<Uint8Array> {
+  const bytes = new TextEncoder().encode(text);
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(bytes);
+      controller.close();
+    },
+  });
+}
