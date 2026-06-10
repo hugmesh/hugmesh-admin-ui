@@ -1,0 +1,142 @@
+<section class="snap-backup" data-testid="backup-view" aria-labelledby="backup-heading">
+  <h2 id="backup-heading">Backup</h2>
+  <p class="intro">Choose what to back up, where to store it, and (optionally) encrypt it with a password.</p>
+
+  <form (ngSubmit)="start()" novalidate>
+    <!-- ── Scope ──────────────────────────────────────────────── -->
+    <fieldset class="group" data-testid="backup-scope">
+      <legend>What to back up</legend>
+      <div class="checks">
+        <label *ngFor="let s of store.scopes" class="check" [attr.data-scope]="s.value">
+          <input
+            type="checkbox"
+            [checked]="isSelected(s.value)"
+            (change)="toggleScope(s.value)"
+            [attr.aria-describedby]="'scope-hint-' + s.value"
+          />
+          <span class="check-label">{{ s.label }}</span>
+          <span class="hint" [id]="'scope-hint-' + s.value">{{ s.hint }}</span>
+        </label>
+      </div>
+    </fieldset>
+
+    <!-- ── Target ─────────────────────────────────────────────── -->
+    <fieldset class="group" data-testid="backup-target">
+      <legend>Where to store the backup</legend>
+      <label class="radio">
+        <input type="radio" name="target" [checked]="target() === 'CLUSTER'" (change)="setTarget('CLUSTER')" />
+        In-cluster / cloud storage
+      </label>
+      <label class="radio">
+        <input type="radio" name="target" [checked]="target() === 'USB'" (change)="setTarget('USB')" />
+        Connected USB device
+      </label>
+
+      <div *ngIf="target() === 'USB'" class="usb" data-testid="backup-usb-picker">
+        <label for="usb-device">USB device</label>
+        <select id="usb-device" [ngModel]="usbDeviceId()" (ngModelChange)="usbDeviceId.set($event)" name="usbDevice">
+          <option value="">— select a device —</option>
+          <option *ngFor="let d of store.usbDevices()" [value]="d.id" [disabled]="!d.writable">
+            {{ d.label }} ({{ d.mount_point }}){{ d.writable ? '' : ' — read-only' }}
+          </option>
+        </select>
+        <p *ngIf="store.usbDevices().length === 0" class="hint" data-testid="backup-no-usb">
+          No USB devices detected. Connect a device and refresh, or use cluster/cloud storage.
+        </p>
+      </div>
+    </fieldset>
+
+    <!-- ── Encryption ─────────────────────────────────────────── -->
+    <fieldset class="group" data-testid="backup-encrypt">
+      <legend>Encryption</legend>
+      <label class="radio">
+        <input
+          type="checkbox"
+          data-testid="backup-encrypt-toggle"
+          [checked]="encrypt()"
+          (change)="encrypt.set(!encrypt())"
+          aria-controls="encrypt-fields"
+        />
+        Encrypt this backup with a password (AES-256)
+      </label>
+
+      <div *ngIf="encrypt()" id="encrypt-fields" class="pw-fields">
+        <label for="backup-password">Password</label>
+        <input
+          id="backup-password"
+          data-testid="backup-password"
+          type="password"
+          [(ngModel)]="password"
+          name="password"
+          autocomplete="new-password"
+          aria-describedby="backup-strength"
+        />
+        <span id="backup-strength" class="strength" data-testid="backup-strength" aria-live="polite">
+          <ng-container *ngIf="strength().label">Strength: {{ strength().label }}</ng-container>
+        </span>
+
+        <label for="backup-confirm">Confirm password</label>
+        <input
+          id="backup-confirm"
+          data-testid="backup-confirm"
+          type="password"
+          [(ngModel)]="confirm"
+          name="confirm"
+          autocomplete="new-password"
+        />
+        <p class="hint">The password is never stored or logged. You will need it to restore this backup.</p>
+      </div>
+    </fieldset>
+
+    <button type="submit" data-testid="backup-start" [disabled]="starting()">
+      {{ starting() ? 'Starting…' : 'Start backup' }}
+    </button>
+
+    <p
+      *ngIf="error()"
+      class="field-error"
+      data-testid="backup-error"
+      role="alert"
+      aria-live="assertive"
+    >{{ error() }}</p>
+  </form>
+
+  <!-- ── Live progress (queued action with streamed progress) ── -->
+  <section
+    *ngIf="store.activeJobId() as jobId"
+    class="progress"
+    data-testid="backup-progress"
+    aria-labelledby="backup-progress-heading"
+  >
+    <h3 id="backup-progress-heading">Backup progress</h3>
+    <div
+      class="bar"
+      role="progressbar"
+      data-testid="backup-progressbar"
+      [attr.aria-valuenow]="store.progress()"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      [attr.aria-label]="'Backup ' + jobId + ' progress'"
+    >
+      <span class="bar-fill" [style.width.%]="store.progress()"></span>
+    </div>
+
+    <ul class="events" data-testid="backup-events" role="status" aria-live="polite">
+      <li *ngFor="let e of store.jobEvents()" [attr.data-phase]="e.phase">
+        <strong>{{ e.percent }}%</strong> {{ e.message }}
+      </li>
+    </ul>
+
+    <p
+      *ngIf="store.jobError()"
+      class="field-error"
+      data-testid="backup-job-error"
+      role="alert"
+      aria-live="assertive"
+    >{{ store.jobError() }}</p>
+
+    <p *ngIf="store.finished() && !store.jobError()" class="done" data-testid="backup-done" role="status">
+      Backup complete.
+    </p>
+  </section>
+</section>

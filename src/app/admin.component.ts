@@ -1,23 +1,48 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink, RouterLinkActive } from '@angular/router';
 import { BffService } from './bff.service';
+
+/** One admin own-component module surfaced in the admin menu. */
+interface AdminMenuItem { path: string; label: string; }
 
 /**
  * Admin micro-frontend (own repo: snapdragon-admin-ui). Visible only to Casdoor
  * ROLE_ADMIN users (route-guarded). Manages the registration allowlist by Gmail
  * address OR Discord username, calling the Spring admin API behind the gateway,
  * which invites the identity in Casdoor via the snapdragon-pki gateway.
+ *
+ * <p>This landing view also carries the admin MENU — the nav that surfaces every
+ * admin own-component module (usage, namespaces, route-access, routes, ISOs,
+ * ArgoCD, tasks, and the cloud Backup &amp; Recovery module) as routerLinks, so a
+ * module like Backup is reachable from a menu entry consistent with how the other
+ * admin modules are surfaced.
  */
 @Component({
   selector: 'snap-admin',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink, RouterLinkActive],
   templateUrl: './admin.component.html',
   styleUrl: './admin.component.scss',
 })
 export class AdminComponent implements OnInit {
   private readonly bff = inject(BffService);
+
+  /** The admin menu (routerLinks relative to the /admin mount point). */
+  readonly menu: ReadonlyArray<AdminMenuItem> = [
+    { path: 'usage', label: 'Usage analytics' },
+    { path: 'namespaces', label: 'Namespace access' },
+    { path: 'route-access', label: 'Route access' },
+    { path: 'routes', label: 'Route definitions' },
+    { path: 'isos', label: 'ISO downloads' },
+    { path: 'argocd', label: 'ArgoCD' },
+    { path: 'tasks', label: 'Guided tasks' },
+    { path: 'backup', label: 'Backup' },
+    { path: 'recovery', label: 'Recovery' },
+    { path: 'backups', label: 'Backups history' },
+  ];
+
   email = '';
   discord = '';
   readonly emails = signal<string[]>([]);

@@ -1,4 +1,17 @@
 <section class="snap-admin" data-testid="admin-view" aria-labelledby="admin-heading">
+  <nav class="admin-menu" data-testid="admin-menu" aria-label="Admin modules">
+    <ul>
+      <li *ngFor="let item of menu">
+        <a
+          [routerLink]="['/', item.path]"
+          routerLinkActive="is-active"
+          class="nav-link"
+          [attr.data-menu]="item.path"
+        >{{ item.label }}</a>
+      </li>
+    </ul>
+  </nav>
+
   <h2 id="admin-heading">Admin — invited accounts</h2>
 
   <form (ngSubmit)="inviteEmail()" novalidate>

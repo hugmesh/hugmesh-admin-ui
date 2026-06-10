@@ -1,0 +1,59 @@
+@use '../../styles/tokens' as t;
+
+:host {
+  display: block;
+}
+
+.snap-backup-history {
+  display: block;
+  padding: 1rem;
+
+  .intro {
+    color: var(--sd-text-muted, #{t.$light});
+    margin-block: 0.25rem 1rem;
+  }
+
+  .history {
+    width: 100%;
+    border-collapse: collapse;
+    color: var(--sd-text, #{t.$offwhite});
+
+    th,
+    td {
+      text-align: left;
+      padding: 0.5rem 0.6rem;
+      border-bottom: 1px solid var(--sd-border, #{t.$mid});
+      font-size: 0.9rem;
+    }
+
+    th {
+      color: var(--sd-text-muted, #{t.$light});
+      font-weight: 700;
+    }
+  }
+
+  .status {
+    display: inline-block;
+    padding: 0.1rem 0.5rem;
+    border-radius: t.$radius-sm;
+    font-size: 0.8rem;
+    font-weight: 700;
+    border: 1px solid var(--sd-border, #{t.$mid});
+
+    &.is-completed { background: rgba(t.$pastel-mint, 0.18); }
+    &.is-failed { background: rgba(t.$pastel-rose, 0.2); }
+    &.is-running { background: rgba(t.$pastel-sky, 0.18); }
+    &.is-queued { background: rgba(t.$pastel-lemon, 0.14); }
+  }
+
+  .row-error {
+    margin-inline-start: 0.35rem;
+    color: var(--sd-error, #{t.$pastel-rose});
+  }
+
+  .empty {
+    color: var(--sd-text-muted, #{t.$muted});
+    text-align: center;
+    padding: 1rem;
+  }
+}

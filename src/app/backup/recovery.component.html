@@ -1,0 +1,108 @@
+<section class="snap-recovery" data-testid="recovery-view" aria-labelledby="recovery-heading">
+  <h2 id="recovery-heading">Recovery</h2>
+  <p class="intro">Select a completed backup to restore. Encrypted backups require their decryption password.</p>
+
+  <h3 id="recovery-list-heading">Available backups</h3>
+  <ul class="backup-list" data-testid="recovery-list" aria-labelledby="recovery-list-heading">
+    <li *ngFor="let b of restorable()" [attr.data-backup]="b.id" class="backup-item">
+      <button
+        type="button"
+        class="backup-button"
+        [class.is-selected]="selected()?.id === b.id"
+        [attr.aria-pressed]="selected()?.id === b.id"
+        (click)="select(b)"
+      >
+        <span class="b-scope">{{ b.scope }}</span>
+        <span class="b-meta">{{ b.target }} · {{ b.created_at }}</span>
+        <span class="b-enc" *ngIf="b.encrypted" data-testid="recovery-encrypted-badge">encrypted</span>
+      </button>
+    </li>
+    <li *ngIf="restorable().length === 0" class="empty" data-testid="recovery-empty">
+      No completed backups available to restore.
+    </li>
+  </ul>
+
+  <!-- ── Restore form for the selected backup ─────────────────── -->
+  <form
+    *ngIf="selected() as rec"
+    class="restore-form"
+    data-testid="recovery-form"
+    (ngSubmit)="start()"
+    novalidate
+    aria-labelledby="recovery-form-heading"
+  >
+    <h3 id="recovery-form-heading">Restore {{ rec.scope }}</h3>
+
+    <div class="preview" data-testid="recovery-preview">
+      <p>This restore will apply the following scopes from backup <code>{{ rec.id }}</code>:</p>
+      <ul class="scope-preview">
+        <li *ngFor="let s of scopeList(rec)" [attr.data-scope]="s">{{ s }}</li>
+      </ul>
+      <p class="target">Source: {{ rec.target }}<span *ngIf="rec.location_ref"> · {{ rec.location_ref }}</span></p>
+    </div>
+
+    <div *ngIf="rec.encrypted" class="pw-fields" data-testid="recovery-password-fields">
+      <label for="recovery-password">Decryption password</label>
+      <input
+        id="recovery-password"
+        data-testid="recovery-password"
+        type="password"
+        [(ngModel)]="password"
+        name="password"
+        autocomplete="off"
+      />
+      <p class="hint">Verified by the server; a wrong password is rejected and never reveals the key.</p>
+    </div>
+
+    <button type="submit" data-testid="recovery-start" [disabled]="starting()">
+      {{ starting() ? 'Starting…' : 'Restore this backup' }}
+    </button>
+
+    <p
+      *ngIf="error()"
+      class="field-error"
+      data-testid="recovery-error"
+      role="alert"
+      aria-live="assertive"
+    >{{ error() }}</p>
+  </form>
+
+  <!-- ── Live restore progress ────────────────────────────────── -->
+  <section
+    *ngIf="store.activeJobId() as jobId"
+    class="progress"
+    data-testid="recovery-progress"
+    aria-labelledby="recovery-progress-heading"
+  >
+    <h3 id="recovery-progress-heading">Restore progress</h3>
+    <div
+      class="bar"
+      role="progressbar"
+      data-testid="recovery-progressbar"
+      [attr.aria-valuenow]="store.progress()"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      [attr.aria-label]="'Restore ' + jobId + ' progress'"
+    >
+      <span class="bar-fill" [style.width.%]="store.progress()"></span>
+    </div>
+
+    <ul class="events" data-testid="recovery-events" role="status" aria-live="polite">
+      <li *ngFor="let e of store.jobEvents()" [attr.data-phase]="e.phase">
+        <strong>{{ e.percent }}%</strong> {{ e.message }}
+      </li>
+    </ul>
+
+    <p
+      *ngIf="store.jobError()"
+      class="field-error"
+      data-testid="recovery-job-error"
+      role="alert"
+      aria-live="assertive"
+    >{{ store.jobError() }}</p>
+
+    <p *ngIf="store.finished() && !store.jobError()" class="done" data-testid="recovery-done" role="status">
+      Restore complete.
+    </p>
+  </section>
+</section>
