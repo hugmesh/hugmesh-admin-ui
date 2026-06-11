@@ -1,0 +1,87 @@
+<section class="snap-announcements" data-testid="announcements-view" aria-labelledby="announcements-heading">
+  <div class="head">
+    <h2 id="announcements-heading">Announcements</h2>
+    <button type="button" data-testid="ann-new" (click)="newAnnouncement()">New announcement</button>
+  </div>
+  <p class="intro">
+    Create, schedule and target announcements for the home banner, the public login page,
+    Mastodon/akkoma and the forum main page. Bodies are sanitised on save and rendered
+    inside a sandboxed preview.
+  </p>
+
+  <p
+    *ngIf="error()"
+    class="field-error"
+    data-testid="announcements-error"
+    role="alert"
+    aria-live="assertive"
+  >{{ error() }}</p>
+
+  <table class="ann-table" data-testid="announcements-table" aria-labelledby="announcements-heading">
+    <caption class="sr">All announcements with their state, schedule and targeted surfaces.</caption>
+    <thead>
+      <tr>
+        <th scope="col">Title</th>
+        <th scope="col">State</th>
+        <th scope="col">Targets</th>
+        <th scope="col">Schedule</th>
+        <th scope="col">Priority</th>
+        <th scope="col">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let a of rows()" [attr.data-announcement]="a.id" class="ann-row">
+        <th scope="row" class="t-title">{{ a.title }}</th>
+        <td class="t-state">
+          <span class="state-badge" [attr.data-state]="a.state">{{ a.state }}</span>
+          <span
+            *ngIf="isActive(a)"
+            class="live-badge"
+            data-testid="ann-live"
+            [attr.data-live-id]="a.id"
+          >live now</span>
+        </td>
+        <td class="t-targets">
+          <ul class="target-badges">
+            <li *ngFor="let label of targetLabels(a)" class="target-badge">{{ label }}</li>
+            <li *ngIf="targetLabels(a).length === 0" class="target-none">— none —</li>
+          </ul>
+        </td>
+        <td class="t-schedule">
+          <span class="sched">{{ a.starts_at ? (a.starts_at | date: 'short') : 'now' }}</span>
+          <span aria-hidden="true"> → </span>
+          <span class="sched">{{ a.ends_at ? (a.ends_at | date: 'short') : 'open' }}</span>
+          <span class="tz">{{ a.timezone }}</span>
+        </td>
+        <td class="t-priority">{{ a.priority }}</td>
+        <td class="t-actions">
+          <button type="button" class="link" [attr.data-edit]="a.id" (click)="edit(a)">Edit</button>
+
+          <ng-container *ngIf="confirmingDelete() === a.id; else delBtn">
+            <span class="confirm" role="group" [attr.aria-label]="'Confirm delete ' + a.title">
+              <button type="button" class="danger" [attr.data-confirm-delete]="a.id" (click)="confirmDelete(a)">
+                Confirm delete
+              </button>
+              <button type="button" class="link" data-testid="ann-cancel-delete" (click)="cancelDelete()">
+                Cancel
+              </button>
+            </span>
+          </ng-container>
+          <ng-template #delBtn>
+            <button type="button" class="link danger-link" [attr.data-delete]="a.id" (click)="askDelete(a)">
+              Delete
+            </button>
+          </ng-template>
+        </td>
+      </tr>
+      <tr *ngIf="rows().length === 0">
+        <td colspan="6" class="empty" data-testid="announcements-empty">
+          No announcements yet. Create one with “New announcement”.
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ── Embedded create / edit editor ───────────────────────── -->
+  <snap-announcement-editor></snap-announcement-editor>
+</section>

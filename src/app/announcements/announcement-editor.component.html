@@ -1,0 +1,220 @@
+<section class="snap-announcement-editor" data-testid="announcement-editor" aria-labelledby="ann-editor-heading">
+  <h2 id="ann-editor-heading">{{ editingId() ? 'Edit announcement' : 'New announcement' }}</h2>
+
+  <form (ngSubmit)="save()" novalidate class="editor-grid">
+    <!-- ── Title ──────────────────────────────────────────────── -->
+    <div class="field">
+      <label for="ann-title">Title</label>
+      <input
+        id="ann-title"
+        data-testid="ann-title"
+        type="text"
+        [(ngModel)]="title"
+        name="title"
+        autocomplete="off"
+        placeholder="Scheduled maintenance this weekend"
+      />
+    </div>
+
+    <!-- ── Body: WYSIWYG ⇄ HTML source, with sandboxed preview ── -->
+    <div class="body-block">
+      <div class="body-head">
+        <span id="ann-body-label" class="field-label">Announcement body</span>
+        <button
+          type="button"
+          class="source-toggle"
+          data-testid="ann-source-toggle"
+          [attr.aria-pressed]="showSource()"
+          (click)="toggleSource()"
+        >{{ showSource() ? 'WYSIWYG editor' : 'Edit HTML source' }}</button>
+      </div>
+
+      <div class="body-cols">
+        <div class="editor-pane">
+          <div
+            class="toolbar"
+            role="toolbar"
+            aria-label="Announcement formatting"
+            aria-controls="ann-body"
+          >
+            <button type="button" data-testid="fmt-bold" aria-label="Bold" (click)="format2('bold')">
+              <span aria-hidden="true"><strong>B</strong></span>
+            </button>
+            <button type="button" data-testid="fmt-italic" aria-label="Italic" (click)="format2('italic')">
+              <span aria-hidden="true"><em>I</em></span>
+            </button>
+            <button type="button" data-testid="fmt-link" aria-label="Insert link" (click)="format2('link')">
+              <span aria-hidden="true">&#128279;</span>
+            </button>
+            <button type="button" data-testid="fmt-heading" aria-label="Heading" (click)="format2('heading')">
+              <span aria-hidden="true">H</span>
+            </button>
+            <button type="button" data-testid="fmt-list" aria-label="Bulleted list" (click)="format2('list')">
+              <span aria-hidden="true">&#8226;</span>
+            </button>
+          </div>
+
+          <label class="sr" for="ann-body">Announcement body HTML</label>
+          <textarea
+            #bodyArea
+            id="ann-body"
+            data-testid="ann-body"
+            name="body"
+            rows="10"
+            [ngModel]="body()"
+            (ngModelChange)="onBodyInput($event)"
+            aria-labelledby="ann-body-label"
+            aria-describedby="ann-body-help"
+            [attr.spellcheck]="!showSource()"
+          ></textarea>
+          <p id="ann-body-help" class="hint">
+            {{ showSource()
+              ? 'Editing raw HTML — scripts, inline styles and event handlers are stripped on save.'
+              : 'Use the toolbar to format. Raw HTML and scripts are stripped from the preview and on save.' }}
+          </p>
+        </div>
+
+        <div class="preview-pane">
+          <h3 id="ann-preview-heading">Live preview</h3>
+          <!--
+            SANDBOXED PREVIEW. sandbox="" => NO allow-scripts, NO allow-same-origin:
+            the frame is a null-origin, script-disabled document. Only the sanitised
+            announcement document is loaded via srcdoc; never raw innerHTML.
+          -->
+          <iframe
+            data-testid="ann-preview"
+            class="preview-frame"
+            title="Sandboxed announcement preview"
+            aria-labelledby="ann-preview-heading"
+            sandbox=""
+            referrerpolicy="no-referrer"
+            [srcdoc]="previewDoc()"
+          ></iframe>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Targets: four per-surface checkboxes ───────────────── -->
+    <fieldset class="group" data-testid="ann-targets">
+      <legend>Where to show this announcement</legend>
+      <div class="checks">
+        <label *ngFor="let s of surfaces" class="check" [attr.data-target]="s.key">
+          <input
+            type="checkbox"
+            [attr.data-testid]="'target-' + s.key"
+            [checked]="isTargeted(s.key)"
+            (change)="toggleTarget(s.key)"
+            [attr.aria-describedby]="'target-hint-' + s.key"
+          />
+          <span class="check-label">{{ s.label }}</span>
+          <span class="hint" [id]="'target-hint-' + s.key">{{ s.hint }}</span>
+        </label>
+      </div>
+    </fieldset>
+
+    <!-- ── Schedule ───────────────────────────────────────────── -->
+    <fieldset class="group" data-testid="ann-schedule">
+      <legend>Schedule</legend>
+      <div class="schedule-grid">
+        <div class="field">
+          <label for="ann-starts">Starts at <span class="opt">(blank = immediately)</span></label>
+          <input
+            id="ann-starts"
+            data-testid="ann-starts"
+            type="datetime-local"
+            [(ngModel)]="startsAt"
+            name="startsAt"
+          />
+        </div>
+        <div class="field">
+          <label for="ann-ends">Ends at <span class="opt">(blank = open-ended)</span></label>
+          <input
+            id="ann-ends"
+            data-testid="ann-ends"
+            type="datetime-local"
+            [(ngModel)]="endsAt"
+            name="endsAt"
+          />
+        </div>
+        <div class="field">
+          <label for="ann-timezone">Timezone</label>
+          <input
+            id="ann-timezone"
+            data-testid="ann-timezone"
+            type="text"
+            [(ngModel)]="timezone"
+            name="timezone"
+            autocomplete="off"
+            placeholder="Europe/London"
+          />
+        </div>
+      </div>
+    </fieldset>
+
+    <!-- ── Publishing options ─────────────────────────────────── -->
+    <fieldset class="group" data-testid="ann-options">
+      <legend>Publishing</legend>
+
+      <div class="field">
+        <label for="ann-state">State</label>
+        <select
+          id="ann-state"
+          data-testid="ann-state"
+          [ngModel]="state()"
+          (ngModelChange)="setState($event)"
+          name="state"
+        >
+          <option value="draft">Draft</option>
+          <option value="published">Published</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="ann-priority">Priority <span class="opt">(higher shows first)</span></label>
+        <input
+          id="ann-priority"
+          data-testid="ann-priority"
+          type="number"
+          [(ngModel)]="priority"
+          name="priority"
+          step="1"
+        />
+      </div>
+
+      <label class="check inline">
+        <input
+          type="checkbox"
+          data-testid="ann-dismissible"
+          [checked]="dismissible()"
+          (change)="dismissible.set(!dismissible())"
+        />
+        <span class="check-label">Users may dismiss this announcement</span>
+      </label>
+    </fieldset>
+
+    <div class="actions">
+      <button type="submit" data-testid="ann-save" [disabled]="saving()">
+        {{ saving() ? 'Saving…' : (editingId() ? 'Save changes' : 'Create announcement') }}
+      </button>
+      <button type="button" class="secondary" data-testid="ann-reset" (click)="reset()">
+        New / clear
+      </button>
+    </div>
+
+    <p
+      *ngIf="error()"
+      class="field-error"
+      data-testid="ann-error"
+      role="alert"
+      aria-live="assertive"
+    >{{ error() }}</p>
+
+    <p
+      *ngIf="savedId() && !error()"
+      class="done"
+      data-testid="ann-saved"
+      role="status"
+      aria-live="polite"
+    >Announcement saved.</p>
+  </form>
+</section>
