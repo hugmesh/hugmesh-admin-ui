@@ -10,6 +10,7 @@ import { AdminTaskWizardComponent } from './admin-task-wizard.component';
 import { BackupComponent } from './backup/backup.component';
 import { RecoveryComponent } from './backup/recovery.component';
 import { BackupHistoryComponent } from './backup/backup-history.component';
+import { AnnouncementListComponent } from './announcements/announcement-list.component';
 
 /**
  * These specs lock down the federation contract: `./routes` (exposed under the
@@ -37,9 +38,10 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('backup')!.component).toBe(BackupComponent);
     expect(byPath('recovery')!.component).toBe(RecoveryComponent);
     expect(byPath('backups')!.component).toBe(BackupHistoryComponent);
+    expect(byPath('announcements')!.component).toBe(AnnouncementListComponent);
   });
 
-  it('exposes exactly the eleven admin views the host expects', () => {
+  it('exposes exactly the twelve admin views the host expects', () => {
     expect(ADMIN_ROUTES.map((r) => r.path)).toEqual([
       '',
       'usage',
@@ -52,6 +54,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
       'backup',
       'recovery',
       'backups',
+      'announcements',
     ]);
   });
 
