@@ -135,6 +135,30 @@ a {
   font-weight: 600;
 }
 
+// ── disabled + WHY-helptext convention (cross-cutting UI standard) ──────────
+// The platform a11y rule for a control the signed-in role MAY NOT use OR that
+// has NO backend yet: render it visibly disabled with aria-disabled="true" (NOT
+// the native `disabled` attribute, which removes the control from the tab order
+// so an assistive-tech user never hears WHY it is unavailable) and point it at a
+// sibling `.hint`/`.field-help` describing the missing capability via
+// aria-describedby. Mirrors the API permission (defence-in-depth: the admin-bff
+// is the source of truth) while staying announceable. `.hint` is the muted
+// helptext for any disabled/explanatory control.
+.hint,
+.field-help {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--sd-text-muted);
+  font-size: 0.9rem;
+}
+
+// A control marked aria-disabled stays in the tab order (so AT reaches its
+// helptext) but reads + looks unavailable and ignores activation in the handler.
+[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

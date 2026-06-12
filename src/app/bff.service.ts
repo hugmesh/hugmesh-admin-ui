@@ -211,6 +211,166 @@ export class BffService {
     return r.ok ? (await r.json()).devices : [];
   }
 
+  // ── Test-Reports console (ADMIN-only, BFF /bff/admin/test-reports) ──────
+  // The durable test-architecture run history + on-demand trigger + bearer-gated
+  // report download + LIVE SSE progress. Endpoints (admin-bff TestReportsController):
+  //   GET    /bff/admin/test-reports          → { runs:[TestRun], launchReal }
+  //   GET    /bff/admin/test-reports/{id}      → TestRunDetail { run, results:[] }
+  //   GET    /bff/admin/test-reports/{id}/download → application/gzip tar.gz
+  //   POST   /bff/admin/test-reports/run        → { id, status:'QUEUED', tier }
+  //   GET    /bff/admin/test-reports/{id}/events  → SSE Flux<TestRunEvent>
+  // Admin gating is defence-in-depth (gateway + resource-server filter +
+  // @PreAuthorize); this UI mirrors it but the API is the source of truth.
+
+  /** Newest-first run history + whether the launcher really applies k8s Jobs. */
+  async testReports(): Promise<TestReportsList> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/test-reports`, { headers: { authorization: `Bearer ${t}` } });
+    return r.ok ? r.json() : { runs: [], launchReal: false };
+  }
+
+  /** One run's summary + per-(suite,role) matrix (the detail view). */
+  async testReportDetail(id: string): Promise<TestRunDetail | null> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/test-reports/${encodeURIComponent(id)}`, {
+      headers: { authorization: `Bearer ${t}` },
+    });
+    return r.ok ? r.json() : null;
+  }
+
+  /** Trigger a run on-demand. Returns the new run id (or throws the BFF {error}). */
+  async runTestReport(req: StartTestRunRequest): Promise<StartTestRunResult> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/test-reports/run`, {
+      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      body: JSON.stringify(req),
+    });
+    if (r.ok) return r.json();
+    const err = (await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`;
+    throw new Error(err);
+  }
+
+  /**
+   * Download a run's stored report bundle (re-scrubbed tar.gz). Uses a bearer
+   * fetch (NOT a plain <a href>) so the Casdoor token is sent, then hands the
+   * Blob to a synthetic, object-URL-backed anchor so the browser saves the file.
+   * Returns false (no throw) when the run has no bundle / the request is denied,
+   * so the caller can surface an honest "no report available" message.
+   */
+  async downloadTestReport(id: string): Promise<boolean> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/test-reports/${encodeURIComponent(id)}/download`, {
+      headers: { authorization: `Bearer ${t}`, accept: 'application/gzip' },
+    });
+    if (!r.ok) return false;
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    try {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `test-report-${id.replace(/[^A-Za-z0-9._-]/g, '_')}.tar.gz`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+    return true;
+  }
+
+  /**
+   * Subscribe to the SSE progress stream for a test run id. Like
+   * {@link streamJobEvents} this uses a bearer fetch + ReadableStream reader (NOT
+   * raw EventSource, which cannot send the Casdoor Bearer). Parses each SSE
+   * `data:` line as a TestRunEvent and invokes `onEvent`; resolves when the stream
+   * completes. `signal` lets the caller abort on component teardown.
+   */
+  async streamTestRunEvents(runId: string, onEvent: (e: TestRunEvent) => void,
+                            signal?: AbortSignal): Promise<void> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/test-reports/${encodeURIComponent(runId)}/events`, {
+      headers: { authorization: `Bearer ${t}`, accept: 'text/event-stream' }, signal,
+    });
+    if (!r.ok || !r.body) throw new Error(`HTTP ${r.status}`);
+    const reader = r.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let sep: number;
+      while ((sep = buffer.indexOf('\n\n')) >= 0) {
+        const frame = buffer.slice(0, sep);
+        buffer = buffer.slice(sep + 2);
+        for (const line of frame.split('\n')) {
+          if (line.startsWith('data:')) {
+            try { onEvent(JSON.parse(line.slice(5).trim()) as TestRunEvent); } catch { /* skip keep-alive */ }
+          }
+        }
+      }
+    }
+  }
+
+  // ── Forum admin console (ADMIN-only, BFF /bff/admin/forum/**) ───────────
+  // PROXIES the full phpBB ACP capability through admin-bff ForumAdminController.
+  // Every response is the ForumOutcome envelope: the returned payload merged with a
+  // `result` marker (`ok` | `stubbed` | `degraded:<reason>`) the console surfaces.
+  // GET endpoints: /stats /usage /users /users/{id} /categories /moderation-queue /audit
+  // Mutations: POST /users/{id}/ban (+DELETE), /users/{id}/groups, /categories,
+  //   /moderation/{id}/approve|reject, /styles, /extensions.
+
+  async forumStats(): Promise<ForumEnvelope> { return this.forumGet('/stats'); }
+  async forumUsage(): Promise<ForumEnvelope> { return this.forumGet('/usage'); }
+  async forumUsers(): Promise<ForumEnvelope> { return this.forumGet('/users'); }
+  async forumUser(id: string): Promise<ForumEnvelope> { return this.forumGet(`/users/${encodeURIComponent(id)}`); }
+  async forumCategories(): Promise<ForumEnvelope> { return this.forumGet('/categories'); }
+  async forumModerationQueue(): Promise<ForumEnvelope> { return this.forumGet('/moderation-queue'); }
+  async forumAudit(): Promise<ForumEnvelope> { return this.forumGet('/audit'); }
+
+  async forumBan(id: string, req: ForumBanRequest): Promise<ForumEnvelope> {
+    return this.forumSend('POST', `/users/${encodeURIComponent(id)}/ban`, req);
+  }
+  async forumUnban(id: string): Promise<ForumEnvelope> {
+    return this.forumSend('DELETE', `/users/${encodeURIComponent(id)}/ban`);
+  }
+  async forumAssignGroup(id: string, req: ForumGroupRequest): Promise<ForumEnvelope> {
+    return this.forumSend('POST', `/users/${encodeURIComponent(id)}/groups`, req);
+  }
+  async forumCreateCategory(req: ForumCategoryRequest): Promise<ForumEnvelope> {
+    return this.forumSend('POST', '/categories', req);
+  }
+  async forumApprove(id: string): Promise<ForumEnvelope> {
+    return this.forumSend('POST', `/moderation/${encodeURIComponent(id)}/approve`);
+  }
+  async forumReject(id: string): Promise<ForumEnvelope> {
+    return this.forumSend('POST', `/moderation/${encodeURIComponent(id)}/reject`);
+  }
+  async forumInstallStyle(req: ForumInstallRequest): Promise<ForumEnvelope> {
+    return this.forumSend('POST', '/styles', req);
+  }
+  async forumInstallExtension(req: ForumInstallRequest): Promise<ForumEnvelope> {
+    return this.forumSend('POST', '/extensions', req);
+  }
+
+  private async forumGet(path: string): Promise<ForumEnvelope> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/forum${path}`, { headers: { authorization: `Bearer ${t}` } });
+    return r.ok ? r.json() : { result: `degraded:HTTP ${r.status}` };
+  }
+  private async forumSend(method: string, path: string, body?: unknown): Promise<ForumEnvelope> {
+    const t = this.session.session()?.bffToken;
+    const init: RequestInit = { method, headers: { authorization: `Bearer ${t}` } };
+    if (body !== undefined) {
+      (init.headers as Record<string, string>)['content-type'] = 'application/json';
+      init.body = JSON.stringify(body);
+    }
+    const r = await fetch(`${CFG.bff}/bff/admin/forum${path}`, init);
+    if (r.ok) return r.json();
+    const err = (await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`;
+    throw new Error(err);
+  }
+
   private async postJob(path: string, body: unknown): Promise<StartJobResult> {
     const t = this.session.session()?.bffToken;
     const r = await fetch(`${CFG.bff}${path}`, {
@@ -352,3 +512,65 @@ export interface RouteDefinition {
   serviceName?: string | null;
   requiredRole?: string | null;
 }
+
+// ── Test-Reports DTOs (mirror the admin-bff testreports package shapes) ──────
+/** One durable test-architecture run row (admin-bff TestRun record). */
+export interface TestRun {
+  id: string;
+  created_at: string;
+  triggered_by: string;
+  tier: 'LEAN' | 'HEAVY';
+  trigger_source: 'ADMIN' | 'ARGOCD' | 'HEAVY_ATTACH';
+  status: 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'ERROR';
+  commit_sha?: string | null;
+  job_name?: string | null;
+  started_at?: string | null;
+  finished_at?: string | null;
+  total_tests: number;
+  passed: number;
+  failed: number;
+  skipped: number;
+  duration_ms?: number | null;
+  report_ref?: string | null;
+  error?: string | null;
+}
+/** A per-(suite,role) pass/fail/skip roll-up row (admin-bff TestRunResult). */
+export interface TestRunResult {
+  id: string;
+  run_id: string;
+  suite: string;
+  role: string;
+  state: 'running' | 'passed' | 'failed' | 'skipped';
+  passed: number;
+  failed: number;
+  skipped: number;
+  duration_ms?: number | null;
+  updated_at?: string | null;
+}
+export interface TestReportsList { runs: TestRun[]; launchReal: boolean; }
+export interface TestRunDetail { run: TestRun; results: TestRunResult[]; }
+export interface StartTestRunRequest { tier?: 'LEAN' | 'HEAVY' | null; commitSha?: string | null; }
+export interface StartTestRunResult { id: string; status: string; tier: string; }
+/** One SSE progress event for a running test (admin-bff TestRunEvent record). */
+export interface TestRunEvent {
+  runId: string;
+  suite?: string | null;
+  role?: string | null;
+  state: 'running' | 'passed' | 'failed' | 'skipped';
+  passed: number;
+  failed: number;
+  skipped: number;
+  percent: number;
+  message: string;
+  done: boolean;
+  error?: string | null;
+}
+
+// ── Forum-admin DTOs (mirror the admin-bff forum package shapes) ─────────────
+/** The ForumOutcome.asResponse() envelope: the returned payload merged with a
+ *  `result` marker (`ok` | `stubbed` | `degraded:<reason>`). */
+export type ForumEnvelope = Record<string, unknown> & { result?: string };
+export interface ForumBanRequest { reason?: string | null; }
+export interface ForumCategoryRequest { name: string; description?: string | null; parentId?: number | null; }
+export interface ForumGroupRequest { group: 'ADMINISTRATORS' | 'GLOBAL_MODERATORS' | 'REGISTERED'; }
+export interface ForumInstallRequest { name: string; }

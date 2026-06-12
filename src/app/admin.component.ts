@@ -42,6 +42,8 @@ export class AdminComponent implements OnInit {
     { path: 'recovery', label: 'Recovery' },
     { path: 'backups', label: 'Backups history' },
     { path: 'announcements', label: 'Announcements' },
+    { path: 'test-reports', label: 'Test reports' },
+    { path: 'forum', label: 'Forum admin' },
   ];
 
   email = '';

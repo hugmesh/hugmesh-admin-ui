@@ -1,0 +1,217 @@
+<section class="snap-test-reports" data-testid="test-reports-view" aria-labelledby="tr-heading">
+  <h2 id="tr-heading">Test reports</h2>
+  <p class="intro">
+    Durable test-architecture run history — lean (fe / be / pki-ready) and heavy (x86-attach)
+    suites, per-role and per-suite pass / fail. Run a check on demand and watch live progress,
+    or download a run's scrubbed report bundle.
+  </p>
+
+  <p
+    *ngIf="!store.launchReal()"
+    class="hint"
+    data-testid="tr-launch-stub"
+    role="status"
+    aria-live="polite"
+  >
+    The test runner is not wired to launch real cluster Jobs here — a triggered run is recorded
+    but no suites execute until the runner is enabled.
+  </p>
+
+  <!-- ── Run on-demand ────────────────────────────────────────── -->
+  <form class="run-form" data-testid="tr-run-form" (ngSubmit)="runNow()" novalidate aria-labelledby="tr-run-heading">
+    <h3 id="tr-run-heading">Run a check</h3>
+
+    <fieldset class="tier-field">
+      <legend>Tier</legend>
+      <label *ngFor="let t of store.tiers" class="tier-option" [attr.data-tier]="t.value">
+        <input type="radio" name="tier" [value]="t.value" [(ngModel)]="tier" />
+        <span class="tier-label">{{ t.label }}</span>
+        <span class="hint tier-hint">{{ t.hint }}</span>
+      </label>
+    </fieldset>
+
+    <div class="commit-field">
+      <label for="tr-commit">Commit SHA (optional)</label>
+      <input
+        id="tr-commit"
+        data-testid="tr-commit"
+        [(ngModel)]="commitSha"
+        name="commitSha"
+        placeholder="defaults to the runner image build commit"
+        autocomplete="off"
+        [attr.aria-invalid]="error() ? 'true' : null"
+        [attr.aria-describedby]="error() ? 'tr-run-error' : 'tr-commit-help'"
+      />
+      <span id="tr-commit-help" class="hint">Pins the suite / runner-image revision for provenance.</span>
+    </div>
+
+    <button type="submit" data-testid="tr-run" [disabled]="running()">
+      {{ running() ? 'Starting…' : 'Run now' }}
+    </button>
+
+    <span
+      *ngIf="error()"
+      id="tr-run-error"
+      class="field-error"
+      data-testid="tr-run-error"
+      role="alert"
+      aria-live="assertive"
+    >{{ error() }}</span>
+  </form>
+
+  <!-- ── Live progress for the in-flight run ──────────────────── -->
+  <section
+    *ngIf="store.activeRunId() as runId"
+    class="progress"
+    data-testid="tr-progress"
+    aria-labelledby="tr-progress-heading"
+  >
+    <h3 id="tr-progress-heading">Run progress</h3>
+    <div
+      class="bar"
+      role="progressbar"
+      data-testid="tr-progressbar"
+      [attr.aria-valuenow]="store.progress()"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      [attr.aria-label]="'Run ' + runId + ' progress'"
+    >
+      <span class="bar-fill" [style.width.%]="store.progress()"></span>
+    </div>
+
+    <p class="tally" data-testid="tr-tally" role="status" aria-live="polite">
+      {{ store.tally().passed }} passed · {{ store.tally().failed }} failed · {{ store.tally().skipped }} skipped
+    </p>
+
+    <ul class="events" data-testid="tr-events" role="status" aria-live="polite">
+      <li *ngFor="let e of store.runEvents()" [attr.data-phase]="e.state" [attr.data-suite]="e.suite">
+        <strong>{{ e.percent }}%</strong>
+        <span *ngIf="e.suite" class="ev-suite">{{ e.suite }}<span *ngIf="e.role"> · {{ e.role }}</span></span>
+        {{ e.message }}
+      </li>
+    </ul>
+
+    <p
+      *ngIf="store.runError()"
+      class="field-error"
+      data-testid="tr-run-stream-error"
+      role="alert"
+      aria-live="assertive"
+    >{{ store.runError() }}</p>
+
+    <p *ngIf="store.finished() && !store.runError()" class="done" data-testid="tr-done" role="status">
+      Run complete.
+    </p>
+  </section>
+
+  <!-- ── Run history ──────────────────────────────────────────── -->
+  <h3 id="tr-history-heading">Recent runs</h3>
+  <p
+    *ngIf="downloadNote()"
+    class="hint"
+    data-testid="tr-download-note"
+    role="status"
+    aria-live="polite"
+  >{{ downloadNote() }}</p>
+
+  <table class="tr-table" data-testid="tr-table" aria-labelledby="tr-history-heading">
+    <caption class="sr">Recent test-architecture runs with tier, source, timestamp and outcome.</caption>
+    <thead>
+      <tr>
+        <th scope="col">Tier</th>
+        <th scope="col">Source</th>
+        <th scope="col">Started</th>
+        <th scope="col">Status</th>
+        <th scope="col">Outcome</th>
+        <th scope="col">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <ng-container *ngFor="let run of store.runs()">
+        <tr [attr.data-run]="run.id" class="tr-row">
+          <td class="t-tier">{{ run.tier }}</td>
+          <td class="t-source">{{ run.trigger_source }}</td>
+          <td class="t-started">{{ (run.started_at || run.created_at) | date: 'short' }}</td>
+          <td class="t-status">
+            <span class="status-badge" [attr.data-status]="run.status">{{ run.status }}</span>
+          </td>
+          <td class="t-outcome" [attr.data-outcome-failed]="run.failed">{{ outcomeText(run) }}</td>
+          <td class="t-actions">
+            <button
+              type="button"
+              class="link"
+              [attr.data-detail]="run.id"
+              [attr.aria-expanded]="store.detail()?.run?.id === run.id"
+              (click)="toggleDetail(run)"
+            >{{ store.detail()?.run?.id === run.id ? 'Hide details' : 'Details' }}</button>
+
+            <button
+              *ngIf="canDownload(run)"
+              type="button"
+              class="link"
+              [attr.data-download]="run.id"
+              [attr.aria-label]="'Download report for run started ' + (run.started_at || run.created_at)"
+              (click)="download(run)"
+            >Download report</button>
+            <span
+              *ngIf="!canDownload(run)"
+              class="hint no-report"
+              [attr.data-no-report]="run.id"
+            >No report yet</span>
+          </td>
+        </tr>
+
+        <!-- ── Inline per-(suite,role) detail matrix ──────────── -->
+        <tr
+          *ngIf="store.detail()?.run?.id === run.id"
+          class="tr-detail-row"
+          [attr.data-detail-for]="run.id"
+        >
+          <td colspan="6">
+            <div class="tr-detail" data-testid="tr-detail">
+              <h4 class="sr">Per-suite, per-role results for this run</h4>
+              <table class="matrix" data-testid="tr-matrix">
+                <caption class="sr">Each suite and role with its running / passed / failed / skipped state.</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Suite</th>
+                    <th scope="col">Role</th>
+                    <th scope="col">State</th>
+                    <th scope="col">Passed</th>
+                    <th scope="col">Failed</th>
+                    <th scope="col">Skipped</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    *ngFor="let res of store.detail()!.results"
+                    [attr.data-suite]="res.suite"
+                    [attr.data-role]="res.role"
+                  >
+                    <th scope="row">{{ res.suite }}</th>
+                    <td>{{ res.role }}</td>
+                    <td><span class="state-badge" [attr.data-state]="res.state">{{ res.state }}</span></td>
+                    <td>{{ res.passed }}</td>
+                    <td>{{ res.failed }}</td>
+                    <td>{{ res.skipped }}</td>
+                  </tr>
+                  <tr *ngIf="store.detail()!.results.length === 0">
+                    <td colspan="6" class="empty" data-testid="tr-matrix-empty">
+                      No per-suite results recorded for this run yet.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </td>
+        </tr>
+      </ng-container>
+
+      <tr *ngIf="store.runs().length === 0">
+        <td colspan="6" class="empty" data-testid="tr-empty">
+          No runs yet. Start one with “Run now”.
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</section>

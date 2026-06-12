@@ -1,0 +1,147 @@
+@use '../../styles/tokens' as t;
+
+:host {
+  display: block;
+}
+
+.snap-forum-admin {
+  display: block;
+  padding: 1rem;
+
+  .intro {
+    color: var(--sd-text-muted, #{t.$light});
+    margin-block: 0.25rem 1rem;
+  }
+
+  .hint {
+    color: var(--sd-text-muted, #{t.$muted});
+    font-size: 0.9rem;
+  }
+
+  .tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    border-bottom: 1px solid var(--sd-border, #{t.$mid});
+    margin-block: 0.75rem 1rem;
+  }
+
+  .tab {
+    all: unset;
+    cursor: pointer;
+    padding: 0.45rem 0.85rem;
+    border-radius: t.$radius-sm t.$radius-sm 0 0;
+    color: var(--sd-text-muted, #{t.$light});
+    border: 1px solid transparent;
+    border-bottom: none;
+
+    &:focus-visible { outline: 2px solid var(--sd-text, #{t.$offwhite}); outline-offset: 2px; }
+    &.is-active {
+      color: var(--sd-text, #{t.$offwhite});
+      background: var(--sd-bg-1, #{t.$surface});
+      border-color: var(--sd-border, #{t.$mid});
+      font-weight: 700;
+    }
+  }
+
+  .panel {
+    border: 1px solid var(--sd-border, #{t.$mid});
+    border-radius: t.$radius-card;
+    padding: 0.85rem 1rem;
+    background: var(--sd-bg-1, #{t.$surface});
+  }
+
+  .env {
+    background: var(--sd-bg-0, #{t.$charcoal});
+    border: 1px solid var(--sd-border, #{t.$mid});
+    border-radius: t.$radius-sm;
+    padding: 0.6rem 0.85rem;
+    overflow: auto;
+    color: var(--sd-text, #{t.$offwhite});
+    font-family: t.$font-mono;
+    font-size: 0.85rem;
+  }
+
+  .form {
+    display: grid;
+    gap: 0.4rem;
+    max-width: 34rem;
+    margin-block: 1rem 0.5rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(t.$mid, 0.5);
+
+    h4 { margin: 0; }
+    label { font-weight: 600; color: var(--sd-text, #{t.$offwhite}); }
+
+    input,
+    select {
+      background: var(--sd-bg-0, #{t.$charcoal});
+      color: var(--sd-text, #{t.$offwhite});
+      border: 1px solid var(--sd-border, #{t.$mid});
+      border-radius: t.$radius-sm;
+      padding: 0.5rem 0.75rem;
+
+      &[aria-invalid='true'] { border-color: var(--sd-error, #{t.$pastel-rose}); }
+    }
+
+    .actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    button {
+      justify-self: start;
+      background: var(--sd-accent, #{t.$neon});
+      color: t.$black;
+      border: none;
+      border-radius: t.$radius-sm;
+      padding: 0.5rem 1rem;
+      font-weight: 700;
+      cursor: pointer;
+
+      &.danger { background: var(--sd-error, #{t.$pastel-rose}); color: t.$black; }
+      &:focus-visible { outline: 2px solid var(--sd-text, #{t.$offwhite}); outline-offset: 2px; }
+    }
+  }
+
+  .gaps {
+    margin-top: 1.5rem;
+    border-top: 1px dashed var(--sd-border, #{t.$mid});
+    padding-top: 0.85rem;
+  }
+
+  .gap-list {
+    list-style: none;
+    margin: 0.5rem 0;
+    padding: 0;
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .gap {
+    display: grid;
+    gap: 0.2rem;
+  }
+
+  .gap-btn {
+    justify-self: start;
+    background: var(--sd-bg-1, #{t.$surface});
+    color: var(--sd-text, #{t.$offwhite});
+    border: 1px solid var(--sd-border, #{t.$mid});
+    border-radius: t.$radius-sm;
+    padding: 0.5rem 1rem;
+    font-weight: 600;
+
+    // aria-disabled controls are styled unavailable but stay tab-reachable so AT
+    // reaches the helptext (the global [aria-disabled='true'] rule dims + sets
+    // cursor); here we also drop the active affordance.
+    &[aria-disabled='true'] { pointer-events: none; }
+    &:focus-visible { outline: 2px solid var(--sd-text, #{t.$offwhite}); outline-offset: 2px; }
+  }
+
+  .field-error {
+    color: var(--sd-error, #{t.$pastel-rose});
+    font-weight: 600;
+  }
+}

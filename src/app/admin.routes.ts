@@ -11,6 +11,8 @@ import { BackupComponent } from './backup/backup.component';
 import { RecoveryComponent } from './backup/recovery.component';
 import { BackupHistoryComponent } from './backup/backup-history.component';
 import { AnnouncementListComponent } from './announcements/announcement-list.component';
+import { TestReportsComponent } from './test-reports/test-reports.component';
+import { ForumAdminComponent } from './forum-admin/forum-admin.component';
 
 /** Routes exposed by the Admin native-federation remote. The snapdragon.systems
  *  host mounts these at /admin, so they resolve to /admin (allowlist),
@@ -36,4 +38,6 @@ export const ADMIN_ROUTES: Routes = [
   { path: 'recovery', component: RecoveryComponent },
   { path: 'backups', component: BackupHistoryComponent },
   { path: 'announcements', component: AnnouncementListComponent },
+  { path: 'test-reports', component: TestReportsComponent },
+  { path: 'forum', component: ForumAdminComponent },
 ];

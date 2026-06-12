@@ -11,6 +11,8 @@ import { BackupComponent } from './backup/backup.component';
 import { RecoveryComponent } from './backup/recovery.component';
 import { BackupHistoryComponent } from './backup/backup-history.component';
 import { AnnouncementListComponent } from './announcements/announcement-list.component';
+import { TestReportsComponent } from './test-reports/test-reports.component';
+import { ForumAdminComponent } from './forum-admin/forum-admin.component';
 
 /**
  * These specs lock down the federation contract: `./routes` (exposed under the
@@ -39,9 +41,11 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('recovery')!.component).toBe(RecoveryComponent);
     expect(byPath('backups')!.component).toBe(BackupHistoryComponent);
     expect(byPath('announcements')!.component).toBe(AnnouncementListComponent);
+    expect(byPath('test-reports')!.component).toBe(TestReportsComponent);
+    expect(byPath('forum')!.component).toBe(ForumAdminComponent);
   });
 
-  it('exposes exactly the twelve admin views the host expects', () => {
+  it('exposes exactly the fourteen admin views the host expects', () => {
     expect(ADMIN_ROUTES.map((r) => r.path)).toEqual([
       '',
       'usage',
@@ -55,6 +59,8 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
       'recovery',
       'backups',
       'announcements',
+      'test-reports',
+      'forum',
     ]);
   });
 
