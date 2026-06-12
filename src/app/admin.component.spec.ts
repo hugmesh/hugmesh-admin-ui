@@ -21,7 +21,7 @@ describe('AdminComponent', () => {
     component = fixture.componentInstance;
   });
 
-  it('renders an admin menu linking to the Backup, Recovery, Backups and Announcements modules', () => {
+  it('renders an admin menu linking to the Backup, Recovery, Backups, Announcements, Test reports and Forum modules', () => {
     fixture.detectChanges();
     const el: HTMLElement = fixture.nativeElement;
     const menu = el.querySelector('[data-testid="admin-menu"]');
@@ -31,6 +31,8 @@ describe('AdminComponent', () => {
     expect(el.querySelector('[data-menu="recovery"]')).not.toBeNull();
     expect(el.querySelector('[data-menu="backups"]')).not.toBeNull();
     expect(el.querySelector('[data-menu="announcements"]')).not.toBeNull();
+    expect(el.querySelector('[data-menu="test-reports"]')).not.toBeNull();
+    expect(el.querySelector('[data-menu="forum"]')).not.toBeNull();
   });
 
   it('loads the allowlist on init and renders both lists', async () => {
