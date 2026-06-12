@@ -14,6 +14,8 @@ import { AnnouncementListComponent } from './announcements/announcement-list.com
 import { DelegationComponent } from './delegation/delegation.component';
 import { TestReportsComponent } from './test-reports/test-reports.component';
 import { ForumAdminComponent } from './forum-admin/forum-admin.component';
+import { DeviceLicensesComponent } from './device-licenses.component';
+import { superadminGuard } from './superadmin.guard';
 
 /**
  * These specs lock down the federation contract: `./routes` (exposed under the
@@ -45,9 +47,10 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('announcements')!.component).toBe(AnnouncementListComponent);
     expect(byPath('test-reports')!.component).toBe(TestReportsComponent);
     expect(byPath('forum')!.component).toBe(ForumAdminComponent);
+    expect(byPath('device-licenses')!.component).toBe(DeviceLicensesComponent);
   });
 
-  it('exposes exactly the fifteen admin views the host expects (incl. delegation)', () => {
+  it('exposes exactly the sixteen admin views the host expects (incl. delegation + device-licenses)', () => {
     expect(ADMIN_ROUTES.map((r) => r.path)).toEqual([
       '',
       'usage',
@@ -64,7 +67,12 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
       'announcements',
       'test-reports',
       'forum',
+      'device-licenses',
     ]);
+  });
+
+  it('superadmin-gates the device-licenses console (additive, behind the superadmin guard)', () => {
+    expect(byPath('device-licenses')!.canActivate).toEqual([superadminGuard]);
   });
 
   it('declares every route with either a component or children (no dead routes)', () => {

@@ -14,6 +14,8 @@ import { AnnouncementListComponent } from './announcements/announcement-list.com
 import { DelegationComponent } from './delegation/delegation.component';
 import { TestReportsComponent } from './test-reports/test-reports.component';
 import { ForumAdminComponent } from './forum-admin/forum-admin.component';
+import { DeviceLicensesComponent } from './device-licenses.component';
+import { superadminGuard } from './superadmin.guard';
 
 /** Routes exposed by the Admin native-federation remote. The snapdragon.systems
  *  host mounts these at /admin, so they resolve to /admin (allowlist),
@@ -26,7 +28,9 @@ import { ForumAdminComponent } from './forum-admin/forum-admin.component';
  *  the cloud Backup & Recovery feature module: /admin/backup (start a backup),
  *  /admin/recovery (restore a backup) and /admin/backups (history), and
  *  /admin/announcements (create + schedule + target announcements for the home
- *  banner, public login page, Mastodon/akkoma and the forum main page).
+ *  banner, public login page, Mastodon/akkoma and the forum main page), and
+ *  /admin/device-licenses (the SUPERADMIN-only Device Licenses console over the
+ *  device-ownership / SSH-operate-license registry — additionally superadmin-guarded).
  *  Casdoor-admin-role guarded by the host. */
 export const ADMIN_ROUTES: Routes = [
   { path: '', component: AdminComponent },
@@ -44,4 +48,5 @@ export const ADMIN_ROUTES: Routes = [
   { path: 'announcements', component: AnnouncementListComponent },
   { path: 'test-reports', component: TestReportsComponent },
   { path: 'forum', component: ForumAdminComponent },
+  { path: 'device-licenses', component: DeviceLicensesComponent, canActivate: [superadminGuard] },
 ];

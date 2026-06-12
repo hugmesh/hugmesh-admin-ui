@@ -459,6 +459,58 @@ export class BffService {
     throw new Error(err);
   }
 
+  // ── Device-license registry console (SUPERADMIN-only, BFF /bff/admin/device-licenses) ──
+  // The single source of truth for device physical-ownership, domain-residency and
+  // SSH operate-licenses. The list view is ADMIN-readable (own-domain, scoped by the
+  // BFF) but every MUTATION below is hasRole('SUPERADMIN') at the BFF; this console is
+  // superadmin-route-guarded as defence-in-depth. Grants PIN the exact SSH public-key
+  // fingerprints the operator may present; revoke is a CAS state flip (never a delete =
+  // audit) returning the refreshed device list. Endpoints (admin-bff DeviceLicensesController):
+  //   GET    /bff/admin/device-licenses                         → { devices:[DeviceRegistration] }
+  //   POST   /bff/admin/device-licenses/{id}/grant              → { devices } (per-DEVICE license)
+  //   POST   /bff/admin/device-licenses/domains/{domain}/grant  → { devices } (per-DOMAIN license)
+  //   DELETE /bff/admin/device-licenses/licenses/{id}           → { devices } (CAS revoke)
+
+  /** All registered devices with owner, domain residency + their active licenses. */
+  async devices(): Promise<DeviceRegistration[]> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/device-licenses`, { headers: { authorization: `Bearer ${t}` } });
+    return r.ok ? (await r.json()).devices : [];
+  }
+
+  /** Grant a per-DEVICE SSH operate-license to an operator, pinning their key fingerprints. */
+  async grantDeviceLicense(deviceId: string, operator: string, keyFingerprints: string[]): Promise<DeviceRegistration[]> {
+    return this.licenseMutation('POST',
+      `/bff/admin/device-licenses/${encodeURIComponent(deviceId)}/grant`,
+      { operator, keyFingerprints });
+  }
+
+  /** Grant a per-DOMAIN SSH operate-license (covers every device resident in the domain). */
+  async grantDomainLicense(domain: string, operator: string, keyFingerprints: string[]): Promise<DeviceRegistration[]> {
+    return this.licenseMutation('POST',
+      `/bff/admin/device-licenses/domains/${encodeURIComponent(domain)}/grant`,
+      { operator, keyFingerprints });
+  }
+
+  /** Revoke a license by id (CAS state flip, never deleted). Returns the refreshed list. */
+  async revokeLicense(licenseId: string): Promise<DeviceRegistration[]> {
+    return this.licenseMutation('DELETE',
+      `/bff/admin/device-licenses/licenses/${encodeURIComponent(licenseId)}`);
+  }
+
+  private async licenseMutation(method: string, path: string, body?: unknown): Promise<DeviceRegistration[]> {
+    const t = this.session.session()?.bffToken;
+    const init: RequestInit = { method, headers: { authorization: `Bearer ${t}` } };
+    if (body !== undefined) {
+      (init.headers as Record<string, string>)['content-type'] = 'application/json';
+      init.body = JSON.stringify(body);
+    }
+    const r = await fetch(`${CFG.bff}${path}`, init);
+    if (r.ok) return (await r.json()).devices ?? [];
+    const err = (await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`;
+    throw new Error(err);
+  }
+
   private async postJob(path: string, body: unknown): Promise<StartJobResult> {
     const t = this.session.session()?.bffToken;
     const r = await fetch(`${CFG.bff}${path}`, {
@@ -706,3 +758,31 @@ export interface ForumBanRequest { reason?: string | null; }
 export interface ForumCategoryRequest { name: string; description?: string | null; parentId?: number | null; }
 export interface ForumGroupRequest { group: 'ADMINISTRATORS' | 'GLOBAL_MODERATORS' | 'REGISTERED'; }
 export interface ForumInstallRequest { name: string; }
+
+// ── Device-license registry DTOs (mirror the admin-bff device package shapes) ──
+/** One SSH operate-license row: (operator × DEVICE|DOMAIN) → may-SSH, key-pinned. */
+export interface DeviceSshLicense {
+  id: string;
+  operator: string;
+  scope_type: 'DEVICE' | 'DOMAIN';
+  device_id?: string | null;
+  target_domain?: string | null;
+  key_fingerprints: string[];
+  state: 'active' | 'revoked';
+  granted_by?: string | null;
+  granted_at?: string | null;
+}
+/** A registered mesh node with its physical owner, domain residency + active licenses. */
+export interface DeviceRegistration {
+  id: string;
+  machine_key_fp: string;
+  hostname: string;
+  tailnet_id?: string | null;
+  image_type: 'primary' | 'mesh-extension' | 'client';
+  owner_type: 'SUPERADMIN' | 'ADMIN';
+  physical_owner: string;
+  domain: string;
+  mesh_id?: string | null;
+  last_seen_at?: string | null;
+  licenses: DeviceSshLicense[];
+}

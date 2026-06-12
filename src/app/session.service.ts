@@ -21,6 +21,7 @@ export class SessionService {
   readonly session = signal<SnapSession | null>(this.load());
   readonly loggedIn = computed(() => this.session() !== null);
   readonly isAdmin = computed(() => (this.session()?.roles ?? []).includes('admin'));
+  readonly isSuperadmin = computed(() => (this.session()?.roles ?? []).includes('superadmin'));
   /** Matrix/Mastodon are usable only after full registration completes. */
   readonly fullyRegistered = computed(() => this.session()?.registrationComplete === true);
 

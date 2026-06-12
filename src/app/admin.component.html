@@ -1,7 +1,7 @@
 <section class="snap-admin" data-testid="admin-view" aria-labelledby="admin-heading">
   <nav class="admin-menu" data-testid="admin-menu" aria-label="Admin modules">
     <ul>
-      <li *ngFor="let item of menu">
+      <li *ngFor="let item of menu()">
         <a
           [routerLink]="['/', item.path]"
           routerLinkActive="is-active"

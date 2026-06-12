@@ -62,6 +62,13 @@ describe('SessionService', () => {
     expect(service.isAdmin()).toBeTrue();
   });
 
+  it('isSuperadmin only when the roles array includes "superadmin"', () => {
+    service.set(makeSession({ roles: ['admin'] }));
+    expect(service.isSuperadmin()).toBeFalse();
+    service.set(makeSession({ roles: ['admin', 'superadmin'] }));
+    expect(service.isSuperadmin()).toBeTrue();
+  });
+
   it('patch() merges into the current session without dropping other fields', () => {
     service.set(makeSession({ roles: ['admin'] }));
     service.patch({ registrationComplete: true });
