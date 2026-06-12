@@ -11,6 +11,7 @@ import { BackupComponent } from './backup/backup.component';
 import { RecoveryComponent } from './backup/recovery.component';
 import { BackupHistoryComponent } from './backup/backup-history.component';
 import { AnnouncementListComponent } from './announcements/announcement-list.component';
+import { DelegationComponent } from './delegation/delegation.component';
 import { TestReportsComponent } from './test-reports/test-reports.component';
 import { ForumAdminComponent } from './forum-admin/forum-admin.component';
 
@@ -32,6 +33,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
   it('wires each feature route to its dedicated component', () => {
     expect(byPath('usage')!.component).toBe(UsageComponent);
     expect(byPath('namespaces')!.component).toBe(NamespaceAccessComponent);
+    expect(byPath('delegation')!.component).toBe(DelegationComponent);
     expect(byPath('route-access')!.component).toBe(RouteAccessComponent);
     expect(byPath('routes')!.component).toBe(RouteDefinitionsComponent);
     expect(byPath('isos')!.component).toBe(IsoDownloadsComponent);
@@ -45,11 +47,12 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('forum')!.component).toBe(ForumAdminComponent);
   });
 
-  it('exposes exactly the fourteen admin views the host expects', () => {
+  it('exposes exactly the fifteen admin views the host expects (incl. delegation)', () => {
     expect(ADMIN_ROUTES.map((r) => r.path)).toEqual([
       '',
       'usage',
       'namespaces',
+      'delegation',
       'route-access',
       'routes',
       'isos',
