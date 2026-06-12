@@ -54,11 +54,12 @@ describe('AdminComponent', () => {
     expect(link!.textContent!.trim()).toBe('Appeals');
   });
 
-  it('hides the superadmin-only Device licenses menu item from a non-superadmin', () => {
+  it('hides the superadmin-only Device licenses + Pen-test menu items from a non-superadmin', () => {
     superadmin.set(false);
     fixture.detectChanges();
     const el: HTMLElement = fixture.nativeElement;
     expect(el.querySelector('[data-menu="device-licenses"]')).toBeNull();
+    expect(el.querySelector('[data-menu="pentest"]')).toBeNull();
   });
 
   it('surfaces the Device licenses menu item for a superadmin', () => {
@@ -68,6 +69,15 @@ describe('AdminComponent', () => {
     const link = el.querySelector('[data-menu="device-licenses"]');
     expect(link).not.toBeNull();
     expect(link!.textContent!.trim()).toBe('Device licenses');
+  });
+
+  it('surfaces the superadmin-only Pen-test menu item for a superadmin', () => {
+    superadmin.set(true);
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    const link = el.querySelector('[data-menu="pentest"]');
+    expect(link).not.toBeNull();
+    expect(link!.textContent!.trim()).toBe('Pen-test');
   });
 
   it('loads the allowlist on init and renders both lists', async () => {
