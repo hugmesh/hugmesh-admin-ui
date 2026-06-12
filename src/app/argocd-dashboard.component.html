@@ -1,6 +1,12 @@
 <section class="snap-argocd" data-testid="argocd-view" aria-labelledby="argocd-heading">
   <h2 id="argocd-heading">ArgoCD — Applications</h2>
 
+  <p id="argocd-help" class="hint" data-testid="argocd-help">
+    Live view of the GitOps applications ArgoCD manages on this cluster. Each card shows an app's
+    sync and health status; select a card to inspect its resource tree. "Sync" applies the
+    desired state from Git to the cluster — a mutating action that asks for confirmation first.
+  </p>
+
   <p
     *ngIf="status()"
     class="status-line"
@@ -15,7 +21,12 @@
 
   <p *ngIf="loading()" data-testid="argocd-loading">Loading applications…</p>
 
-  <ul *ngIf="!loading() && !unavailable()" class="app-grid" data-testid="argocd-app-grid">
+  <ul
+    *ngIf="!loading() && !unavailable()"
+    class="app-grid"
+    data-testid="argocd-app-grid"
+    aria-describedby="argocd-help"
+  >
     <li *ngFor="let app of apps()" class="app-card" [attr.data-app]="app.name">
       <button
         type="button"
@@ -40,6 +51,7 @@
         class="sync-button"
         [attr.data-sync]="app.name"
         [attr.aria-label]="'Sync ' + app.name"
+        aria-describedby="argocd-help"
         (click)="askSync(app.name)"
       >Sync</button>
     </li>

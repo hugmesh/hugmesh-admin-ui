@@ -145,4 +145,39 @@ describe('AnnouncementListComponent', () => {
     const el: HTMLElement = fixture.nativeElement;
     expect(el.querySelector('[data-testid="announcements-empty"]')).not.toBeNull();
   });
+
+  describe('help text (sighted + low/no-sight)', () => {
+    it('wires the New-announcement button to help that exists and is informative', async () => {
+      await init();
+      const el: HTMLElement = fixture.nativeElement;
+      const newBtn = el.querySelector<HTMLButtonElement>('[data-testid="ann-new"]')!;
+      const describedBy = newBtn.getAttribute('aria-describedby')!;
+      expect(describedBy).toBe('announcements-new-help');
+      const help = el.querySelector(`#${describedBy}`)!;
+      expect(help).withContext('new-button help target exists').not.toBeNull();
+      expect(help.textContent!.trim().length).toBeGreaterThan(20);
+      // The visible intro is also present + carries a stable id.
+      expect(el.querySelector('[data-testid="announcements-help"]')!.id).toBe('announcements-help');
+    });
+
+    it('gives per-row action buttons accessible names that identify the announcement', async () => {
+      await init();
+      const el: HTMLElement = fixture.nativeElement;
+      const edit = el.querySelector<HTMLButtonElement>('[data-edit="pub"]')!;
+      expect(edit.getAttribute('aria-label')).toBe('Edit announcement Live one');
+      const del = el.querySelector<HTMLButtonElement>('[data-delete="pub"]')!;
+      expect(del.getAttribute('aria-label')).toBe('Delete announcement Live one');
+    });
+
+    it('labels the delete confirm/cancel buttons with the announcement title', async () => {
+      await init();
+      const el: HTMLElement = fixture.nativeElement;
+      el.querySelector<HTMLButtonElement>('[data-delete="pub"]')!.click();
+      fixture.detectChanges();
+      const confirm = el.querySelector<HTMLButtonElement>('[data-confirm-delete="pub"]')!;
+      expect(confirm.getAttribute('aria-label')).toBe('Permanently delete announcement Live one');
+      const cancel = el.querySelector<HTMLButtonElement>('[data-testid="ann-cancel-delete"]')!;
+      expect(cancel.getAttribute('aria-label')).toBe('Cancel deleting Live one');
+    });
+  });
 });

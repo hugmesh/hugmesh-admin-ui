@@ -1,8 +1,16 @@
 <section class="snap-backup-history" data-testid="backup-history-view" aria-labelledby="backup-history-heading">
   <h2 id="backup-history-heading">Backups</h2>
-  <p class="intro">History of backups taken on this platform.</p>
+  <p id="backup-history-help" class="intro" data-testid="backup-history-help">
+    A read-only ledger of every backup taken on this platform — when it ran, what it covered, where
+    it was stored, whether it was encrypted and how it finished. Start a new backup from the Backup
+    view and restore from the Recovery view.
+  </p>
 
-  <table class="history" data-testid="backup-history-table">
+  <table
+    class="history"
+    data-testid="backup-history-table"
+    aria-describedby="backup-history-help"
+  >
     <caption class="sr">Backup history</caption>
     <thead>
       <tr>
@@ -23,7 +31,14 @@
         <td>{{ size(b.size_bytes) }}</td>
         <td>
           <span class="status" [ngClass]="statusClass(b.status)" [attr.data-status]="b.status">{{ b.status }}</span>
-          <span *ngIf="b.error" class="row-error" [title]="b.error">⚠</span>
+          <span
+            *ngIf="b.error"
+            class="row-error"
+            data-testid="backup-history-row-error"
+            [attr.aria-label]="'Error: ' + b.error"
+            [title]="b.error"
+            ><span aria-hidden="true">⚠</span><span class="sr">{{ b.error }}</span></span
+          >
         </td>
       </tr>
       <tr *ngIf="store.history().length === 0">

@@ -67,5 +67,18 @@ describe('UsageComponent', () => {
       const cols = el.querySelectorAll('table thead th[scope="col"]');
       expect(cols.length).toBeGreaterThanOrEqual(5);
     });
+
+    it('describes the summary with help text that exists and is non-placeholder', () => {
+      fixture.detectChanges();
+      const el: HTMLElement = fixture.nativeElement;
+      const summary = el.querySelector('[data-testid="usage-summary"]')!;
+      const describedBy = summary.getAttribute('aria-describedby');
+      expect(describedBy).withContext('summary aria-describedby').toBe('usage-help');
+      const help = el.querySelector(`#${describedBy}`);
+      expect(help).withContext('help target exists').not.toBeNull();
+      // Genuinely informative help, not a placeholder.
+      expect(help!.textContent!.trim().length).toBeGreaterThan(40);
+      expect(help!.textContent!).toContain('last hour');
+    });
   });
 });

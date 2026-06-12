@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { BffService, TaskDef, StepDef, ValidationResult, PreviewResult, ApplyResult } from './bff.service';
+import { BffService, TaskDef, StepDef, FieldDef, ValidationResult, PreviewResult, ApplyResult } from './bff.service';
 
 /**
  * Admin "Guided tasks" wizard (ROLE_ADMIN only, route-guarded). A step/task UX over
@@ -71,6 +71,19 @@ export class AdminTaskWizardComponent implements OnInit {
     const v = this.validation();
     if (!v) return null;
     return v.errors.find((e) => e.field === key)?.message ?? null;
+  }
+
+  /**
+   * The space-separated `aria-describedby` for a field: its persistent help hint
+   * (when the field defines one) plus its inline error (when present), so a
+   * screen reader announces BOTH the field's purpose and any validation problem.
+   * Returns null when there is nothing to describe (no aria-describedby spam).
+   */
+  describedBy(field: FieldDef): string | null {
+    const ids: string[] = [];
+    if (field.hint) ids.push('hint-' + field.key);
+    if (this.fieldError(field.key)) ids.push('err-' + field.key);
+    return ids.length ? ids.join(' ') : null;
   }
 
   /** Validate the current step's inputs (no change). */

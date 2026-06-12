@@ -1,6 +1,11 @@
 <section class="snap-usage" data-testid="usage-view" aria-labelledby="usage-heading">
   <h2 id="usage-heading">Usage analytics</h2>
-  <p data-testid="usage-summary">
+  <p id="usage-help" class="hint" data-testid="usage-help">
+    Live infrastructure usage aggregated from event analytics. "Active users" counts distinct users
+    seen in the last hour; the tables below break events down by module and by action. Read-only —
+    refresh the page to update the figures.
+  </p>
+  <p data-testid="usage-summary" aria-describedby="usage-help">
     Active users (1h): <strong data-testid="usage-active">{{ usage()?.activeUsers ?? 0 }}</strong>
     · Total events: <strong data-testid="usage-total">{{ usage()?.totalEvents ?? 0 }}</strong>
   </p>

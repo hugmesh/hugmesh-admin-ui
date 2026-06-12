@@ -105,4 +105,23 @@ describe('ArgocdDashboardComponent', () => {
     expect(component.healthClass('Degraded')).toBe('is-degraded');
     expect(component.healthClass('weird')).toBe('is-unknown');
   });
+
+  describe('help text (sighted + low/no-sight)', () => {
+    it('describes the app grid and the mutating Sync button with wired, informative help', async () => {
+      await init();
+      const el: HTMLElement = fixture.nativeElement;
+      const help = el.querySelector('[data-testid="argocd-help"]')!;
+      expect(help).withContext('visible help present').not.toBeNull();
+      expect(help.id).toBe('argocd-help');
+      expect(help.textContent!).toContain('mutating');
+
+      const grid = el.querySelector('[data-testid="argocd-app-grid"]')!;
+      expect(grid.getAttribute('aria-describedby')).toBe('argocd-help');
+
+      const sync = el.querySelector<HTMLButtonElement>('[data-sync="games"]')!;
+      expect(sync.getAttribute('aria-describedby')).toBe('argocd-help');
+      // The Sync button has visible "Sync" text plus an explicit app-scoped name.
+      expect(sync.getAttribute('aria-label')).toBe('Sync games');
+    });
+  });
 });
