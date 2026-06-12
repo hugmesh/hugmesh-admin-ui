@@ -1,0 +1,164 @@
+@use '../../styles/tokens' as t;
+
+:host {
+  display: block;
+}
+
+.snap-appeals {
+  display: block;
+  padding: 1rem;
+
+  .intro {
+    color: var(--sd-text-muted, #{t.$light});
+    margin-block: 0.25rem 1rem;
+    max-width: 42rem;
+  }
+
+  .hint {
+    color: var(--sd-text-muted, #{t.$muted});
+    font-size: 0.9rem;
+  }
+
+  .form {
+    display: grid;
+    gap: 0.4rem;
+    max-width: 34rem;
+    margin-block: 1rem 0.5rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(t.$mid, 0.5);
+
+    h3 { margin: 0; }
+    label { font-weight: 600; color: var(--sd-text, #{t.$offwhite}); }
+
+    input {
+      background: var(--sd-bg-0, #{t.$charcoal});
+      color: var(--sd-text, #{t.$offwhite});
+      border: 1px solid var(--sd-border, #{t.$mid});
+      border-radius: t.$radius-sm;
+      padding: 0.5rem 0.75rem;
+
+      &[aria-invalid='true'] { border-color: var(--sd-error, #{t.$pastel-rose}); }
+      &:disabled { opacity: 0.6; cursor: not-allowed; }
+    }
+
+    .actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    button {
+      justify-self: start;
+      background: var(--sd-accent, #{t.$neon});
+      color: t.$black;
+      border: none;
+      border-radius: t.$radius-sm;
+      padding: 0.5rem 1rem;
+      font-weight: 700;
+      cursor: pointer;
+
+      &.danger { background: var(--sd-error, #{t.$pastel-rose}); color: t.$black; }
+      &:disabled { opacity: 0.6; cursor: not-allowed; }
+      &:focus-visible { outline: 2px solid var(--sd-text, #{t.$offwhite}); outline-offset: 2px; }
+    }
+  }
+
+  .decided {
+    margin-top: 1.5rem;
+  }
+
+  .sr-caption {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .decided-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0.5rem;
+
+    th,
+    td {
+      text-align: left;
+      padding: 0.45rem 0.6rem;
+      border-bottom: 1px solid var(--sd-border, #{t.$mid});
+      color: var(--sd-text, #{t.$offwhite});
+      font-size: 0.9rem;
+    }
+
+    th {
+      color: var(--sd-text-muted, #{t.$light});
+      font-weight: 700;
+    }
+  }
+
+  .status-pill {
+    display: inline-block;
+    padding: 0.1rem 0.55rem;
+    border-radius: t.$radius-sm;
+    font-weight: 700;
+    font-size: 0.8rem;
+    background: var(--sd-bg-1, #{t.$surface});
+    border: 1px solid var(--sd-border, #{t.$mid});
+
+    &.is-approved {
+      background: var(--sd-ok, #{t.$pastel-mint});
+      color: t.$black;
+      border-color: transparent;
+    }
+    &.is-denied {
+      background: var(--sd-error, #{t.$pastel-rose});
+      color: t.$black;
+      border-color: transparent;
+    }
+  }
+
+  .gaps {
+    margin-top: 1.5rem;
+    border-top: 1px dashed var(--sd-border, #{t.$mid});
+    padding-top: 0.85rem;
+  }
+
+  .gap-list {
+    list-style: none;
+    margin: 0.5rem 0;
+    padding: 0;
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .gap {
+    display: grid;
+    gap: 0.2rem;
+  }
+
+  .gap-btn {
+    justify-self: start;
+    background: var(--sd-bg-1, #{t.$surface});
+    color: var(--sd-text, #{t.$offwhite});
+    border: 1px solid var(--sd-border, #{t.$mid});
+    border-radius: t.$radius-sm;
+    padding: 0.5rem 1rem;
+    font-weight: 600;
+
+    // aria-disabled controls stay tab-reachable so AT reaches the helptext.
+    &[aria-disabled='true'] { pointer-events: none; opacity: 0.6; }
+    &:focus-visible { outline: 2px solid var(--sd-text, #{t.$offwhite}); outline-offset: 2px; }
+  }
+
+  .field-error {
+    color: var(--sd-error, #{t.$pastel-rose});
+    font-weight: 600;
+  }
+
+  .field-help {
+    display: block;
+  }
+}

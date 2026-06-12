@@ -1,0 +1,147 @@
+<section class="snap-appeals" data-testid="appeals-view" aria-labelledby="ap-heading">
+  <h2 id="ap-heading">Appeals</h2>
+  <p class="intro">
+    Approve or deny a referred moderation appeal. The decision is forwarded to the
+    federation moderation service scoped to your domain — you can only decide appeals
+    that belong to your brand. Approving upholds the appeal (the action applies); denying
+    rejects it.
+  </p>
+
+  <!-- Status (last decision) + hard-error live regions. -->
+  <p
+    *ngIf="store.note()"
+    class="hint"
+    data-testid="ap-note"
+    role="status"
+    aria-live="polite"
+  >{{ store.note() }}</p>
+  <p
+    *ngIf="store.error()"
+    class="field-error"
+    data-testid="ap-error"
+    role="alert"
+    aria-live="assertive"
+  >{{ store.error() }}</p>
+
+  <!-- ── Decide an appeal by id ──────────────────────────────────── -->
+  <form class="form" data-testid="ap-decide-form" (ngSubmit)="approve()" novalidate
+        aria-label="Approve or deny a moderation appeal">
+    <h3>Decide an appeal</h3>
+    <label for="ap-id">Moderation request id</label>
+    <input
+      id="ap-id"
+      data-testid="ap-id"
+      [(ngModel)]="appealId"
+      name="appealId"
+      inputmode="numeric"
+      autocomplete="off"
+      [disabled]="store.busy()"
+      [attr.aria-invalid]="idError() ? 'true' : null"
+      [attr.aria-describedby]="idError() ? 'ap-id-error ap-id-help' : 'ap-id-help'"
+    />
+    <span id="ap-id-help" class="hint field-help">
+      The numeric id of the referred moderation request (from the federation moderation
+      system). The decision is scoped to your domain.
+    </span>
+
+    <div class="actions">
+      <button
+        type="submit"
+        data-testid="ap-approve"
+        [disabled]="store.busy()"
+        [attr.aria-label]="'Approve appeal ' + (appealId || '')"
+        [attr.aria-describedby]="store.busy() ? 'ap-busy-help' : null"
+      >{{ store.busy() ? 'Deciding…' : 'Approve appeal' }}</button>
+      <button
+        type="button"
+        class="danger"
+        data-testid="ap-deny"
+        (click)="deny()"
+        [disabled]="store.busy()"
+        [attr.aria-label]="'Deny appeal ' + (appealId || '')"
+        [attr.aria-describedby]="store.busy() ? 'ap-busy-help' : null"
+      >{{ store.busy() ? 'Deciding…' : 'Deny appeal' }}</button>
+    </div>
+    <span
+      *ngIf="store.busy()"
+      id="ap-busy-help"
+      class="hint field-help"
+      data-testid="ap-busy"
+      role="status"
+      aria-live="polite"
+    >Submitting the decision to the moderation service…</span>
+
+    <span
+      *ngIf="idError()"
+      id="ap-id-error"
+      class="field-error"
+      data-testid="ap-id-error"
+      role="alert"
+      aria-live="assertive"
+    >{{ idError() }}</span>
+  </form>
+
+  <!-- ── Decided this session (honest record; optimistic prepend) ── -->
+  <section class="decided" data-testid="ap-decided" aria-labelledby="ap-decided-heading">
+    <h3 id="ap-decided-heading">Decided this session</h3>
+    <p *ngIf="store.decided().length === 0" class="hint" data-testid="ap-decided-empty">
+      No appeals decided yet in this session.
+    </p>
+    <table *ngIf="store.decided().length" class="decided-table" data-testid="ap-decided-table">
+      <caption class="sr-caption">Moderation appeals you have approved or denied in this session</caption>
+      <thead>
+        <tr>
+          <th scope="col">Id</th>
+          <th scope="col">Kind</th>
+          <th scope="col">Target</th>
+          <th scope="col">Status</th>
+          <th scope="col">Domain</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let r of store.decided()" [attr.data-appeal-id]="r.id">
+          <td [attr.data-cell]="'id'">{{ r.id }}</td>
+          <td [attr.data-cell]="'kind'">{{ r.kind }}</td>
+          <td [attr.data-cell]="'target'">{{ r.target }}</td>
+          <td [attr.data-cell]="'status'">
+            <span
+              class="status-pill"
+              [class.is-approved]="r.status === 'approved'"
+              [class.is-denied]="r.status === 'denied'"
+            >{{ r.status }}</span>
+          </td>
+          <td [attr.data-cell]="'domain'">{{ r.domain }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── Not yet available: a live pending queue (no admin-bff list proxy) ── -->
+  <!--
+    Honesty + defence-in-depth: there is NO admin-bff endpoint that LISTS pending
+    moderation requests (federation-api has GET /api/federation/moderation?status=,
+    but admin-bff does not proxy it and this remote only reaches admin-bff). Rather
+    than fabricate a queue we render the control VISIBLY DISABLED via aria-disabled
+    (NOT native disabled, so assistive tech still reaches the helptext that explains
+    WHY) with aria-describedby helptext.
+  -->
+  <section class="gaps" data-testid="ap-gaps" aria-labelledby="ap-gaps-heading">
+    <h3 id="ap-gaps-heading">Not yet available</h3>
+    <ul class="gap-list">
+      <li class="gap">
+        <button
+          type="button"
+          class="gap-btn"
+          aria-disabled="true"
+          data-testid="ap-gap-pending-list"
+          aria-describedby="ap-gap-pending-list-help"
+        >Load pending appeals</button>
+        <span id="ap-gap-pending-list-help" class="hint field-help">
+          A live pending-appeals queue has no admin service endpoint yet — admin-bff
+          proxies only the decide action, not a moderation-request list. Decide by the
+          known request id above; a queue table appears once a list proxy is added.
+        </span>
+      </li>
+    </ul>
+  </section>
+</section>

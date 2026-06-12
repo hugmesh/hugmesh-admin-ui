@@ -191,6 +191,35 @@ describe('BffService', () => {
     expect(got.length).toBe(2);
     expect((got[1] as { percent: number }).percent).toBe(100);
   });
+
+  // ── Appeals decide-proxy (POST /bff/admin/moderation/{id}/decide?approve=) ──
+  describe('decideModeration', () => {
+    it('POSTs to the decide-proxy with the id in the path + approve in the query', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ id: 7, status: 'approved' }));
+      const row = await service.decideModeration(7, true);
+      expect(lastUrl()).toContain('/bff/admin/moderation/7/decide');
+      expect(lastUrl()).toContain('approve=true');
+      expect(lastInit().method).toBe('POST');
+      expect(authHeader()).toBe('Bearer bff-tok-1');
+      expect(row.status).toBe('approved');
+    });
+
+    it('sends approve=false for a deny', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ id: 7, status: 'denied' }));
+      await service.decideModeration(7, false);
+      expect(lastUrl()).toContain('approve=false');
+    });
+
+    it('throws the BFF {error} message on a reject (e.g. a 404 cross-domain row)', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ error: 'not found' }, { ok: false, status: 404 }));
+      await expectAsync(service.decideModeration(99, true)).toBeRejectedWithError('not found');
+    });
+
+    it('falls back to HTTP <status> when the error body has no {error}', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({}, { ok: false, status: 502 }));
+      await expectAsync(service.decideModeration(7, true)).toBeRejectedWithError('HTTP 502');
+    });
+  });
 });
 
 /** A minimal ReadableStream whose single chunk is the given SSE text. */

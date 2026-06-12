@@ -49,6 +49,7 @@ export class AdminComponent implements OnInit {
     { path: 'announcements', label: 'Announcements' },
     { path: 'test-reports', label: 'Test reports' },
     { path: 'forum', label: 'Forum admin' },
+    { path: 'appeals', label: 'Appeals' },
     { path: 'device-licenses', label: 'Device licenses', superadminOnly: true },
   ];
 

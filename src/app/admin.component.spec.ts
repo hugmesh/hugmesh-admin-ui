@@ -45,6 +45,15 @@ describe('AdminComponent', () => {
     expect(el.querySelector('[data-menu="forum"]')).not.toBeNull();
   });
 
+  it('renders the Appeals menu item (the appeals-decide console) for an ADMIN', () => {
+    superadmin.set(false);
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    const link = el.querySelector('[data-menu="appeals"]');
+    expect(link).withContext('appeals menu link').not.toBeNull();
+    expect(link!.textContent!.trim()).toBe('Appeals');
+  });
+
   it('hides the superadmin-only Device licenses menu item from a non-superadmin', () => {
     superadmin.set(false);
     fixture.detectChanges();

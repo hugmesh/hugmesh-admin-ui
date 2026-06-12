@@ -154,6 +154,38 @@ export class BffService {
     return typeof err === 'string' ? err : JSON.stringify(err);
   }
 
+  // ── Appeals adjudication / moderation DECIDE (ADMIN-only, decide-proxy) ──
+  // The admin-ui Appeals console's DECIDE action. The admin-bff does NOT own the
+  // moderation_requests table — its AdminController PROXIES to snapdragon-federation-
+  // api's POST /api/federation/moderation/{id}/decide, forwarding the caller's Casdoor
+  // JWT so federation-api applies its OWN @PreAuthorize(ADMIN|SUPERADMIN) + per-domain
+  // scope (a brand-X admin can only decide brand-X rows; a brand-Y id is invisible/404
+  // — cross-domain DENY enforced downstream). admin-bff re-applies hasRole('ADMIN') as
+  // defence-in-depth and @Positive-validates the {id}. Endpoint (admin-bff #26):
+  //   POST /bff/admin/moderation/{id}/decide?approve=<bool> → ModerationRequest (row
+  //        with status flipped to 'approved' | 'denied', adminDecider stamped).
+  //
+  // DEPENDENCY / GAP: there is NO admin-bff endpoint to LIST pending moderation
+  // requests yet. federation-api exposes GET /api/federation/moderation?status= (MOD/
+  // ADMIN), but admin-bff does NOT proxy it (FederationApiClient has only decide()),
+  // and this remote talks only to admin-bff. So the console drives the decide action by
+  // the known item id (the flow surfaced from the federation moderation system / mod
+  // tooling) and surfaces the decided row, rather than fabricating a list. When an
+  // admin-bff list proxy lands, the console gains a live pending-queue table.
+
+  /** Approve OR deny a referred moderation request by id (the appeals decide-proxy).
+   *  Returns the updated row (status → approved|denied). Throws the BFF {error} on a
+   *  reject (non-numeric/non-positive id → 400; downstream unreachable → 502; a row in
+   *  another domain → 404). */
+  async decideModeration(id: number, approve: boolean): Promise<ModerationRequest> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(
+      `${CFG.bff}/bff/admin/moderation/${encodeURIComponent(String(id))}/decide?approve=${approve}`,
+      { method: 'POST', headers: { authorization: `Bearer ${t}` } });
+    if (r.ok) return r.json();
+    throw new Error(await this.errorOf(r));
+  }
+
   // ── Per-gateway role->URL external access rules ──────────────────
   // The admin-api persists these in Postgres (gateway_route_access); each
   // gateway caches them in Cassandra and denies external access unless the
@@ -758,6 +790,29 @@ export interface ForumBanRequest { reason?: string | null; }
 export interface ForumCategoryRequest { name: string; description?: string | null; parentId?: number | null; }
 export interface ForumGroupRequest { group: 'ADMINISTRATORS' | 'GLOBAL_MODERATORS' | 'REGISTERED'; }
 export interface ForumInstallRequest { name: string; }
+
+// ── Appeals / moderation DTOs (mirror the admin-bff ModerationDecisionDto, which is
+//    field-for-field the federation-api ModerationRequest row the decide-proxy returns) ──
+/** The moderation `kind`: an instance-wide block, or a single user's removal. */
+export type ModerationKind = 'instance-block' | 'user-removal';
+/** The moderation lifecycle status. A mod `recommended` / `referred` it; an admin's
+ *  decision flips it to `approved` | `denied` (the terminal, decided states). */
+export type ModerationStatus = 'recommended' | 'referred' | 'approved' | 'denied';
+/** One moderation_requests row returned by the decide-proxy (admin-bff
+ *  ModerationDecisionDto). `adminDecider` is stamped from the deciding admin's JWT
+ *  subject; `domain` is the brand the row belongs to (per-domain scoped downstream). */
+export interface ModerationRequest {
+  id: number;
+  requester: string;
+  kind: ModerationKind;
+  target: string;
+  reason?: string | null;
+  status: ModerationStatus;
+  modReferrer?: string | null;
+  adminDecider?: string | null;
+  ts?: string | null;
+  domain?: string | null;
+}
 
 // ── Device-license registry DTOs (mirror the admin-bff device package shapes) ──
 /** One SSH operate-license row: (operator × DEVICE|DOMAIN) → may-SSH, key-pinned. */
