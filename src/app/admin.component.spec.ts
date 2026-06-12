@@ -1,21 +1,31 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { signal } from '@angular/core';
 import { AdminComponent } from './admin.component';
 import { BffService } from './bff.service';
+import { SessionService } from './session.service';
 
 describe('AdminComponent', () => {
   let fixture: ComponentFixture<AdminComponent>;
   let component: AdminComponent;
   let bff: jasmine.SpyObj<BffService>;
+  // The menu hides superadmin-only items unless the session is a superadmin; this
+  // signal lets each test choose the role the component sees.
+  const superadmin = signal(false);
 
   beforeEach(async () => {
+    superadmin.set(false);
     bff = jasmine.createSpyObj<BffService>('BffService', ['allowlist', 'invite']);
     bff.allowlist.and.resolveTo({ emails: ['a@gmail.com'], discord: ['bob'] });
     await TestBed.configureTestingModule({
       imports: [AdminComponent],
       // The landing view now carries the admin menu (routerLinks), so the test
-      // module supplies a router.
-      providers: [{ provide: BffService, useValue: bff }, provideRouter([])],
+      // module supplies a router. A stub SessionService drives the superadmin gate.
+      providers: [
+        { provide: BffService, useValue: bff },
+        { provide: SessionService, useValue: { isSuperadmin: superadmin } },
+        provideRouter([]),
+      ],
     }).compileComponents();
     fixture = TestBed.createComponent(AdminComponent);
     component = fixture.componentInstance;
@@ -33,6 +43,22 @@ describe('AdminComponent', () => {
     expect(el.querySelector('[data-menu="announcements"]')).not.toBeNull();
     expect(el.querySelector('[data-menu="test-reports"]')).not.toBeNull();
     expect(el.querySelector('[data-menu="forum"]')).not.toBeNull();
+  });
+
+  it('hides the superadmin-only Device licenses menu item from a non-superadmin', () => {
+    superadmin.set(false);
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('[data-menu="device-licenses"]')).toBeNull();
+  });
+
+  it('surfaces the Device licenses menu item for a superadmin', () => {
+    superadmin.set(true);
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    const link = el.querySelector('[data-menu="device-licenses"]');
+    expect(link).not.toBeNull();
+    expect(link!.textContent!.trim()).toBe('Device licenses');
   });
 
   it('loads the allowlist on init and renders both lists', async () => {

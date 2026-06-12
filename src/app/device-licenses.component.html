@@ -1,0 +1,90 @@
+<section class="snap-device-licenses" data-testid="device-licenses-view" aria-labelledby="dl-heading">
+  <h2 id="dl-heading">Device licenses</h2>
+  <p class="dl-intro">
+    Grant or revoke SSH operate-licenses across the device registry — the single source
+    of truth for which operator may SSH which mesh node. Per-device or per-domain.
+  </p>
+
+  <form (ngSubmit)="grant()" novalidate>
+    <label for="dl-scope">Scope</label>
+    <select id="dl-scope" data-testid="dl-scope" [(ngModel)]="scope" name="scope">
+      <option value="DEVICE">Per device</option>
+      <option value="DOMAIN">Per domain</option>
+    </select>
+
+    <label for="dl-device-id">Device</label>
+    <select
+      id="dl-device-id"
+      data-testid="dl-device-id"
+      [(ngModel)]="deviceId"
+      name="deviceId"
+      [disabled]="scope === 'DOMAIN'"
+    >
+      <option *ngFor="let d of devices()" [value]="d.id">{{ d.hostname }} ({{ d.domain }})</option>
+    </select>
+
+    <label for="dl-domain">Domain</label>
+    <select
+      id="dl-domain"
+      data-testid="dl-domain"
+      [(ngModel)]="domain"
+      name="domain"
+      [disabled]="scope === 'DEVICE'"
+    >
+      <option *ngFor="let dom of domains()" [value]="dom">{{ dom }}</option>
+    </select>
+
+    <label for="dl-operator">Operator (email or Discord handle)</label>
+    <input
+      id="dl-operator"
+      data-testid="dl-operator"
+      [(ngModel)]="operator"
+      name="operator"
+      placeholder="operator (email/discord)"
+      [attr.aria-invalid]="formError() ? 'true' : null"
+      [attr.aria-describedby]="formError() ? 'dl-error' : null"
+    />
+
+    <label for="dl-fingerprints">SSH key fingerprints (comma/space separated)</label>
+    <input
+      id="dl-fingerprints"
+      data-testid="dl-fingerprints"
+      [(ngModel)]="keyFingerprints"
+      name="keyFingerprints"
+      placeholder="SHA256:abc…, SHA256:def…"
+      [attr.aria-invalid]="formError() ? 'true' : null"
+      [attr.aria-describedby]="formError() ? 'dl-error' : null"
+    />
+
+    <button data-testid="dl-grant" type="submit">Grant license</button>
+
+    <span
+      *ngIf="formError()"
+      id="dl-error"
+      class="field-error"
+      data-testid="dl-error"
+      role="alert"
+      aria-live="assertive"
+    >{{ formError() }}</span>
+  </form>
+
+  <ul data-testid="dl-devices" aria-label="Registered devices and their SSH operate-licenses">
+    <li *ngFor="let d of devices()" [attr.data-device-id]="d.id">
+      <strong>{{ d.hostname }}</strong>
+      — owner: {{ d.physical_owner }} ({{ d.owner_type }})
+      · domain: {{ d.domain }}
+      <ul [attr.aria-label]="'Licensed operators for ' + d.hostname">
+        <li *ngFor="let l of d.licenses" [attr.data-license-id]="l.id">
+          {{ l.operator }}
+          — {{ l.scope_type === 'DEVICE' ? 'this device' : 'domain ' + l.target_domain }}
+          <button
+            type="button"
+            [attr.data-revoke]="l.id"
+            [attr.aria-label]="'Revoke ' + l.operator + ' license on ' + d.hostname"
+            (click)="revoke(l.id)"
+          >revoke</button>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</section>
