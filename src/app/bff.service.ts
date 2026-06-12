@@ -432,6 +432,112 @@ export class BffService {
     }
   }
 
+  // ── Superadmin Pen-test panel (SUPERADMIN-only, BFF /bff/superadmin/pentest/**) ──
+  // A superadmin can TRIGGER the pen-test + load-test against the live TEST env on
+  // real devices once the cloud is up (run context iii): TEST-namespace-only,
+  // superadmin-only, never production. The /bff/superadmin/** coarse gate is
+  // hasRole('SUPERADMIN') with NO ADMIN edge; this console is superadmin-route-
+  // guarded as defence-in-depth but the BFF is the source of truth. Endpoints
+  // (admin-bff PentestController, PR4 contract):
+  //   POST /bff/superadmin/pentest/run           → { runId, status:'QUEUED', pipeline, scan, load, env }
+  //   GET  /bff/superadmin/pentest               → { runs:[PentestRun], launchReal }
+  //   GET  /bff/superadmin/pentest/{runId}        → PentestRun (404 if missing)
+  //   GET  /bff/superadmin/pentest/{runId}/download → application/gzip tar.gz
+  //   GET  /bff/superadmin/pentest/{runId}/events   → SSE Flux<PentestRunEvent>
+  // The launch only ever targets the validated TEST namespace; the BFF refuses
+  // anything else. SSE uses the bearer-fetch ReadableStream reader (NOT raw
+  // EventSource, which cannot send the Casdoor Bearer).
+
+  /** Newest-first pen-test run history + whether the launcher really applies k8s Jobs. */
+  async pentestRuns(): Promise<PentestRunsList> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/superadmin/pentest`, { headers: { authorization: `Bearer ${t}` } });
+    return r.ok ? r.json() : { runs: [], launchReal: false };
+  }
+
+  /** One pen-test run's status payload (404 → null). */
+  async pentestRun(runId: string): Promise<PentestRun | null> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/superadmin/pentest/${encodeURIComponent(runId)}`, {
+      headers: { authorization: `Bearer ${t}` },
+    });
+    return r.ok ? r.json() : null;
+  }
+
+  /** Launch the pentest-runner k8s Job in the validated TEST namespace. Returns the
+   *  new run id (or throws the BFF {error} on a reject, e.g. a non-launchable env). */
+  async runPentest(req: StartPentestRunRequest): Promise<StartPentestRunResult> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/superadmin/pentest/run`, {
+      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      body: JSON.stringify(req),
+    });
+    if (r.ok) return r.json();
+    throw new Error(await this.errorOf(r));
+  }
+
+  /**
+   * Download a pen-test run's merged HTML/SARIF report bundle (re-scrubbed tar.gz).
+   * Uses a bearer fetch (NOT a plain <a href>) so the Casdoor token is sent, then
+   * hands the Blob to a synthetic, object-URL-backed anchor so the browser saves the
+   * file. Returns false (no throw) when there is no bundle yet / the request is
+   * denied, so the caller can surface an honest "no report available" message.
+   */
+  async downloadPentestReport(runId: string): Promise<boolean> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/superadmin/pentest/${encodeURIComponent(runId)}/download`, {
+      headers: { authorization: `Bearer ${t}`, accept: 'application/gzip' },
+    });
+    if (!r.ok) return false;
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    try {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `pentest-report-${runId.replace(/[^A-Za-z0-9._-]/g, '_')}.tar.gz`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+    return true;
+  }
+
+  /**
+   * Subscribe to the SSE progress stream for a pen-test run id. Like
+   * {@link streamTestRunEvents} this uses a bearer fetch + ReadableStream reader (NOT
+   * raw EventSource, which cannot send the Casdoor Bearer). Parses each SSE `data:`
+   * line as a PentestRunEvent and invokes `onEvent`; resolves when the stream
+   * completes. `signal` lets the caller abort on component teardown.
+   */
+  async streamPentestRunEvents(runId: string, onEvent: (e: PentestRunEvent) => void,
+                               signal?: AbortSignal): Promise<void> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/superadmin/pentest/${encodeURIComponent(runId)}/events`, {
+      headers: { authorization: `Bearer ${t}`, accept: 'text/event-stream' }, signal,
+    });
+    if (!r.ok || !r.body) throw new Error(`HTTP ${r.status}`);
+    const reader = r.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let sep: number;
+      while ((sep = buffer.indexOf('\n\n')) >= 0) {
+        const frame = buffer.slice(0, sep);
+        buffer = buffer.slice(sep + 2);
+        for (const line of frame.split('\n')) {
+          if (line.startsWith('data:')) {
+            try { onEvent(JSON.parse(line.slice(5).trim()) as PentestRunEvent); } catch { /* skip keep-alive */ }
+          }
+        }
+      }
+    }
+  }
+
   // ── Forum admin console (ADMIN-only, BFF /bff/admin/forum/**) ───────────
   // PROXIES the full phpBB ACP capability through admin-bff ForumAdminController.
   // Every response is the ForumOutcome envelope: the returned payload merged with a
@@ -776,6 +882,74 @@ export interface TestRunEvent {
   passed: number;
   failed: number;
   skipped: number;
+  percent: number;
+  message: string;
+  done: boolean;
+  error?: string | null;
+}
+
+// ── Pen-test DTOs (mirror the admin-bff pentest package shapes, PR4 contract) ──
+/** Which CI pipeline to pen-test (matches the ck_pentest_run_pipeline CHECK). */
+export type PentestPipeline = 'main' | 'games';
+/** Scan depth (matches ck_pentest_run_scan). baseline = ZAP baseline; full = active. */
+export type PentestScan = 'baseline' | 'full';
+/** Target env. Only 'cluster' is launchable from the BFF (ck_pentest_run_target_env). */
+export type PentestEnv = 'cluster' | 'compose' | 'local';
+/** The pen-test run lifecycle status. */
+export type PentestStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'ERROR';
+
+/** POST body to launch a pen-test run. Server-side defaults: pipeline=main,
+ *  scan=baseline, load=false, env=cluster (only 'cluster' is launchable). */
+export interface StartPentestRunRequest {
+  pipeline?: PentestPipeline | null;
+  scan?: PentestScan | null;
+  load?: boolean | null;
+  env?: PentestEnv | null;
+}
+/** The 200 echo from POST /run: the queued run's id + the validated parameters. */
+export interface StartPentestRunResult {
+  runId: string;
+  status: string;
+  pipeline: PentestPipeline;
+  scan: PentestScan;
+  load: boolean;
+  env: PentestEnv;
+}
+/** One durable pen-test run row + status payload (admin-bff PentestRun record). */
+export interface PentestRun {
+  id: string;
+  created_at: string;
+  triggered_by: string;
+  pipeline: PentestPipeline;
+  scan: PentestScan;
+  load_test: boolean;
+  target_env: PentestEnv;
+  target_namespace: string;
+  status: PentestStatus;
+  job_name?: string | null;
+  started_at?: string | null;
+  finished_at?: string | null;
+  total_tests: number;
+  passed: number;
+  failed: number;
+  skipped: number;
+  findings_high: number;
+  findings_critical: number;
+  duration_ms?: number | null;
+  report_ref?: string | null;
+  error?: string | null;
+}
+export interface PentestRunsList { runs: PentestRun[]; launchReal: boolean; }
+/** One SSE progress event for a running pen-test (admin-bff PentestRunEvent record). */
+export interface PentestRunEvent {
+  runId: string;
+  stage?: string | null;
+  state: 'running' | 'passed' | 'failed' | 'skipped' | 'error';
+  passed: number;
+  failed: number;
+  skipped: number;
+  findingsHigh: number;
+  findingsCritical: number;
   percent: number;
   message: string;
   done: boolean;

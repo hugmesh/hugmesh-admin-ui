@@ -16,6 +16,7 @@ import { TestReportsComponent } from './test-reports/test-reports.component';
 import { ForumAdminComponent } from './forum-admin/forum-admin.component';
 import { AppealsComponent } from './appeals/appeals.component';
 import { DeviceLicensesComponent } from './device-licenses.component';
+import { PentestComponent } from './pentest/pentest.component';
 import { superadminGuard } from './superadmin.guard';
 
 /**
@@ -50,9 +51,10 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('forum')!.component).toBe(ForumAdminComponent);
     expect(byPath('appeals')!.component).toBe(AppealsComponent);
     expect(byPath('device-licenses')!.component).toBe(DeviceLicensesComponent);
+    expect(byPath('pentest')!.component).toBe(PentestComponent);
   });
 
-  it('exposes exactly the seventeen admin views the host expects (incl. delegation + appeals + device-licenses)', () => {
+  it('exposes exactly the eighteen admin views the host expects (incl. delegation + appeals + device-licenses + pentest)', () => {
     expect(ADMIN_ROUTES.map((r) => r.path)).toEqual([
       '',
       'usage',
@@ -71,11 +73,16 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
       'forum',
       'appeals',
       'device-licenses',
+      'pentest',
     ]);
   });
 
   it('superadmin-gates the device-licenses console (additive, behind the superadmin guard)', () => {
     expect(byPath('device-licenses')!.canActivate).toEqual([superadminGuard]);
+  });
+
+  it('superadmin-gates the pentest panel (additive, behind the superadmin guard)', () => {
+    expect(byPath('pentest')!.canActivate).toEqual([superadminGuard]);
   });
 
   it('exposes the appeals console as a plain ADMIN route (no superadmin guard)', () => {
