@@ -3,13 +3,24 @@
   <p class="intro">Select a completed backup to restore. Encrypted backups require their decryption password.</p>
 
   <h3 id="recovery-list-heading">Available backups</h3>
-  <ul class="backup-list" data-testid="recovery-list" aria-labelledby="recovery-list-heading">
+  <p id="recovery-list-help" class="hint" data-testid="recovery-list-help">
+    Pick a backup to restore from. Each button shows its scope, source and time; selecting it
+    opens the restore form below. Only completed backups appear here.
+  </p>
+  <ul
+    class="backup-list"
+    data-testid="recovery-list"
+    aria-labelledby="recovery-list-heading"
+    aria-describedby="recovery-list-help"
+  >
     <li *ngFor="let b of restorable()" [attr.data-backup]="b.id" class="backup-item">
       <button
         type="button"
         class="backup-button"
         [class.is-selected]="selected()?.id === b.id"
         [attr.aria-pressed]="selected()?.id === b.id"
+        [attr.aria-label]="'Select backup ' + b.scope + ' from ' + b.target + ', ' + b.created_at + (b.encrypted ? ', encrypted' : '')"
+        aria-describedby="recovery-list-help"
         (click)="select(b)"
       >
         <span class="b-scope">{{ b.scope }}</span>
@@ -50,13 +61,27 @@
         [(ngModel)]="password"
         name="password"
         autocomplete="off"
+        aria-describedby="recovery-password-help"
+        [attr.aria-invalid]="error() ? 'true' : null"
       />
-      <p class="hint">Verified by the server; a wrong password is rejected and never reveals the key.</p>
+      <p id="recovery-password-help" class="hint" data-testid="recovery-password-help">
+        Enter the password set when this backup was created (at least 8 characters). It is verified
+        by the server; a wrong password is rejected and never reveals the key.
+      </p>
     </div>
 
-    <button type="submit" data-testid="recovery-start" [disabled]="starting()">
+    <button
+      type="submit"
+      data-testid="recovery-start"
+      [disabled]="starting()"
+      aria-describedby="recovery-start-help"
+    >
       {{ starting() ? 'Starting…' : 'Restore this backup' }}
     </button>
+    <p id="recovery-start-help" class="hint" data-testid="recovery-start-help">
+      Starts the restore and overwrites the selected scopes with the backup contents. Progress
+      streams live below; this cannot be undone, so confirm the scope preview first.
+    </p>
 
     <p
       *ngIf="error()"

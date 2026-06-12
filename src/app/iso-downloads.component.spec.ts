@@ -55,5 +55,26 @@ describe('IsoDownloadsComponent', () => {
       const srText = el.querySelector('[data-iso="a.iso"] a .sr');
       expect(srText).withContext('screen-reader-only download hint present').not.toBeNull();
     });
+
+    it('describes the list + each link with help text that is wired and informative', async () => {
+      bff.isos.and.resolveTo([{ name: 'a.iso', url: 'u' }]);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const el: HTMLElement = fixture.nativeElement;
+      const help = el.querySelector('[data-testid="iso-help"]')!;
+      expect(help).withContext('visible help present').not.toBeNull();
+      expect(help.id).toBe('iso-help');
+      expect(help.textContent!.trim().length).toBeGreaterThan(40);
+
+      const list = el.querySelector('[data-testid="iso-list"]')!;
+      expect(list.getAttribute('aria-describedby')).toBe('iso-help');
+
+      const link = el.querySelector<HTMLAnchorElement>('[data-iso="a.iso"] a')!;
+      expect(link.getAttribute('aria-describedby')).toBe('iso-help');
+      // Explicit accessible name beyond the visible filename so it announces what it does.
+      expect(link.getAttribute('aria-label')).toBe('Download ISO a.iso');
+    });
   });
 });

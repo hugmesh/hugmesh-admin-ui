@@ -1,12 +1,20 @@
 <section class="snap-announcements" data-testid="announcements-view" aria-labelledby="announcements-heading">
   <div class="head">
     <h2 id="announcements-heading">Announcements</h2>
-    <button type="button" data-testid="ann-new" (click)="newAnnouncement()">New announcement</button>
+    <button
+      type="button"
+      data-testid="ann-new"
+      aria-describedby="announcements-new-help"
+      (click)="newAnnouncement()"
+    >New announcement</button>
   </div>
-  <p class="intro">
+  <p id="announcements-help" class="intro" data-testid="announcements-help">
     Create, schedule and target announcements for the home banner, the public login page,
     Mastodon/akkoma and the forum main page. Bodies are sanitised on save and rendered
     inside a sandboxed preview.
+  </p>
+  <p id="announcements-new-help" class="sr">
+    Opens a blank editor below to compose a new announcement and choose where and when it shows.
   </p>
 
   <p
@@ -55,20 +63,44 @@
         </td>
         <td class="t-priority">{{ a.priority }}</td>
         <td class="t-actions">
-          <button type="button" class="link" [attr.data-edit]="a.id" (click)="edit(a)">Edit</button>
+          <button
+            type="button"
+            class="link"
+            [attr.data-edit]="a.id"
+            [attr.aria-label]="'Edit announcement ' + a.title"
+            (click)="edit(a)"
+          >Edit</button>
 
           <ng-container *ngIf="confirmingDelete() === a.id; else delBtn">
             <span class="confirm" role="group" [attr.aria-label]="'Confirm delete ' + a.title">
-              <button type="button" class="danger" [attr.data-confirm-delete]="a.id" (click)="confirmDelete(a)">
+              <button
+                type="button"
+                class="danger"
+                [attr.data-confirm-delete]="a.id"
+                [attr.aria-label]="'Permanently delete announcement ' + a.title"
+                (click)="confirmDelete(a)"
+              >
                 Confirm delete
               </button>
-              <button type="button" class="link" data-testid="ann-cancel-delete" (click)="cancelDelete()">
+              <button
+                type="button"
+                class="link"
+                data-testid="ann-cancel-delete"
+                [attr.aria-label]="'Cancel deleting ' + a.title"
+                (click)="cancelDelete()"
+              >
                 Cancel
               </button>
             </span>
           </ng-container>
           <ng-template #delBtn>
-            <button type="button" class="link danger-link" [attr.data-delete]="a.id" (click)="askDelete(a)">
+            <button
+              type="button"
+              class="link danger-link"
+              [attr.data-delete]="a.id"
+              [attr.aria-label]="'Delete announcement ' + a.title"
+              (click)="askDelete(a)"
+            >
               Delete
             </button>
           </ng-template>

@@ -66,4 +66,29 @@ describe('BackupHistoryComponent', () => {
     const el: HTMLElement = fixture.nativeElement;
     expect(el.querySelector('[data-testid="backup-history-empty"]')).not.toBeNull();
   });
+
+  describe('help text (sighted + low/no-sight)', () => {
+    it('describes the history table with wired, informative help', async () => {
+      await init();
+      const el: HTMLElement = fixture.nativeElement;
+      const help = el.querySelector('[data-testid="backup-history-help"]')!;
+      expect(help).withContext('visible help present').not.toBeNull();
+      expect(help.id).toBe('backup-history-help');
+      expect(help.textContent!.trim().length).toBeGreaterThan(40);
+      const table = el.querySelector('[data-testid="backup-history-table"]')!;
+      expect(table.getAttribute('aria-describedby')).toBe('backup-history-help');
+    });
+
+    it('gives the failed-row warning icon an accessible name instead of a hover-only title', async () => {
+      await init();
+      const el: HTMLElement = fixture.nativeElement;
+      const rowError = el.querySelector('[data-testid="backup-history-row-error"]')!;
+      expect(rowError).withContext('failed row shows an error marker').not.toBeNull();
+      // The bare ⚠ glyph is aria-hidden; the message is announced via an aria-label
+      // and an .sr text node (not a hover-only [title]).
+      expect(rowError.getAttribute('aria-label')).toContain('pg_dump failed');
+      expect(rowError.querySelector('.sr')!.textContent).toContain('pg_dump failed');
+      expect(rowError.querySelector('[aria-hidden="true"]')!.textContent).toContain('⚠');
+    });
+  });
 });

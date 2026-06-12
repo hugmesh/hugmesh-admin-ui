@@ -1,9 +1,19 @@
 <section class="snap-isos" data-testid="iso-view" aria-labelledby="iso-heading">
   <h2 id="iso-heading">ISO downloads</h2>
+  <p id="iso-help" class="hint" data-testid="iso-help">
+    The latest installer ISO artifacts built by the CI/ArgoCD pipeline. Selecting a name downloads
+    that image over a signed, gateway-internal link; no key material is included in these images.
+  </p>
   <p *ngIf="!isos().length" data-testid="iso-empty">No ISO builds delivered yet.</p>
-  <ul data-testid="iso-list" aria-label="Available ISO downloads">
+  <ul data-testid="iso-list" aria-label="Available ISO downloads" aria-describedby="iso-help">
     <li *ngFor="let iso of isos()" [attr.data-iso]="iso.name">
-      <a [attr.href]="iso.url" [attr.data-iso-url]="iso.url" download>
+      <a
+        [attr.href]="iso.url"
+        [attr.data-iso-url]="iso.url"
+        [attr.aria-label]="'Download ISO ' + iso.name"
+        aria-describedby="iso-help"
+        download
+      >
         {{ iso.name }}<span class="sr"> (download ISO)</span>
       </a>
     </li>

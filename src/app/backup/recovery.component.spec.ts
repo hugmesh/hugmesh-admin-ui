@@ -104,4 +104,50 @@ describe('RecoveryComponent', () => {
     expect(component.error()).toBe('incorrect decryption password');
     expect(component.password).toBe('wrong-but-long'); // not cleared on failure
   });
+
+  describe('help text (sighted + low/no-sight)', () => {
+    it('wires the backup-select buttons to list help and gives each an accessible name', async () => {
+      await init();
+      const el: HTMLElement = fixture.nativeElement;
+      const help = el.querySelector('[data-testid="recovery-list-help"]')!;
+      expect(help).withContext('visible list help present').not.toBeNull();
+      expect(help.id).toBe('recovery-list-help');
+      expect(help.textContent!.trim().length).toBeGreaterThan(40);
+
+      const button = el.querySelector<HTMLButtonElement>(`[data-backup="${encrypted.id}"] .backup-button`)!;
+      expect(button.getAttribute('aria-describedby')).toBe('recovery-list-help');
+      // The button's only visible text is scope/meta spans; an explicit accessible name
+      // tells a screen-reader user which backup it selects + that it is encrypted.
+      const label = button.getAttribute('aria-label')!;
+      expect(label).withContext('select button accessible name').toContain('Select backup');
+      expect(label).toContain('encrypted');
+    });
+
+    it('describes the decryption password input and submit with wired, informative help', async () => {
+      await init();
+      component.select(encrypted);
+      fixture.detectChanges();
+      const el: HTMLElement = fixture.nativeElement;
+
+      const input = el.querySelector<HTMLInputElement>('[data-testid="recovery-password"]')!;
+      expect(input.getAttribute('aria-describedby')).toBe('recovery-password-help');
+      const pwHelp = el.querySelector('#recovery-password-help')!;
+      expect(pwHelp).withContext('password help target exists').not.toBeNull();
+      expect(pwHelp.textContent!).toContain('8 characters');
+
+      const submit = el.querySelector<HTMLButtonElement>('[data-testid="recovery-start"]')!;
+      expect(submit.getAttribute('aria-describedby')).toBe('recovery-start-help');
+      expect(el.querySelector('#recovery-start-help')).withContext('submit help target exists').not.toBeNull();
+    });
+
+    it('marks the password input aria-invalid when an error is shown', async () => {
+      await init();
+      component.select(encrypted);
+      component.error.set('This backup is encrypted — enter its decryption password.');
+      fixture.detectChanges();
+      const el: HTMLElement = fixture.nativeElement;
+      const input = el.querySelector<HTMLInputElement>('[data-testid="recovery-password"]')!;
+      expect(input.getAttribute('aria-invalid')).toBe('true');
+    });
+  });
 });

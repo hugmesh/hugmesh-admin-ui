@@ -661,7 +661,20 @@ export interface ArgoSyncResult {
 }
 
 // ── Admin-task wizard DTOs (mirror the BFF task/step model) ───────────
-export interface FieldDef { key: string; label: string; type: string; required: boolean; placeholder: string; }
+export interface FieldDef {
+  key: string;
+  label: string;
+  type: string;
+  required: boolean;
+  placeholder: string;
+  /**
+   * Optional persistent, visible help describing what the field is for / how to
+   * fill it. Rendered as `.field-help` and wired to the input via
+   * aria-describedby (so it is announced WITH the control, unlike the
+   * placeholder, which AT does not reliably read and which vanishes on input).
+   */
+  hint?: string | null;
+}
 export interface StepDef { id: string; title: string; fields: FieldDef[]; }
 export interface TaskDef { id: string; title: string; description: string; steps: StepDef[]; }
 export interface FieldError { field: string; message: string; }

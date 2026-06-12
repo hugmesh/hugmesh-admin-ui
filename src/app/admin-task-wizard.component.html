@@ -46,8 +46,17 @@
           [name]="f.key"
           [attr.aria-required]="f.required ? 'true' : null"
           [attr.aria-invalid]="fieldError(f.key) ? 'true' : null"
-          [attr.aria-describedby]="fieldError(f.key) ? ('err-' + f.key) : null"
+          [attr.aria-describedby]="describedBy(f)"
         />
+
+        <!-- Persistent, programmatically-associated help for the field (announced
+             WITH the control via aria-describedby; unlike the placeholder). -->
+        <span
+          *ngIf="f.hint"
+          [id]="'hint-' + f.key"
+          class="field-help"
+          [attr.data-hint]="f.key"
+        >{{ f.hint }}</span>
 
         <label *ngIf="f.type === 'boolean'" class="check-inline" [attr.for]="'f-' + f.key">
           <input
@@ -57,6 +66,7 @@
             [ngModel]="form()[f.key]"
             (ngModelChange)="setField(f.key, $event)"
             [name]="f.key"
+            [attr.aria-describedby]="describedBy(f)"
           /> {{ f.label }}
         </label>
 
@@ -83,21 +93,51 @@
 
       <div class="wizard-actions">
         <button type="button" data-testid="wizard-back" [disabled]="stepIndex() === 0 || busy()" (click)="back()">Back</button>
-        <button type="button" data-testid="wizard-validate" [disabled]="busy()" (click)="validate()">Validate</button>
+        <button
+          type="button"
+          data-testid="wizard-validate"
+          [disabled]="busy()"
+          aria-describedby="wizard-validate-help"
+          (click)="validate()"
+        >Validate</button>
         <button *ngIf="!isLastStep()" type="submit" data-testid="wizard-next" [disabled]="busy()">Next</button>
       </div>
+      <p id="wizard-validate-help" class="field-help" data-testid="wizard-validate-help">
+        Checks this step's inputs against the server's rules (including reserved names) without
+        changing anything. Fix any errors shown before continuing.
+      </p>
     </form>
 
     <!-- Final step: preview → apply. -->
     <div *ngIf="isLastStep()" class="review" data-testid="wizard-review">
-      <button type="button" data-testid="wizard-preview" [disabled]="busy()" (click)="runPreview()">Preview changes</button>
+      <button
+        type="button"
+        data-testid="wizard-preview"
+        [disabled]="busy()"
+        aria-describedby="wizard-preview-help"
+        (click)="runPreview()"
+      >Preview changes</button>
+      <p id="wizard-preview-help" class="field-help" data-testid="wizard-preview-help">
+        Shows exactly what applying this task would change in the cluster. Read-only — nothing is
+        applied until you select Apply.
+      </p>
 
       <div *ngIf="preview() as p" class="preview-box" data-testid="wizard-preview-box" role="status" aria-live="polite">
         <p class="preview-summary">{{ p.summary }}</p>
         <ul><li *ngFor="let c of p.changes">{{ c }}</li></ul>
       </div>
 
-      <button type="button" data-testid="wizard-apply" [disabled]="busy()" (click)="apply()">Apply</button>
+      <button
+        type="button"
+        data-testid="wizard-apply"
+        [disabled]="busy()"
+        aria-describedby="wizard-apply-help"
+        (click)="apply()"
+      >Apply</button>
+      <p id="wizard-apply-help" class="field-help" data-testid="wizard-apply-help">
+        Commits this task's changes to the cluster (gateway route, RBAC and Casdoor as applicable).
+        Preview first to confirm the changes.
+      </p>
 
       <p
         *ngIf="applied() as a"
