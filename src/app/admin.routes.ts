@@ -11,11 +11,14 @@ import { BackupComponent } from './backup/backup.component';
 import { RecoveryComponent } from './backup/recovery.component';
 import { BackupHistoryComponent } from './backup/backup-history.component';
 import { AnnouncementListComponent } from './announcements/announcement-list.component';
+import { DelegationComponent } from './delegation/delegation.component';
 
 /** Routes exposed by the Admin native-federation remote. The snapdragon.systems
  *  host mounts these at /admin, so they resolve to /admin (allowlist),
  *  /admin/usage (ClickHouse usage dashboard), /admin/namespaces (namespace
- *  access grants), /admin/route-access (per-gateway role→URL rules),
+ *  access grants), /admin/delegation (access-role suspend/ban + lift, domain-lock
+ *  add/remove, and namespace grant/revoke — the AdminController delegation
+ *  surface), /admin/route-access (per-gateway role→URL rules),
  *  /admin/isos (CI ISO downloads), /admin/argocd (ArgoCD applications dashboard,
  *  via the role-secured BFF proxy), /admin/tasks (guided admin-task wizard),
  *  the cloud Backup & Recovery feature module: /admin/backup (start a backup),
@@ -27,6 +30,7 @@ export const ADMIN_ROUTES: Routes = [
   { path: '', component: AdminComponent },
   { path: 'usage', component: UsageComponent },
   { path: 'namespaces', component: NamespaceAccessComponent },
+  { path: 'delegation', component: DelegationComponent },
   { path: 'route-access', component: RouteAccessComponent },
   { path: 'routes', component: RouteDefinitionsComponent },
   { path: 'isos', component: IsoDownloadsComponent },

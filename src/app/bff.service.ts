@@ -66,6 +66,94 @@ export class BffService {
     return r.ok ? (await r.json()).namespaces : [];
   }
 
+  // ── Delegation / access-roles + domain-lock (ADMIN-only, AdminController) ──
+  // The narrow, verified-against-AdminController delegation surface. Three WIRED
+  // capabilities — access-role suspend/clear, domain-lock add/remove, and the
+  // namespace-access grant/revoke above. There is NO general role grant/revoke,
+  // no external-client grant, and no appeals-adjudication endpoint in admin-bff
+  // (the console renders those disabled+helptext). Admin gating is defence-in-
+  // depth (gateway + resource-server filter + @PreAuthorize("hasRole('ADMIN')"));
+  // this mirrors it but the admin-bff is the source of truth.
+  //
+  //   ACCESS-ROLE SUSPENSION (ban / timed-suspend; the access_suspension table):
+  //     GET    /bff/admin/access-roles            → { suspensions:[AccessSuspension] }
+  //     POST   /bff/admin/access-roles/{role}/{user}  { ttlSeconds?, reason? }
+  //              role ∈ ROLE_MATRIX|ROLE_MASTODON|PROFILE (closed vocab); no body = permanent
+  //              → { suspended:AccessSuspension, suspensions:[...] }
+  //     DELETE /bff/admin/access-roles/{role}/{user}  → { suspensions:[...] }   (lift)
+  //   DOMAIN-LOCK (force local-only marker; ADD-semantics, KEEPS the base role):
+  //     GET    /bff/admin/domain-lock             → { domainLocks:[DomainLock] }
+  //     POST   /bff/admin/domain-lock/{role}/{user}   { reason? }
+  //              role ∈ ROLE_MATRIX_DOMAINLOCKED|ROLE_MASTODON_DOMAINLOCKED
+  //              → { locked:DomainLock, domainLocks:[...] }
+  //     DELETE /bff/admin/domain-lock/{role}/{user}   → { domainLocks:[...] }   (unlock)
+
+  /** All active access-role suspensions (the ban/suspend desired-state table). */
+  async accessRoles(): Promise<AccessRolesView> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/access-roles`, { headers: { authorization: `Bearer ${t}` } });
+    return r.ok ? r.json() : { suspensions: [] };
+  }
+  /** Suspend (ban) a user from a platform access role. ttlSeconds null/absent =
+   *  PERMANENT; a positive value auto-restores at TTL. Throws the BFF {error} on a
+   *  validation reject (e.g. a role outside the closed vocabulary → 400/422). */
+  async suspendAccessRole(role: AccessRole, user: string, body: SuspensionBody = {}): Promise<AccessRolesResult> {
+    return this.accessRoleSend('POST', role, user, body);
+  }
+  /** Lift (clear) a user's active suspension on a role. A no-op server-side if none. */
+  async clearAccessRole(role: AccessRole, user: string): Promise<AccessRolesResult> {
+    return this.accessRoleSend('DELETE', role, user);
+  }
+  private async accessRoleSend(method: 'POST' | 'DELETE', role: AccessRole, user: string,
+                               body?: SuspensionBody): Promise<AccessRolesResult> {
+    const t = this.session.session()?.bffToken;
+    const init: RequestInit = { method, headers: { authorization: `Bearer ${t}` } };
+    // Only POST carries an (optional) body. Omit an empty body so the endpoint's
+    // optional-body branch applies (a permanent suspension needs no body at all).
+    if (method === 'POST' && body && (body.ttlSeconds != null || body.reason)) {
+      (init.headers as Record<string, string>)['content-type'] = 'application/json';
+      init.body = JSON.stringify(body);
+    }
+    const r = await fetch(
+      `${CFG.bff}/bff/admin/access-roles/${encodeURIComponent(role)}/${encodeURIComponent(user)}`, init);
+    if (r.ok) return r.json();
+    throw new Error(await this.errorOf(r));
+  }
+
+  /** All active domain-locks (force local-only markers). */
+  async domainLocks(): Promise<DomainLocksView> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/domain-lock`, { headers: { authorization: `Bearer ${t}` } });
+    return r.ok ? r.json() : { domainLocks: [] };
+  }
+  /** Add a domain-lock (force local-only) marker for a user on a platform. */
+  async lockDomain(role: DomainLockRole, user: string, reason?: string): Promise<DomainLockResult> {
+    return this.domainLockSend('POST', role, user, reason);
+  }
+  /** Remove a domain-lock for a user on a platform. A no-op server-side if none. */
+  async unlockDomain(role: DomainLockRole, user: string): Promise<DomainLockResult> {
+    return this.domainLockSend('DELETE', role, user);
+  }
+  private async domainLockSend(method: 'POST' | 'DELETE', role: DomainLockRole, user: string,
+                               reason?: string): Promise<DomainLockResult> {
+    const t = this.session.session()?.bffToken;
+    const init: RequestInit = { method, headers: { authorization: `Bearer ${t}` } };
+    if (method === 'POST' && reason) {
+      (init.headers as Record<string, string>)['content-type'] = 'application/json';
+      init.body = JSON.stringify({ reason });
+    }
+    const r = await fetch(
+      `${CFG.bff}/bff/admin/domain-lock/${encodeURIComponent(role)}/${encodeURIComponent(user)}`, init);
+    if (r.ok) return r.json();
+    throw new Error(await this.errorOf(r));
+  }
+
+  /** Extract the BFF's {error} message (string or object) for a thrown rejection. */
+  private async errorOf(r: Response): Promise<string> {
+    const err = (await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`;
+    return typeof err === 'string' ? err : JSON.stringify(err);
+  }
+
   // ── Per-gateway role->URL external access rules ──────────────────
   // The admin-api persists these in Postgres (gateway_route_access); each
   // gateway caches them in Cassandra and denies external access unless the
@@ -352,3 +440,48 @@ export interface RouteDefinition {
   serviceName?: string | null;
   requiredRole?: string | null;
 }
+
+// ── Delegation DTOs (mirror the admin-bff suspension + domainlock shapes) ─────
+// The CLOSED access-role vocabulary the AdminController @Pattern-validates for
+// suspensions (matches the DB ck_access_suspension_role CHECK). NOT widened.
+export type AccessRole = 'ROLE_MATRIX' | 'ROLE_MASTODON' | 'PROFILE';
+// The SEPARATE closed vocabulary for the two ADDITIVE domain-lock MARKER roles
+// (matches the DB ck_domain_lock_role CHECK). Distinct from AccessRole above.
+export type DomainLockRole = 'ROLE_MATRIX_DOMAINLOCKED' | 'ROLE_MASTODON_DOMAINLOCKED';
+
+/** Optional POST body for a suspension. null/absent ttlSeconds = PERMANENT ban. */
+export interface SuspensionBody { ttlSeconds?: number | null; reason?: string | null; }
+
+/** One access_suspension row (admin-bff AccessSuspension record). state=active
+ *  while the ban/suspension is in force; expiresAt null = permanent. */
+export interface AccessSuspension {
+  id: string;
+  casdoorUser: string;
+  localpart: string;
+  role: AccessRole;
+  state: 'active' | 'restored';
+  suspendedAt: string;
+  expiresAt?: string | null;
+  restoreRole: boolean;
+  propagationState: 'pending' | 'applied' | 'failed';
+  reason?: string | null;
+  setBy?: string | null;
+}
+export interface AccessRolesView { suspensions: AccessSuspension[]; }
+export interface AccessRolesResult { suspended?: AccessSuspension; suspensions: AccessSuspension[]; }
+
+/** One domain_lock row (admin-bff DomainLock record). An active row means the
+ *  user is forced local-only (KEEPS the base ROLE_MATRIX/ROLE_MASTODON). */
+export interface DomainLock {
+  id: string;
+  casdoorUser: string;
+  localpart: string;
+  role: DomainLockRole;
+  state: 'active' | 'removed';
+  createdAt: string;
+  propagationState: 'pending' | 'applied' | 'failed' | 'degraded';
+  reason?: string | null;
+  setBy?: string | null;
+}
+export interface DomainLocksView { domainLocks: DomainLock[]; }
+export interface DomainLockResult { locked?: DomainLock; domainLocks: DomainLock[]; }

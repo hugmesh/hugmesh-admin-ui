@@ -11,6 +11,7 @@ import { BackupComponent } from './backup/backup.component';
 import { RecoveryComponent } from './backup/recovery.component';
 import { BackupHistoryComponent } from './backup/backup-history.component';
 import { AnnouncementListComponent } from './announcements/announcement-list.component';
+import { DelegationComponent } from './delegation/delegation.component';
 
 /**
  * These specs lock down the federation contract: `./routes` (exposed under the
@@ -30,6 +31,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
   it('wires each feature route to its dedicated component', () => {
     expect(byPath('usage')!.component).toBe(UsageComponent);
     expect(byPath('namespaces')!.component).toBe(NamespaceAccessComponent);
+    expect(byPath('delegation')!.component).toBe(DelegationComponent);
     expect(byPath('route-access')!.component).toBe(RouteAccessComponent);
     expect(byPath('routes')!.component).toBe(RouteDefinitionsComponent);
     expect(byPath('isos')!.component).toBe(IsoDownloadsComponent);
@@ -41,11 +43,12 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('announcements')!.component).toBe(AnnouncementListComponent);
   });
 
-  it('exposes exactly the twelve admin views the host expects', () => {
+  it('exposes exactly the admin views the host expects (incl. delegation)', () => {
     expect(ADMIN_ROUTES.map((r) => r.path)).toEqual([
       '',
       'usage',
       'namespaces',
+      'delegation',
       'route-access',
       'routes',
       'isos',

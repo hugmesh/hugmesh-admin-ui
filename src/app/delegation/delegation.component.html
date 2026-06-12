@@ -1,0 +1,289 @@
+<section class="snap-delegation" data-testid="delegation-view" aria-labelledby="dg-heading">
+  <h2 id="dg-heading">Delegation &amp; access roles</h2>
+  <p class="intro">
+    Suspend or ban a user's platform access role (timed or permanent) and lift it, force a
+    user local-only with a domain-lock, and grant or revoke cluster-namespace access. Every
+    change is written to a desired-state table and reconciled asynchronously — the admin
+    service is the source of truth, so effects apply on the next reconcile, not instantly.
+  </p>
+
+  <p
+    *ngIf="store.note()"
+    class="hint"
+    data-testid="dg-note"
+    role="status"
+    aria-live="polite"
+  >{{ store.note() }}</p>
+  <p
+    *ngIf="store.error()"
+    class="field-error"
+    data-testid="dg-error"
+    role="alert"
+    aria-live="assertive"
+  >{{ store.error() }}</p>
+
+  <div class="tabs" role="tablist" aria-label="Delegation sections" data-testid="dg-tabs">
+    <button
+      *ngFor="let t of tabs"
+      type="button"
+      role="tab"
+      class="tab"
+      [class.is-active]="tab() === t.id"
+      [attr.aria-selected]="tab() === t.id"
+      [attr.data-tab]="t.id"
+      (click)="select(t.id)"
+    >{{ t.label }}</button>
+  </div>
+
+  <!-- ── Suspend / ban (access_suspension) ─────────────────────── -->
+  <div *ngIf="tab() === 'suspensions'" role="tabpanel" class="panel" data-testid="dg-panel-suspensions" aria-label="Access-role suspensions">
+    <h3>Suspend / ban an access role</h3>
+
+    <form class="form" data-testid="dg-suspend-form" (ngSubmit)="suspend()" novalidate aria-label="Suspend or ban a user's access role">
+      <label for="dg-suspend-role">Access role</label>
+      <select id="dg-suspend-role" data-testid="dg-suspend-role" [(ngModel)]="suspendRole" name="suspendRole">
+        <option *ngFor="let r of accessRoles" [value]="r.value">{{ r.label }}</option>
+      </select>
+
+      <label for="dg-suspend-user">User (casdoor id or handle)</label>
+      <input id="dg-suspend-user" data-testid="dg-suspend-user" [(ngModel)]="suspendUser" name="suspendUser" autocomplete="off"
+             [attr.aria-invalid]="suspendError() ? 'true' : null"
+             [attr.aria-describedby]="suspendError() ? 'dg-suspend-error dg-ttl-help' : 'dg-ttl-help'" />
+
+      <label for="dg-suspend-ttl">TTL seconds (optional)</label>
+      <input id="dg-suspend-ttl" data-testid="dg-suspend-ttl" [(ngModel)]="suspendTtl" name="suspendTtl"
+             inputmode="numeric" autocomplete="off" aria-describedby="dg-ttl-help" />
+      <span id="dg-ttl-help" class="hint">Leave blank for a PERMANENT ban; a positive value auto-restores at the TTL.</span>
+
+      <label for="dg-suspend-reason">Reason (optional)</label>
+      <input id="dg-suspend-reason" data-testid="dg-suspend-reason" [(ngModel)]="suspendReason" name="suspendReason" autocomplete="off" />
+
+      <button type="submit" data-testid="dg-suspend">Suspend / ban</button>
+
+      <span
+        *ngIf="suspendError()"
+        id="dg-suspend-error"
+        class="field-error"
+        data-testid="dg-suspend-error"
+        role="alert"
+        aria-live="assertive"
+      >{{ suspendError() }}</span>
+    </form>
+
+    <table data-testid="dg-suspensions-table">
+      <caption class="sr">Active access-role suspensions: the user, role, expiry and reconcile state.</caption>
+      <thead>
+        <tr>
+          <th scope="col">User</th>
+          <th scope="col">Role</th>
+          <th scope="col">Expiry</th>
+          <th scope="col">State</th>
+          <th scope="col"><span class="sr">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let s of store.suspensions()" [attr.data-suspension]="s.id">
+          <td [attr.aria-label]="announce(s.casdoorUser)">{{ s.casdoorUser }}</td>
+          <td>{{ s.role }}</td>
+          <td>{{ expiryLabel(s) }}</td>
+          <td><span class="state" [attr.data-state]="s.propagationState">{{ s.propagationState }}</span></td>
+          <td>
+            <button
+              type="button"
+              [attr.data-clear]="s.id"
+              [attr.aria-label]="'Lift suspension of ' + s.role + ' for ' + announce(s.casdoorUser)"
+              (click)="clearSuspension(s)"
+            >Lift</button>
+          </td>
+        </tr>
+        <tr *ngIf="store.suspensions().length === 0">
+          <td colspan="5" class="empty" data-testid="dg-suspensions-empty">No active suspensions.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── Domain-lock (force local-only marker) ─────────────────── -->
+  <div *ngIf="tab() === 'domain-lock'" role="tabpanel" class="panel" data-testid="dg-panel-domain-lock" aria-label="Domain locks">
+    <h3>Domain lock (force local-only)</h3>
+    <p class="hint">
+      A domain-lock is ADDITIVE — the user keeps their base Matrix/Mastodon role but is forced
+      local-only (no federation). Enforcement is asynchronous via the reconcile loop.
+    </p>
+
+    <form class="form" data-testid="dg-lock-form" (ngSubmit)="lock()" novalidate aria-label="Add a domain-lock for a user">
+      <label for="dg-lock-role">Platform marker</label>
+      <select id="dg-lock-role" data-testid="dg-lock-role" [(ngModel)]="lockRole" name="lockRole">
+        <option *ngFor="let r of domainLockRoles" [value]="r.value">{{ r.label }}</option>
+      </select>
+
+      <label for="dg-lock-user">User (casdoor id or handle)</label>
+      <input id="dg-lock-user" data-testid="dg-lock-user" [(ngModel)]="lockUser" name="lockUser" autocomplete="off"
+             [attr.aria-invalid]="lockError() ? 'true' : null"
+             [attr.aria-describedby]="lockError() ? 'dg-lock-error' : null" />
+
+      <label for="dg-lock-reason">Reason (optional)</label>
+      <input id="dg-lock-reason" data-testid="dg-lock-reason" [(ngModel)]="lockReason" name="lockReason" autocomplete="off" />
+
+      <button type="submit" data-testid="dg-lock">Add domain lock</button>
+
+      <span
+        *ngIf="lockError()"
+        id="dg-lock-error"
+        class="field-error"
+        data-testid="dg-lock-error"
+        role="alert"
+        aria-live="assertive"
+      >{{ lockError() }}</span>
+    </form>
+
+    <table data-testid="dg-domain-locks-table">
+      <caption class="sr">Active domain locks: the user, platform marker and reconcile state.</caption>
+      <thead>
+        <tr>
+          <th scope="col">User</th>
+          <th scope="col">Marker</th>
+          <th scope="col">State</th>
+          <th scope="col"><span class="sr">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let l of store.domainLocks()" [attr.data-domain-lock]="l.id">
+          <td [attr.aria-label]="announce(l.casdoorUser)">{{ l.casdoorUser }}</td>
+          <td>{{ l.role }}</td>
+          <td><span class="state" [attr.data-state]="l.propagationState">{{ l.propagationState }}</span></td>
+          <td>
+            <button
+              type="button"
+              [attr.data-unlock]="l.id"
+              [attr.aria-label]="'Remove domain-lock ' + l.role + ' for ' + announce(l.casdoorUser)"
+              (click)="unlock(l)"
+            >Remove</button>
+          </td>
+        </tr>
+        <tr *ngIf="store.domainLocks().length === 0">
+          <td colspan="4" class="empty" data-testid="dg-domain-locks-empty">No active domain locks.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── Namespace access (grant / revoke) ─────────────────────── -->
+  <div *ngIf="tab() === 'namespaces'" role="tabpanel" class="panel" data-testid="dg-panel-namespaces" aria-label="Namespace access">
+    <h3>Namespace access</h3>
+
+    <form class="form" data-testid="dg-ns-form" (ngSubmit)="grantNamespace()" novalidate aria-label="Grant a user access to a namespace">
+      <label for="dg-ns-user">User</label>
+      <input id="dg-ns-user" data-testid="dg-ns-user" [(ngModel)]="nsUser" name="nsUser" autocomplete="off"
+             [attr.aria-invalid]="nsError() ? 'true' : null"
+             [attr.aria-describedby]="nsError() ? 'dg-ns-error' : null" />
+
+      <label for="dg-ns-namespace">Namespace</label>
+      <select id="dg-ns-namespace" data-testid="dg-ns-namespace" [(ngModel)]="nsNamespace" name="nsNamespace">
+        <option *ngFor="let n of namespaces()" [value]="n">{{ n }}</option>
+      </select>
+
+      <button type="submit" data-testid="dg-ns-grant">Grant access</button>
+
+      <span
+        *ngIf="nsError()"
+        id="dg-ns-error"
+        class="field-error"
+        data-testid="dg-ns-error"
+        role="alert"
+        aria-live="assertive"
+      >{{ nsError() }}</span>
+    </form>
+
+    <table data-testid="dg-grants-table">
+      <caption class="sr">Namespace grants: each user and the namespaces they may access.</caption>
+      <thead>
+        <tr>
+          <th scope="col">User</th>
+          <th scope="col">Namespaces</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let g of grants()" [attr.data-grant-user]="g.user">
+          <th scope="row" [attr.aria-label]="announce(g.user)">{{ g.user }}</th>
+          <td>
+            <ul class="grant-list">
+              <li *ngFor="let ns of g.namespaces" class="grant">
+                <span>{{ ns }}</span>
+                <button
+                  type="button"
+                  class="link danger-link"
+                  [attr.data-revoke]="g.user + '|' + ns"
+                  [attr.aria-label]="'Revoke ' + ns + ' from ' + announce(g.user)"
+                  (click)="revokeNamespace(g.user, ns)"
+                >revoke</button>
+              </li>
+              <li *ngIf="g.namespaces.length === 0" class="grant-none">— none —</li>
+            </ul>
+          </td>
+        </tr>
+        <tr *ngIf="grants().length === 0">
+          <td colspan="2" class="empty" data-testid="dg-grants-empty">No namespace grants yet.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── Not-yet-available controls (no admin-bff endpoint per the contract audit) ── -->
+  <!--
+    Defence-in-depth + honesty: these capabilities have NO admin-bff endpoint
+    (verified against AdminController + mod-bff FederationApiClient). They are
+    rendered VISIBLY DISABLED via aria-disabled (NOT native disabled, so assistive
+    tech still reaches the helptext that explains WHY) with aria-describedby
+    helptext — never wired to a non-existent endpoint (per the V7 verdict).
+  -->
+  <section class="gaps" data-testid="dg-gaps" aria-labelledby="dg-gaps-heading">
+    <h3 id="dg-gaps-heading">Not yet available</h3>
+    <p class="hint">
+      These actions have no admin service endpoint in this console and are shown disabled
+      with the reason — role assignment happens at Casdoor via the reconcile loop.
+    </p>
+    <ul class="gap-list">
+      <li class="gap">
+        <button
+          type="button"
+          class="gap-btn"
+          aria-disabled="true"
+          data-testid="dg-gap-role-grant"
+          aria-describedby="dg-gap-role-grant-help"
+        >Grant / revoke an arbitrary role</button>
+        <span id="dg-gap-role-grant-help" class="hint field-help">
+          General role grant / revoke has no endpoint — roles are granted in Casdoor via the
+          reconcile loop. Only the narrow access-role suspensions, domain-locks and
+          namespace grants above are managed by an admin here.
+        </span>
+      </li>
+      <li class="gap">
+        <button
+          type="button"
+          class="gap-btn"
+          aria-disabled="true"
+          data-testid="dg-gap-external-client"
+          aria-describedby="dg-gap-external-client-help"
+        >Grant external-client access</button>
+        <span id="dg-gap-external-client-help" class="hint field-help">
+          External-client access is owner self-service only (a user manages their own connected
+          clients); there is no admin grant endpoint.
+        </span>
+      </li>
+      <li class="gap">
+        <button
+          type="button"
+          class="gap-btn"
+          aria-disabled="true"
+          data-testid="dg-gap-appeals"
+          aria-describedby="dg-gap-appeals-help"
+        >Adjudicate appeals</button>
+        <span id="dg-gap-appeals-help" class="hint field-help">
+          Appeals adjudication has no admin service endpoint here; appeals are decided in the
+          federation moderation system, not this console.
+        </span>
+      </li>
+    </ul>
+  </section>
+</section>
