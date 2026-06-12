@@ -14,6 +14,7 @@ import { AnnouncementListComponent } from './announcements/announcement-list.com
 import { DelegationComponent } from './delegation/delegation.component';
 import { TestReportsComponent } from './test-reports/test-reports.component';
 import { ForumAdminComponent } from './forum-admin/forum-admin.component';
+import { AppealsComponent } from './appeals/appeals.component';
 import { DeviceLicensesComponent } from './device-licenses.component';
 import { superadminGuard } from './superadmin.guard';
 
@@ -28,7 +29,10 @@ import { superadminGuard } from './superadmin.guard';
  *  the cloud Backup & Recovery feature module: /admin/backup (start a backup),
  *  /admin/recovery (restore a backup) and /admin/backups (history), and
  *  /admin/announcements (create + schedule + target announcements for the home
- *  banner, public login page, Mastodon/akkoma and the forum main page), and
+ *  banner, public login page, Mastodon/akkoma and the forum main page),
+ *  /admin/appeals (the Appeals-Decide console — approve/deny a referred moderation
+ *  appeal via the admin-bff decide-proxy that forwards to federation-api,
+ *  domain-scoped), and
  *  /admin/device-licenses (the SUPERADMIN-only Device Licenses console over the
  *  device-ownership / SSH-operate-license registry — additionally superadmin-guarded).
  *  Casdoor-admin-role guarded by the host. */
@@ -48,5 +52,6 @@ export const ADMIN_ROUTES: Routes = [
   { path: 'announcements', component: AnnouncementListComponent },
   { path: 'test-reports', component: TestReportsComponent },
   { path: 'forum', component: ForumAdminComponent },
+  { path: 'appeals', component: AppealsComponent },
   { path: 'device-licenses', component: DeviceLicensesComponent, canActivate: [superadminGuard] },
 ];
