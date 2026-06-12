@@ -51,7 +51,6 @@ export class AdminComponent implements OnInit {
     { path: 'forum', label: 'Forum admin' },
     { path: 'appeals', label: 'Appeals' },
     { path: 'device-licenses', label: 'Device licenses', superadminOnly: true },
-    { path: 'pentest', label: 'Pen-test', superadminOnly: true },
   ];
 
   /** The menu the current session may see: superadmin-only items appear only for a
