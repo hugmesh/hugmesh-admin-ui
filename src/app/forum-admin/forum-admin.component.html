@@ -1,0 +1,224 @@
+<section class="snap-forum-admin" data-testid="forum-admin-view" aria-labelledby="fa-heading">
+  <h2 id="fa-heading">Forum admin</h2>
+  <p class="intro">
+    Manage the phpBB forum remotely — stats, users and bans, groups, categories, the
+    moderation queue, and style / extension installs. The raw phpBB ACP is network-blocked;
+    everything here goes through the gated admin service.
+  </p>
+
+  <p
+    *ngIf="store.note()"
+    class="hint"
+    data-testid="fa-note"
+    role="status"
+    aria-live="polite"
+  >{{ store.note() }}</p>
+  <p
+    *ngIf="store.error()"
+    class="field-error"
+    data-testid="fa-error"
+    role="alert"
+    aria-live="assertive"
+  >{{ store.error() }}</p>
+
+  <div class="tabs" role="tablist" aria-label="Forum admin sections" data-testid="fa-tabs">
+    <button
+      *ngFor="let t of tabs"
+      type="button"
+      role="tab"
+      class="tab"
+      [class.is-active]="tab() === t.id"
+      [attr.aria-selected]="tab() === t.id"
+      [attr.data-tab]="t.id"
+      (click)="select(t.id)"
+    >{{ t.label }}</button>
+  </div>
+
+  <!-- ── Stats ────────────────────────────────────────────────── -->
+  <div *ngIf="tab() === 'stats'" role="tabpanel" class="panel" data-testid="fa-panel-stats" aria-label="Forum stats">
+    <h3>Forum stats</h3>
+    <pre *ngIf="pretty(store.stats())" class="env" data-testid="fa-stats-body">{{ pretty(store.stats()) }}</pre>
+    <p *ngIf="!pretty(store.stats())" class="hint" data-testid="fa-stats-empty">
+      No live forum stats yet (the forum service is not connected).
+    </p>
+  </div>
+
+  <!-- ── Users + ban / group ──────────────────────────────────── -->
+  <div *ngIf="tab() === 'users'" role="tabpanel" class="panel" data-testid="fa-panel-users" aria-label="Forum users">
+    <h3>Users</h3>
+    <pre *ngIf="pretty(store.users())" class="env" data-testid="fa-users-body">{{ pretty(store.users()) }}</pre>
+
+    <form class="form" data-testid="fa-ban-form" (ngSubmit)="ban()" novalidate aria-label="Ban or unban a forum user">
+      <h4>Ban / unban</h4>
+      <label for="fa-ban-id">Forum user id</label>
+      <input id="fa-ban-id" data-testid="fa-ban-id" [(ngModel)]="banUserId" name="banUserId" autocomplete="off"
+             [attr.aria-invalid]="userFormError() ? 'true' : null"
+             [attr.aria-describedby]="userFormError() ? 'fa-user-error' : null" />
+      <label for="fa-ban-reason">Reason (optional)</label>
+      <input id="fa-ban-reason" data-testid="fa-ban-reason" [(ngModel)]="banReason" name="banReason" autocomplete="off" />
+      <span class="hint">A ban is reversible — “Lift ban” re-adds the user's groups per their current roles.</span>
+      <div class="actions">
+        <button type="submit" data-testid="fa-ban">Ban user</button>
+        <button type="button" data-testid="fa-unban" (click)="unban()">Lift ban</button>
+      </div>
+    </form>
+
+    <form class="form" data-testid="fa-group-form" (ngSubmit)="assignGroup()" novalidate aria-label="Assign a forum group">
+      <h4>Assign group</h4>
+      <label for="fa-group-id">Forum user id</label>
+      <input id="fa-group-id" data-testid="fa-group-id" [(ngModel)]="groupUserId" name="groupUserId" autocomplete="off" />
+      <label for="fa-group">Group</label>
+      <select id="fa-group" data-testid="fa-group" [(ngModel)]="group" name="group">
+        <option *ngFor="let g of groups" [value]="g">{{ g }}</option>
+      </select>
+      <button type="submit" data-testid="fa-assign-group">Assign group</button>
+    </form>
+
+    <span
+      *ngIf="userFormError()"
+      id="fa-user-error"
+      class="field-error"
+      data-testid="fa-user-error"
+      role="alert"
+      aria-live="assertive"
+    >{{ userFormError() }}</span>
+  </div>
+
+  <!-- ── Categories ───────────────────────────────────────────── -->
+  <div *ngIf="tab() === 'categories'" role="tabpanel" class="panel" data-testid="fa-panel-categories" aria-label="Forum categories">
+    <h3>Categories</h3>
+    <pre *ngIf="pretty(store.categories())" class="env" data-testid="fa-categories-body">{{ pretty(store.categories()) }}</pre>
+
+    <form class="form" data-testid="fa-category-form" (ngSubmit)="createCategory()" novalidate aria-label="Create a forum">
+      <h4>Create a forum</h4>
+      <label for="fa-cat-name">Name</label>
+      <input id="fa-cat-name" data-testid="fa-cat-name" [(ngModel)]="catName" name="catName" autocomplete="off"
+             [attr.aria-invalid]="catFormError() ? 'true' : null"
+             [attr.aria-describedby]="catFormError() ? 'fa-cat-error' : null" />
+      <label for="fa-cat-desc">Description (optional)</label>
+      <input id="fa-cat-desc" data-testid="fa-cat-desc" [(ngModel)]="catDescription" name="catDescription" autocomplete="off" />
+      <label for="fa-cat-parent">Parent id (optional)</label>
+      <input id="fa-cat-parent" data-testid="fa-cat-parent" [(ngModel)]="catParentId" name="catParentId"
+             inputmode="numeric" autocomplete="off" />
+      <button type="submit" data-testid="fa-create-category">Create forum</button>
+      <span
+        *ngIf="catFormError()"
+        id="fa-cat-error"
+        class="field-error"
+        data-testid="fa-cat-error"
+        role="alert"
+        aria-live="assertive"
+      >{{ catFormError() }}</span>
+    </form>
+  </div>
+
+  <!-- ── Moderation queue ─────────────────────────────────────── -->
+  <div *ngIf="tab() === 'moderation'" role="tabpanel" class="panel" data-testid="fa-panel-moderation" aria-label="Forum moderation queue">
+    <h3>Moderation queue</h3>
+    <pre *ngIf="pretty(store.moderationQueue())" class="env" data-testid="fa-moderation-body">{{ pretty(store.moderationQueue()) }}</pre>
+
+    <form class="form" data-testid="fa-moderation-form" (ngSubmit)="approve()" novalidate aria-label="Approve or reject a queued item">
+      <h4>Decide a queued item</h4>
+      <label for="fa-mod-id">Queue item id</label>
+      <input id="fa-mod-id" data-testid="fa-mod-id" [(ngModel)]="moderationId" name="moderationId" autocomplete="off" />
+      <div class="actions">
+        <button type="submit" data-testid="fa-approve">Approve</button>
+        <button type="button" class="danger" data-testid="fa-reject" (click)="reject()">Reject</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ── Styles & extensions (ADMIN-only) ─────────────────────── -->
+  <div *ngIf="tab() === 'styles'" role="tabpanel" class="panel" data-testid="fa-panel-styles" aria-label="Forum styles and extensions">
+    <h3>Styles &amp; extensions</h3>
+    <p class="hint">Installing a phpBB style or extension is an administrator action (full ACP parity).</p>
+
+    <form class="form" data-testid="fa-style-form" (ngSubmit)="installStyle()" novalidate aria-label="Install a style">
+      <h4>Install a style</h4>
+      <label for="fa-style-name">Style name</label>
+      <input id="fa-style-name" data-testid="fa-style-name" [(ngModel)]="styleName" name="styleName" autocomplete="off"
+             [attr.aria-invalid]="installError() ? 'true' : null"
+             [attr.aria-describedby]="installError() ? 'fa-install-error' : null" />
+      <button type="submit" data-testid="fa-install-style">Install style</button>
+    </form>
+
+    <form class="form" data-testid="fa-extension-form" (ngSubmit)="installExtension()" novalidate aria-label="Install an extension">
+      <h4>Install an extension</h4>
+      <label for="fa-ext-name">Extension name</label>
+      <input id="fa-ext-name" data-testid="fa-ext-name" [(ngModel)]="extensionName" name="extensionName" autocomplete="off" />
+      <button type="submit" data-testid="fa-install-extension">Install extension</button>
+    </form>
+
+    <span
+      *ngIf="installError()"
+      id="fa-install-error"
+      class="field-error"
+      data-testid="fa-install-error"
+      role="alert"
+      aria-live="assertive"
+    >{{ installError() }}</span>
+  </div>
+
+  <!-- ── Audit ────────────────────────────────────────────────── -->
+  <div *ngIf="tab() === 'audit'" role="tabpanel" class="panel" data-testid="fa-panel-audit" aria-label="Forum audit log">
+    <h3>Audit log</h3>
+    <pre *ngIf="pretty(store.audit())" class="env" data-testid="fa-audit-body">{{ pretty(store.audit()) }}</pre>
+    <p *ngIf="!pretty(store.audit())" class="hint" data-testid="fa-audit-empty">No forum audit entries yet.</p>
+  </div>
+
+  <!-- ── Not-yet-available controls (no backend per the contract audit) ── -->
+  <!--
+    Defence-in-depth + honesty: these capabilities have NO admin-bff endpoint
+    (verified against AdminController / mod-bff). They are rendered VISIBLY
+    DISABLED via aria-disabled (NOT native disabled, so assistive tech still
+    reaches the helptext that explains WHY) with aria-describedby helptext —
+    never wired to a non-existent endpoint.
+  -->
+  <section class="gaps" data-testid="fa-gaps" aria-labelledby="fa-gaps-heading">
+    <h3 id="fa-gaps-heading">Not yet available</h3>
+    <p class="hint">
+      These actions do not have a backend in this console yet and are shown disabled
+      with the reason.
+    </p>
+    <ul class="gap-list">
+      <li class="gap">
+        <button
+          type="button"
+          class="gap-btn"
+          aria-disabled="true"
+          data-testid="fa-gap-appeals"
+          aria-describedby="fa-gap-appeals-help"
+        >Adjudicate appeals</button>
+        <span id="fa-gap-appeals-help" class="hint field-help">
+          Appeals adjudication has no admin service endpoint here; appeals are decided in the
+          federation moderation system, not this console.
+        </span>
+      </li>
+      <li class="gap">
+        <button
+          type="button"
+          class="gap-btn"
+          aria-disabled="true"
+          data-testid="fa-gap-role-grant"
+          aria-describedby="fa-gap-role-grant-help"
+        >Grant / revoke a role</button>
+        <span id="fa-gap-role-grant-help" class="hint field-help">
+          General role grant / revoke has no endpoint — roles are granted in Casdoor via the
+          reconcile loop. Only the narrow access-role suspensions and domain-locks are managed by an admin.
+        </span>
+      </li>
+      <li class="gap">
+        <button
+          type="button"
+          class="gap-btn"
+          aria-disabled="true"
+          data-testid="fa-gap-external-client"
+          aria-describedby="fa-gap-external-client-help"
+        >Grant external client access</button>
+        <span id="fa-gap-external-client-help" class="hint field-help">
+          External-client access is owner self-service only; there is no admin grant endpoint.
+        </span>
+      </li>
+    </ul>
+  </section>
+</section>
