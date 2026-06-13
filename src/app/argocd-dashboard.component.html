@@ -97,6 +97,9 @@
     aria-modal="true"
     aria-labelledby="argocd-confirm-heading"
     aria-describedby="argocd-confirm-body"
+    tabindex="-1"
+    snapFocusTrap
+    (dismiss)="cancelSync()"
   >
     <div class="dialog">
       <h3 id="argocd-confirm-heading">Confirm sync</h3>

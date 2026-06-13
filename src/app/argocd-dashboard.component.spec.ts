@@ -98,6 +98,46 @@ describe('ArgocdDashboardComponent', () => {
     expect(bff.argoSync).not.toHaveBeenCalled();
   });
 
+  // ── KEYBOARD (the aria-modal dialog: Escape closes + focus is managed) ──
+  describe('KEYBOARD operability', () => {
+    it('Escape on the sync dialog closes it without calling the BFF', async () => {
+      document.body.appendChild(fixture.nativeElement);
+      await init();
+      component.askSync('games');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      const el: HTMLElement = fixture.nativeElement;
+      const dialog = el.querySelector<HTMLElement>('[data-testid="argocd-sync-dialog"]')!;
+      // Focus moves INTO the dialog on open (first focusable control).
+      expect(dialog.contains(document.activeElement)).toBeTrue();
+
+      dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      fixture.detectChanges();
+      expect(component.confirming()).toBeNull();
+      expect(bff.argoSync).not.toHaveBeenCalled();
+      fixture.nativeElement.remove();
+    });
+
+    it('restores focus to the Sync trigger after the dialog closes', async () => {
+      document.body.appendChild(fixture.nativeElement);
+      await init();
+      const el: HTMLElement = fixture.nativeElement;
+      const trigger = el.querySelector<HTMLButtonElement>('[data-sync="games"]')!;
+      trigger.focus();
+      component.askSync('games');
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const dialog = el.querySelector<HTMLElement>('[data-testid="argocd-sync-dialog"]')!;
+      dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      fixture.detectChanges();
+      await fixture.whenStable();
+      // On close the directive restores focus to the element that opened it.
+      expect(document.activeElement).toBe(trigger);
+      fixture.nativeElement.remove();
+    });
+  });
+
   it('maps statuses to colour-modifier classes (paired with the text)', () => {
     expect(component.syncClass('Synced')).toBe('is-synced');
     expect(component.syncClass('OutOfSync')).toBe('is-outofsync');

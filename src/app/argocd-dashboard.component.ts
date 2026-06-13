@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BffService, ArgoApp, ArgoAppDetail } from './bff.service';
+import { FocusTrapDirective } from './a11y/focus-trap.directive';
 
 /**
  * Admin "ArgoCD" dashboard view (ROLE_ADMIN only, route-guarded). An ArgoCD-style
@@ -14,13 +15,15 @@ import { BffService, ArgoApp, ArgoAppDetail } from './bff.service';
  * BFF returns 503 → surfaced here as an honest "ArgoCD not connected" notice.
  *
  * <p>a11y: every status badge carries a text label (not colour alone); the confirm
- * dialog is role=dialog aria-modal and focus-managed; the app grid is keyboard
- * operable (each card is a button).
+ * dialog is role=dialog aria-modal with a focus trap (focus moves in on open, Tab
+ * wraps inside it, Escape cancels, and focus is RESTORED to the trigger on close —
+ * via {@link FocusTrapDirective}); the app grid is keyboard operable (each card is
+ * a button).
  */
 @Component({
   selector: 'snap-argocd-dashboard',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FocusTrapDirective],
   templateUrl: './argocd-dashboard.component.html',
   styleUrl: './argocd-dashboard.component.scss',
 })
