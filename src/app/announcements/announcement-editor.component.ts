@@ -10,6 +10,7 @@ import {
   AnnouncementsStore,
 } from './announcements.service';
 import { buildPreviewDoc, sanitizeHtml } from './announcement-sanitize';
+import { RovingFocusDirective } from '../a11y/roving-focus.directive';
 
 /** A toolbar formatting action over the WYSIWYG HTML body. */
 export type EditorAction = 'bold' | 'italic' | 'link' | 'heading' | 'list';
@@ -41,7 +42,7 @@ export type EditorAction = 'bold' | 'italic' | 'link' | 'heading' | 'list';
 @Component({
   selector: 'snap-announcement-editor',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RovingFocusDirective],
   templateUrl: './announcement-editor.component.html',
   styleUrl: './announcement-editor.component.scss',
 })

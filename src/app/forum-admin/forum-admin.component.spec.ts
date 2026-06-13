@@ -86,6 +86,49 @@ describe('ForumAdminComponent', () => {
     });
   });
 
+  // ── KEYBOARD (the tablist is a WAI-ARIA APG roving-tabindex composite) ──
+  describe('KEYBOARD operability (tablist roving tabindex + Arrow keys)', () => {
+    function tabs(): HTMLButtonElement[] {
+      return Array.from(fixture.nativeElement.querySelectorAll('[data-testid="fa-tabs"] [role="tab"]'));
+    }
+
+    it('only the selected tab is in the Tab order; the rest are tabindex -1', async () => {
+      document.body.appendChild(fixture.nativeElement);
+      await init();
+      await fixture.whenStable();
+      const t = tabs();
+      expect(t[0].tabIndex).withContext('selected tab tabbable').toBe(0);
+      expect(t.slice(1).every((b) => b.tabIndex === -1)).withContext('others removed').toBeTrue();
+      fixture.nativeElement.remove();
+    });
+
+    it('ArrowRight moves roving focus to the next tab', async () => {
+      document.body.appendChild(fixture.nativeElement);
+      await init();
+      await fixture.whenStable();
+      const t = tabs();
+      t[0].focus();
+      fixture.nativeElement
+        .querySelector('[data-testid="fa-tabs"]')!
+        .dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+      fixture.detectChanges();
+      expect(document.activeElement).toBe(t[1]);
+      expect(t[1].tabIndex).toBe(0);
+      fixture.nativeElement.remove();
+    });
+
+    it('Enter / Space on a tab activates it (native button), switching the panel', async () => {
+      await init();
+      const el: HTMLElement = fixture.nativeElement;
+      const usersTab = el.querySelector<HTMLButtonElement>('[data-tab="users"]')!;
+      // A native <button> fires click on Enter/Space; assert the click handler selects.
+      usersTab.click();
+      fixture.detectChanges();
+      expect(component.tab()).toBe('users');
+      expect(el.querySelector('[data-testid="fa-panel-users"]')).not.toBeNull();
+    });
+  });
+
   // ── CROSS-USER (ban targets another user; approve targets a queue item) ─
   describe('CROSS-USER', () => {
     it('bans a target forum user with the entered reason', async () => {

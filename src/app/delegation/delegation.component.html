@@ -22,7 +22,13 @@
     aria-live="assertive"
   >{{ store.error() }}</p>
 
-  <div class="tabs" role="tablist" aria-label="Delegation sections" data-testid="dg-tabs">
+  <div
+    class="tabs"
+    role="tablist"
+    aria-label="Delegation sections"
+    data-testid="dg-tabs"
+    snapRovingFocus
+  >
     <button
       *ngFor="let t of tabs"
       type="button"
@@ -30,6 +36,7 @@
       class="tab"
       [class.is-active]="tab() === t.id"
       [attr.aria-selected]="tab() === t.id"
+      [attr.tabindex]="tab() === t.id ? 0 : -1"
       [attr.data-tab]="t.id"
       (click)="select(t.id)"
     >{{ t.label }}</button>

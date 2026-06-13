@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ForumGroupRequest } from '../bff.service';
 import { ForumAdminStore } from './forum-admin-store.service';
+import { RovingFocusDirective } from '../a11y/roving-focus.directive';
 
 type Tab = 'stats' | 'users' | 'categories' | 'moderation' | 'styles' | 'audit';
 
@@ -22,7 +23,7 @@ type Tab = 'stats' | 'users' | 'categories' | 'moderation' | 'styles' | 'audit';
 @Component({
   selector: 'snap-forum-admin',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RovingFocusDirective],
   templateUrl: './forum-admin.component.html',
   styleUrl: './forum-admin.component.scss',
 })

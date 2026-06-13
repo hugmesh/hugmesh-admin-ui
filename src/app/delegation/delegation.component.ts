@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { AccessRole, AccessSuspension, BffService, DomainLock, DomainLockRole } from '../bff.service';
 import { DelegationStore } from './delegation-store.service';
 import { accessibleName } from '../accessible-name';
+import { RovingFocusDirective } from '../a11y/roving-focus.directive';
 
 type Tab = 'suspensions' | 'domain-lock' | 'namespaces';
 
@@ -34,7 +35,7 @@ type Tab = 'suspensions' | 'domain-lock' | 'namespaces';
 @Component({
   selector: 'snap-delegation',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RovingFocusDirective],
   templateUrl: './delegation.component.html',
   styleUrl: './delegation.component.scss',
 })

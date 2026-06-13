@@ -108,6 +108,33 @@ describe('AnnouncementEditorComponent', () => {
       component.format2('bold');
       expect(component.body()).toContain('<strong>bold text</strong>');
     });
+
+    // ── KEYBOARD (the toolbar is a WAI-ARIA APG roving-tabindex composite) ──
+    it('uses a roving tabindex: only the first toolbar button is tabbable', async () => {
+      document.body.appendChild(fixture.nativeElement);
+      await fixture.whenStable();
+      const btns = Array.from(
+        el.querySelectorAll<HTMLButtonElement>('[role="toolbar"] button'),
+      );
+      expect(btns[0].tabIndex).toBe(0);
+      expect(btns.slice(1).every((b) => b.tabIndex === -1)).toBeTrue();
+      fixture.nativeElement.remove();
+    });
+
+    it('ArrowRight moves roving focus to the next toolbar button', async () => {
+      document.body.appendChild(fixture.nativeElement);
+      await fixture.whenStable();
+      const btns = Array.from(
+        el.querySelectorAll<HTMLButtonElement>('[role="toolbar"] button'),
+      );
+      btns[0].focus();
+      el.querySelector('[role="toolbar"]')!
+        .dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+      fixture.detectChanges();
+      expect(document.activeElement).toBe(btns[1]);
+      expect(btns[1].tabIndex).toBe(0);
+      fixture.nativeElement.remove();
+    });
   });
 
   describe('targets', () => {

@@ -36,20 +36,21 @@
             role="toolbar"
             aria-label="Announcement formatting"
             aria-controls="ann-body"
+            snapRovingFocus
           >
-            <button type="button" data-testid="fmt-bold" aria-label="Bold" (click)="format2('bold')">
+            <button type="button" tabindex="0" data-testid="fmt-bold" aria-label="Bold" (click)="format2('bold')">
               <span aria-hidden="true"><strong>B</strong></span>
             </button>
-            <button type="button" data-testid="fmt-italic" aria-label="Italic" (click)="format2('italic')">
+            <button type="button" tabindex="-1" data-testid="fmt-italic" aria-label="Italic" (click)="format2('italic')">
               <span aria-hidden="true"><em>I</em></span>
             </button>
-            <button type="button" data-testid="fmt-link" aria-label="Insert link" (click)="format2('link')">
+            <button type="button" tabindex="-1" data-testid="fmt-link" aria-label="Insert link" (click)="format2('link')">
               <span aria-hidden="true">&#128279;</span>
             </button>
-            <button type="button" data-testid="fmt-heading" aria-label="Heading" (click)="format2('heading')">
+            <button type="button" tabindex="-1" data-testid="fmt-heading" aria-label="Heading" (click)="format2('heading')">
               <span aria-hidden="true">H</span>
             </button>
-            <button type="button" data-testid="fmt-list" aria-label="Bulleted list" (click)="format2('list')">
+            <button type="button" tabindex="-1" data-testid="fmt-list" aria-label="Bulleted list" (click)="format2('list')">
               <span aria-hidden="true">&#8226;</span>
             </button>
           </div>

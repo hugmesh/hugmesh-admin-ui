@@ -269,4 +269,46 @@ describe('DelegationComponent', () => {
       expect(remove.getAttribute('aria-label')).toContain('ROLE_MASTODON_DOMAINLOCKED');
     });
   });
+
+  // ── KEYBOARD (the tablist is a WAI-ARIA APG roving-tabindex composite) ──
+  describe('KEYBOARD operability (tablist roving tabindex + Arrow keys)', () => {
+    function tabs(): HTMLButtonElement[] {
+      return Array.from(el().querySelectorAll('[data-testid="dg-tabs"] [role="tab"]'));
+    }
+
+    it('exposes a roving tabindex: only the selected tab is tabbable', async () => {
+      document.body.appendChild(fixture.nativeElement);
+      await init();
+      await fixture.whenStable();
+      const t = tabs();
+      expect(t[0].tabIndex).toBe(0);
+      expect(t.slice(1).every((b) => b.tabIndex === -1)).toBeTrue();
+      fixture.nativeElement.remove();
+    });
+
+    it('End jumps roving focus to the last tab, Home back to the first', async () => {
+      document.body.appendChild(fixture.nativeElement);
+      await init();
+      await fixture.whenStable();
+      const t = tabs();
+      t[0].focus();
+      const list = el().querySelector('[data-testid="dg-tabs"]')!;
+      list.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+      fixture.detectChanges();
+      expect(document.activeElement).toBe(t[t.length - 1]);
+      list.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+      fixture.detectChanges();
+      expect(document.activeElement).toBe(t[0]);
+      fixture.nativeElement.remove();
+    });
+
+    it('clicking a tab (native button = Enter/Space) selects its panel', async () => {
+      await init();
+      const nsTab = el().querySelector<HTMLButtonElement>('[data-tab="namespaces"]')!;
+      nsTab.click();
+      fixture.detectChanges();
+      expect(component.tab()).toBe('namespaces');
+      expect(el().querySelector('[data-testid="dg-panel-namespaces"]')).not.toBeNull();
+    });
+  });
 });
