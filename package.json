@@ -10,7 +10,9 @@
     "build": "ng build admin",
     "build:admin": "ng build admin",
     "test": "ng test admin --watch=false --browsers=ChromeHeadlessCI",
-    "test:watch": "ng test admin"
+    "test:watch": "ng test admin",
+    "gen": "ng-openapi-gen",
+    "gen:fetch": "curl -fsS http://localhost:8080/v3/api-docs -o openapi.json && npm run gen"
   },
   "dependencies": {
     "@angular-architects/native-federation": "^22.0.0",
@@ -40,6 +42,7 @@
     "karma-jasmine": "^5.1.0",
     "karma-jasmine-html-reporter": "^2.2.0",
     "karma-junit-reporter": "^2.0.1",
+    "ng-openapi-gen": "^0.51.0",
     "ng-packagr": "^22.0.0",
     "typescript": "~6.0.3"
   }
