@@ -543,6 +543,38 @@ export class BffService {
     throw new Error(err);
   }
 
+  // ── Domain registry console (SUPERADMIN-only, BFF /bff/admin/domains) ──────────
+  // The RUNTIME source of truth for the cluster's brands/domains (multi-tenancy PR9),
+  // the SUPERADMIN-managed twin of the build-time brands/domains.conf. EVERY endpoint is
+  // @PreAuthorize("hasRole('SUPERADMIN')") at the BFF (DomainRegistryController); this
+  // console is superadmin-route-guarded as defence-in-depth. The list is a bare JSON array
+  // (Flux<DomainResponse>); create returns the single persisted DomainResponse. A duplicate
+  // cluster_domain is a clean 409 carrying the {error} message. There is NO delete — a
+  // domain is SOFT-DISABLED via PUT with enabled:false. Endpoints:
+  //   GET  /bff/admin/domains                  → [DomainResponse]
+  //   GET  /bff/admin/domains/{clusterDomain}  → DomainResponse (404 if none)
+  //   POST /bff/admin/domains                  → DomainResponse (201; 409 on duplicate)
+  //   PUT  /bff/admin/domains/{clusterDomain}  → DomainResponse (404 if none)
+
+  /** Every registered domain (the SUPERADMIN brand-list surface). */
+  async listDomains(): Promise<DomainResponse[]> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/domains`, { headers: { authorization: `Bearer ${t}` } });
+    return r.ok ? r.json() : [];
+  }
+
+  /** Register a new domain. Returns the persisted row, or throws the BFF {error}
+   *  (a duplicate cluster_domain → 409; a malformed body → 400). */
+  async createDomain(req: CreateDomainRequest): Promise<DomainResponse> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/domains`, {
+      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      body: JSON.stringify(req),
+    });
+    if (r.ok) return r.json();
+    throw new Error(await this.errorOf(r));
+  }
+
   private async postJob(path: string, body: unknown): Promise<StartJobResult> {
     const t = this.session.session()?.bffToken;
     const r = await fetch(`${CFG.bff}${path}`, {
@@ -840,6 +872,39 @@ export interface DeviceSshLicense {
   granted_by?: string | null;
   granted_at?: string | null;
 }
+// ── Domain-registry DTOs (mirror the admin-bff domainregistry package shapes) ──
+/** Body for POST /bff/admin/domains — registers one brand/domain in domain_registry.
+ *  clusterDomain is REQUIRED + the UNIQUE natural key; the rest are optional brand
+ *  descriptors; enabled omitted defaults to true server-side. caRef is a CA *reference*
+ *  (Vault PKI path / secret name / "generate"), NEVER cert/key bytes. */
+export interface CreateDomainRequest {
+  clusterDomain: string;
+  brand?: string | null;
+  org?: string | null;
+  caRef?: string | null;
+  nsPrefix?: string | null;
+  casdoorOrg?: string | null;
+  meshTag?: string | null;
+  enabled?: boolean | null;
+}
+/** One domain_registry row (admin-bff DomainResponse). A straight projection — no
+ *  secrets (caRef is a reference, never key material). enabled is the desired-state
+ *  on/off; a soft-disabled domain has enabled=false (there is no hard delete). */
+export interface DomainResponse {
+  id: string;
+  clusterDomain: string;
+  brand: string;
+  org: string;
+  caRef: string;
+  nsPrefix: string;
+  casdoorOrg: string;
+  meshTag: string;
+  enabled: boolean;
+  createdAt: string;
+  createdBySubject: string;
+  updatedAt: string;
+}
+
 /** A registered mesh node with its physical owner, domain residency + active licenses. */
 export interface DeviceRegistration {
   id: string;

@@ -70,6 +70,22 @@ describe('AdminComponent', () => {
     expect(link!.textContent!.trim()).toBe('Device licenses');
   });
 
+  it('hides the superadmin-only Domains menu item from a non-superadmin (admin/mod/user)', () => {
+    superadmin.set(false);
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('[data-menu="superadmin/domains"]')).toBeNull();
+  });
+
+  it('surfaces the Domains menu item for a superadmin', () => {
+    superadmin.set(true);
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    const link = el.querySelector('[data-menu="superadmin/domains"]');
+    expect(link).not.toBeNull();
+    expect(link!.textContent!.trim()).toBe('Domains');
+  });
+
   it('loads the allowlist on init and renders both lists', async () => {
     fixture.detectChanges();
     await fixture.whenStable();
