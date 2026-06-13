@@ -1,0 +1,82 @@
+<section class="snap-superadmin-domains" data-testid="superadmin-domains-view" aria-labelledby="sd-heading">
+  <h2 id="sd-heading">Domains</h2>
+  <p class="sd-intro">
+    Register and review the cluster’s brands/domains — the runtime source of truth for
+    which domains exist (the twin of the build-time brands list). Superadmin only.
+  </p>
+
+  <form (ngSubmit)="register()" novalidate aria-labelledby="sd-form-heading" aria-describedby="sd-form-help">
+    <h3 id="sd-form-heading">Register a domain</h3>
+    <p id="sd-form-help" class="field-help">
+      The cluster domain is required and must be unique across the cluster; the brand
+      descriptors are optional. Provide a CA reference (a Vault PKI path, a secret name, or
+      “generate”) — never paste certificate or key material here.
+    </p>
+
+    <label for="sd-cluster-domain">Cluster domain (the brand’s base domain, required)</label>
+    <input
+      id="sd-cluster-domain"
+      data-testid="sd-cluster-domain"
+      [(ngModel)]="clusterDomain"
+      name="clusterDomain"
+      placeholder="brand-a.example.com"
+      autocomplete="off"
+      aria-describedby="sd-cluster-domain-help"
+      [attr.aria-invalid]="formError() ? 'true' : null"
+      [attr.aria-errormessage]="formError() ? 'sd-error' : null"
+    />
+    <span id="sd-cluster-domain-help" class="field-help">The UNIQUE natural key. A duplicate is rejected.</span>
+
+    <label for="sd-brand">Brand (short slug)</label>
+    <input id="sd-brand" data-testid="sd-brand" [(ngModel)]="brand" name="brand" placeholder="brand-a" autocomplete="off" />
+
+    <label for="sd-org">Org (organisation name)</label>
+    <input id="sd-org" data-testid="sd-org" [(ngModel)]="org" name="org" placeholder="Brand A Inc." autocomplete="off" />
+
+    <label for="sd-ca-ref">CA reference (Vault PKI path / secret name / “generate”)</label>
+    <input
+      id="sd-ca-ref"
+      data-testid="sd-ca-ref"
+      [(ngModel)]="caRef"
+      name="caRef"
+      placeholder="pki/brand-a or generate"
+      autocomplete="off"
+      aria-describedby="sd-ca-ref-help"
+    />
+    <span id="sd-ca-ref-help" class="field-help">A reference only — never the cert/key bytes.</span>
+
+    <label for="sd-ns-prefix">Namespace prefix</label>
+    <input id="sd-ns-prefix" data-testid="sd-ns-prefix" [(ngModel)]="nsPrefix" name="nsPrefix" placeholder="branda" autocomplete="off" />
+
+    <label for="sd-casdoor-org">Casdoor org</label>
+    <input id="sd-casdoor-org" data-testid="sd-casdoor-org" [(ngModel)]="casdoorOrg" name="casdoorOrg" placeholder="brand-a-org" autocomplete="off" />
+
+    <label for="sd-mesh-tag">Mesh tag</label>
+    <input id="sd-mesh-tag" data-testid="sd-mesh-tag" [(ngModel)]="meshTag" name="meshTag" placeholder="tag:brand-a" autocomplete="off" />
+
+    <button data-testid="sd-register" type="submit">Register domain</button>
+
+    <span
+      *ngIf="formError()"
+      id="sd-error"
+      class="field-error"
+      data-testid="sd-error"
+      role="alert"
+      aria-live="assertive"
+    >{{ formError() }}</span>
+  </form>
+
+  <h3 id="sd-list-heading">Registered domains</h3>
+  <ul data-testid="sd-domains" aria-labelledby="sd-list-heading">
+    <li *ngFor="let d of domains()" [attr.data-cluster-domain]="d.clusterDomain">
+      <strong>{{ d.clusterDomain }}</strong>
+      <span class="sd-status" [class.is-disabled]="!d.enabled">{{ d.enabled ? 'enabled' : 'disabled' }}</span>
+      <span *ngIf="d.brand">· brand: {{ d.brand }}</span>
+      <span *ngIf="d.org">· org: {{ d.org }}</span>
+      <span *ngIf="d.meshTag">· mesh: {{ d.meshTag }}</span>
+    </li>
+    <li *ngIf="!domains().length" data-testid="sd-empty" class="sd-empty">
+      No domains registered yet.
+    </li>
+  </ul>
+</section>

@@ -220,6 +220,41 @@ describe('BffService', () => {
       await expectAsync(service.decideModeration(7, true)).toBeRejectedWithError('HTTP 502');
     });
   });
+
+  // ── Domain registry (SUPERADMIN: GET/POST /bff/admin/domains) ──
+  describe('domain registry', () => {
+    it('GETs the bare JSON-array domain list from /bff/admin/domains', async () => {
+      fetchSpy.and.resolveTo(jsonResponse([{ clusterDomain: 'brand-a.example.com', enabled: true }]));
+      const domains = await service.listDomains();
+      expect(lastUrl()).toContain('/bff/admin/domains');
+      expect(authHeader()).toBe('Bearer bff-tok-1');
+      expect(domains.length).toBe(1);
+      expect(domains[0].clusterDomain).toBe('brand-a.example.com');
+    });
+
+    it('returns the empty fallback (not throw) when the list GET fails', async () => {
+      fetchSpy.and.resolveTo(jsonResponse(null, { ok: false, status: 500 }));
+      expect(await service.listDomains()).toEqual([]);
+    });
+
+    it('POSTs the CreateDomainRequest body and returns the persisted DomainResponse', async () => {
+      const created = { id: 'dom-9', clusterDomain: 'brand-c.example.com', enabled: true };
+      fetchSpy.and.resolveTo(jsonResponse(created, { status: 201 }));
+      const row = await service.createDomain({ clusterDomain: 'brand-c.example.com', brand: 'brand-c' });
+      expect(lastUrl()).toContain('/bff/admin/domains');
+      expect(lastInit().method).toBe('POST');
+      expect((lastInit().headers as Record<string, string>)['content-type']).toBe('application/json');
+      expect(JSON.parse(String(lastInit().body))).toEqual({ clusterDomain: 'brand-c.example.com', brand: 'brand-c' });
+      expect(row.clusterDomain).toBe('brand-c.example.com');
+    });
+
+    it('throws the BFF {error} message on a 409 duplicate cluster_domain', async () => {
+      fetchSpy.and.resolveTo(jsonResponse(
+        { error: "domain 'brand-a.example.com' is already registered" }, { ok: false, status: 409 }));
+      await expectAsync(service.createDomain({ clusterDomain: 'brand-a.example.com' }))
+        .toBeRejectedWithError("domain 'brand-a.example.com' is already registered");
+    });
+  });
 });
 
 /** A minimal ReadableStream whose single chunk is the given SSE text. */
