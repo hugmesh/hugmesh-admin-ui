@@ -17,9 +17,12 @@ test:
   artifacts:
     when: always
     reports:
-      junit: reports/TESTS-*.xml
+      junit:
+        - reports/TESTS-*.xml
+        - test-results/results.xml
     paths:
       - reports/
+      - test-results/
     expire_in: 7 days
 
 build:image:
