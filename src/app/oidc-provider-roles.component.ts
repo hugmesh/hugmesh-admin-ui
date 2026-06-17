@@ -49,7 +49,7 @@ export class OidcProviderRolesComponent implements OnInit {
   }
 
   async save(): Promise<void> {
-    const p = this.provider.trim().toLowerCase();
+    const p = this.provider.trim();
     if (!p) { this.formError.set('Provider name is required.'); return; }
     if (!/^[a-z0-9_-]+$/.test(p)) { this.formError.set('Provider name must be lowercase alphanumeric.'); return; }
     this.formError.set('');

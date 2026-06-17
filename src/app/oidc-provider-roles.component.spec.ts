@@ -44,11 +44,13 @@ describe('OidcProviderRolesComponent', () => {
 
   it('saves provider roles and reloads list', async () => {
     const updated = [{ provider: 'google', roles: ['user', 'mod'] }];
+    const c = setup();
+    // Configure the live spy created by setup(): first call (ngOnInit) returns
+    // the empty list, the post-save reload returns the updated list.
     bff.oidcProviderRoles.and.returnValues(
       Promise.resolve([]),
       Promise.resolve(updated),
     );
-    const c = setup();
     await c.ngOnInit();
     c.provider = 'google';
     c.selectedRoles = ['user', 'mod'];
@@ -59,11 +61,13 @@ describe('OidcProviderRolesComponent', () => {
   });
 
   it('removes a provider mapping and reloads list', async () => {
+    const c = setup();
+    // Configure the live spy created by setup(): first call (ngOnInit) returns
+    // the existing mapping, the post-remove reload returns the empty list.
     bff.oidcProviderRoles.and.returnValues(
       Promise.resolve([{ provider: 'github', roles: ['user'] }]),
       Promise.resolve([]),
     );
-    const c = setup();
     await c.ngOnInit();
     await c.remove('github');
     expect(bff.clearOidcProviderRoles).toHaveBeenCalledWith('github');
