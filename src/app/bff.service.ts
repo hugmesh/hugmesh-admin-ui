@@ -643,6 +643,19 @@ export class BffService {
       method: 'DELETE', headers: { authorization: `Bearer ${t}` },
     });
   }
+
+  // ── Anubis bot-challenge sidecar (SUPERADMIN only) ────────────────────────
+  async anubisStatus(): Promise<AnubisStatus> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/anubis/status`, { headers: { authorization: `Bearer ${t}` } });
+    return r.ok ? r.json() : { enabled: false, managementUrl: '', difficulty: 0, health: 'error', reachable: false };
+  }
+
+  async anubisMetrics(): Promise<AnubisMetricsResponse> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/anubis/metrics`, { headers: { authorization: `Bearer ${t}` } });
+    return r.ok ? r.json() : { enabled: false, raw: '', metrics: [] };
+  }
 }
 
 // ── Backup & Recovery DTOs (mirror the BFF backup package shapes) ─────
@@ -948,3 +961,19 @@ export interface DeviceRegistration {
 /** One row from oidc_provider_default_roles: a provider name → set of role names
  *  that new users receive when they first register via that identity provider. */
 export interface OidcProviderMapping { provider: string; roles: string[]; }
+
+// ── Anubis bot-challenge sidecar DTOs ────────────────────────────────────────
+/** Status + configured settings from GET /bff/admin/anubis/status. Settings come from
+ *  the BFF's own config (env vars), not from the Anubis runtime — mutation requires an
+ *  ArgoCD deployment update. {@code enabled=false} means the sidecar is not configured. */
+export interface AnubisStatus {
+  enabled: boolean;
+  managementUrl: string;
+  difficulty: number;
+  health: string;
+  reachable: boolean;
+}
+/** One parsed Prometheus metric line from GET /bff/admin/anubis/metrics. */
+export interface AnubisMetric { name: string; labels?: string; value: number; }
+/** Full response from GET /bff/admin/anubis/metrics. */
+export interface AnubisMetricsResponse { enabled: boolean; raw: string; metrics: AnubisMetric[]; }

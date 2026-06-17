@@ -1,0 +1,127 @@
+<section class="snap-anubis-admin" aria-labelledby="anubis-heading">
+  <h2 id="anubis-heading">Anubis Bot-Challenge Layer</h2>
+  <p class="intro">
+    Anubis is the proof-of-work challenge sidecar fronting the fe-gateway. It filters AI
+    scrapers, credential-stuffers, and brute-force bots before any request reaches the
+    gateway's JWT stack. Settings are read-only — changes require an ArgoCD deployment
+    update via the generator.
+  </p>
+
+  <!-- Tab bar -->
+  <nav class="tab-bar" aria-label="Anubis admin sections">
+    <button type="button" class="tab"
+            [class.active]="activeTab() === 'status'"
+            [attr.aria-selected]="activeTab() === 'status'"
+            (click)="setTab('status')">Status &amp; Settings</button>
+    <button type="button" class="tab"
+            [class.active]="activeTab() === 'metrics'"
+            [attr.aria-selected]="activeTab() === 'metrics'"
+            (click)="setTab('metrics')">Metrics</button>
+  </nav>
+
+  <!-- ── Status tab ── -->
+  <div *ngIf="activeTab() === 'status'" role="tabpanel" aria-labelledby="anubis-heading">
+
+    <div *ngIf="loading()" class="loading" aria-live="polite" aria-busy="true">
+      Loading status…
+    </div>
+
+    <ng-container *ngIf="!loading() && status()">
+
+      <!-- Not-enabled banner -->
+      <div *ngIf="!status()!.enabled" class="notice notice--warn" role="status">
+        <strong>Anubis is not enabled on this deployment.</strong>
+        Set <code>ANUBIS_ENABLED=true</code> and <code>ANUBIS_MANAGEMENT_URL</code>
+        in the BFF deployment once the Anubis sidecar is wired into the fe-gateway pod.
+        See the <em>snapdragon-fe-gateway</em> README for the full checklist.
+      </div>
+
+      <!-- Settings table (always shown so operators can verify what the BFF expects) -->
+      <table class="settings-table" aria-label="Anubis configuration">
+        <thead>
+          <tr><th scope="col">Setting</th><th scope="col">Value</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">Status</th>
+            <td>
+              <span class="badge"
+                    [class.badge--ok]="status()!.enabled && status()!.reachable"
+                    [class.badge--warn]="status()!.enabled && !status()!.reachable"
+                    [class.badge--off]="!status()!.enabled">
+                {{ status()!.enabled ? (status()!.reachable ? 'Reachable' : 'Unreachable') : 'Disabled' }}
+              </span>
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">Health</th>
+            <td><code>{{ status()!.health }}</code></td>
+          </tr>
+          <tr>
+            <th scope="row">Difficulty (PoW iterations)</th>
+            <td>{{ status()!.difficulty }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Management URL (BFF → Anubis)</th>
+            <td><code>{{ status()!.managementUrl }}</code></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <button type="button" class="btn-secondary" (click)="loadStatus()" [disabled]="loading()">
+        Refresh status
+      </button>
+    </ng-container>
+  </div>
+
+  <!-- ── Metrics tab ── -->
+  <div *ngIf="activeTab() === 'metrics'" role="tabpanel" aria-labelledby="anubis-heading">
+
+    <div class="metrics-toolbar">
+      <button type="button" class="btn-secondary" (click)="loadMetrics()" [disabled]="metricsLoading()">
+        {{ metricsLoading() ? 'Refreshing…' : 'Refresh now' }}
+      </button>
+      <label class="toggle-label">
+        <input type="checkbox" [checked]="autoRefresh()" (change)="toggleAutoRefresh()" />
+        Auto-refresh every 30 s
+      </label>
+      <label class="toggle-label">
+        <input type="checkbox" [checked]="showRaw()" (change)="toggleRaw()" />
+        Show raw Prometheus text
+      </label>
+    </div>
+
+    <div *ngIf="!status()?.enabled" class="notice notice--warn" role="status">
+      Anubis is not enabled — no metrics available.
+    </div>
+
+    <ng-container *ngIf="status()?.enabled">
+
+      <!-- Parsed metrics table -->
+      <table *ngIf="metrics().length > 0 && !showRaw()"
+             class="metrics-table" aria-label="Anubis Prometheus metrics">
+        <thead>
+          <tr>
+            <th scope="col">Metric</th>
+            <th scope="col">Labels</th>
+            <th scope="col" class="col-value">Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let m of metrics()">
+            <td class="col-name"><code>{{ m.name }}</code></td>
+            <td class="col-labels">{{ m.labels ?? '—' }}</td>
+            <td class="col-value">{{ m.value }}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Raw Prometheus text -->
+      <pre *ngIf="showRaw()" class="raw-metrics" aria-label="Raw Prometheus metrics text">{{ rawMetrics() }}</pre>
+
+      <p *ngIf="metrics().length === 0 && !metricsLoading()" class="empty-state">
+        No metrics returned. Anubis may not be reachable from the BFF pod.
+      </p>
+    </ng-container>
+  </div>
+</section>
