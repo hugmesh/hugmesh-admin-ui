@@ -1,0 +1,124 @@
+<section class="cb-destination" aria-labelledby="cb-dest-title">
+  <h3 id="cb-dest-title">Backup destination</h3>
+  <p class="cb-muted">
+    Where this brand's encrypted backups are written. References only — never credentials. The
+    domain is set from your validated session; an admin always configures their own brand.
+  </p>
+
+  @if (isSuperadmin()) {
+    <form class="cb-filter" (ngSubmit)="load()">
+      <div class="cb-field">
+        <label for="cb-dest-target">Configure domain (superadmin)</label>
+        <input
+          id="cb-dest-target"
+          name="targetDomain"
+          type="text"
+          autocomplete="off"
+          [ngModel]="targetDomain()"
+          (ngModelChange)="targetDomain.set($event)"
+          aria-describedby="cb-dest-target-help"
+          placeholder="your own brand"
+        />
+        <span id="cb-dest-target-help" class="cb-help">
+          Superadmin only — the brand whose destination you are configuring. Ignored for an admin
+          (always their own brand).
+        </span>
+      </div>
+      <button type="submit" class="cb-btn" aria-label="Load destination for domain" [disabled]="loading()">
+        Load
+      </button>
+    </form>
+  }
+
+  @if (notice()) {
+    <p class="cb-success" role="status" data-testid="cloud-backup-destination-notice">{{ notice() }}</p>
+  }
+  @if (loadError()) {
+    <p class="cb-error" role="alert" data-testid="cloud-backup-destination-load-error">{{ loadError() }}</p>
+  }
+  @if (formError()) {
+    <p class="cb-error" role="alert" data-testid="cloud-backup-destination-form-error">{{ formError() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="cb-muted" role="status">Loading destination…</p>
+  } @else {
+    @if (!current()) {
+      <p class="cb-muted" data-testid="cloud-backup-destination-unset">
+        No destination configured yet. Set one below.
+      </p>
+    }
+
+    <form (ngSubmit)="save()" novalidate data-testid="cloud-backup-destination-form">
+      <div class="cb-field">
+        <label for="cb-dest-kind">Destination kind</label>
+        <select
+          id="cb-dest-kind"
+          name="kind"
+          [ngModel]="kind()"
+          (ngModelChange)="kind.set($event)"
+          aria-describedby="cb-dest-kind-help"
+        >
+          @for (k of kinds; track k.value) {
+            <option [value]="k.value">{{ k.label }}</option>
+          }
+        </select>
+        <span id="cb-dest-kind-help" class="cb-help">
+          Object store (S3/MinIO) or node storage (a superadmin device-attached FDE volume).
+        </span>
+      </div>
+
+      <div class="cb-field">
+        <label for="cb-dest-ref">Destination reference</label>
+        <input
+          id="cb-dest-ref"
+          name="destinationRef"
+          type="text"
+          autocomplete="off"
+          [ngModel]="destinationRef()"
+          (ngModelChange)="destinationRef.set($event)"
+          [attr.aria-invalid]="destinationRefInvalid()"
+          aria-describedby="cb-dest-ref-help"
+          placeholder="bucket / endpoint or node_storage_pool id"
+        />
+        <span id="cb-dest-ref-help" class="cb-help">
+          The bucket/endpoint (object store) or node-storage pool id (node storage).
+        </span>
+        @if (destinationRefInvalid()) {
+          <p class="cb-error" role="alert" data-testid="cloud-backup-destination-ref-error">
+            A destination reference is required.
+          </p>
+        }
+      </div>
+
+      @if (secretApplies()) {
+        <div class="cb-field">
+          <label for="cb-dest-secret">Credentials secret reference (optional)</label>
+          <input
+            id="cb-dest-secret"
+            name="secretRef"
+            type="text"
+            autocomplete="off"
+            [ngModel]="secretRef()"
+            (ngModelChange)="secretRef.set($event)"
+            aria-describedby="cb-dest-secret-help"
+            placeholder="ESO / Vault Secret reference"
+          />
+          <span id="cb-dest-secret-help" class="cb-help">
+            A reference to the object-store credentials Secret (ESO / Vault) — never the bytes.
+          </span>
+        </div>
+      }
+
+      <button
+        type="submit"
+        class="cb-btn"
+        [disabled]="!canSave()"
+        aria-label="Save destination"
+        data-testid="cloud-backup-destination-save"
+      >
+        {{ busy() ? 'Saving…' : 'Save destination' }}
+      </button>
+    </form>
+  }
+</section>

@@ -1,0 +1,43 @@
+<section class="cb-console" data-testid="cloud-backups-view" aria-labelledby="cb-heading">
+  <h2 id="cb-heading">Cloud backups</h2>
+  <p class="cb-intro">
+    Per-domain encrypted, versioned backups of your brand's running services. An admin sees and
+    manages only their own brand; the total-cloud backup is superadmin-only. Backups are written to
+    the configured destination; restore is privileged and requires a step-up.
+  </p>
+
+  <nav class="cb-tabs" role="tablist" aria-label="Cloud backups sections">
+    <button
+      *ngFor="let t of tabs()"
+      type="button"
+      role="tab"
+      class="cb-tab"
+      [class.cb-tab--active]="isActive(t.id)"
+      [attr.aria-selected]="isActive(t.id)"
+      [attr.aria-label]="t.label"
+      [attr.data-testid]="'cloud-backups-tab-' + t.id"
+      (click)="select(t.id)"
+    >
+      {{ t.label }}
+    </button>
+  </nav>
+
+  <div class="cb-panel" role="tabpanel">
+    @switch (active()) {
+      @case ('sets') {
+        <snap-cloud-backup-sets data-testid="cloud-backups-panel-sets" />
+      }
+      @case ('create') {
+        <snap-cloud-backup-create data-testid="cloud-backups-panel-create" />
+      }
+      @case ('destination') {
+        <snap-cloud-backup-destination data-testid="cloud-backups-panel-destination" />
+      }
+      @case ('total') {
+        @if (isSuperadmin()) {
+          <snap-cloud-backup-total data-testid="cloud-backups-panel-total" />
+        }
+      }
+    }
+  </div>
+</section>

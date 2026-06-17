@@ -1,0 +1,275 @@
+// Shared styles for the Cloud Backups console (the shell + the four panels all
+// point their styleUrl here). Mirrors the existing backup module's token use
+// (../../styles/tokens) so the console matches the platform's dark/neon theme.
+@use '../../styles/tokens' as t;
+
+:host {
+  display: block;
+}
+
+.cb-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.cb-console,
+.cb-sets,
+.cb-create,
+.cb-destination,
+.cb-total {
+  display: block;
+  padding: 1rem;
+  color: var(--sd-text, #{t.$offwhite});
+}
+
+.cb-intro,
+.cb-muted {
+  color: var(--sd-text-muted, #{t.$light});
+  margin-block: 0.25rem 1rem;
+}
+
+.cb-help,
+.cb-hint {
+  color: var(--sd-text-muted, #{t.$muted});
+  font-size: 0.85rem;
+  display: block;
+}
+
+// ── tabs ───────────────────────────────────────────────────────────────────
+.cb-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  border-bottom: 1px solid var(--sd-border, #{t.$mid});
+  margin-block: 0.75rem 1rem;
+}
+
+.cb-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-top-left-radius: t.$radius-sm;
+  border-top-right-radius: t.$radius-sm;
+  padding: 0.45rem 0.9rem;
+  color: var(--sd-text-muted, #{t.$light});
+  cursor: pointer;
+
+  &--active {
+    background: var(--sd-bg-1, #{t.$surface});
+    border-color: var(--sd-border, #{t.$mid});
+    color: var(--sd-text, #{t.$offwhite});
+    font-weight: 700;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--sd-accent, #{t.$neon});
+    outline-offset: 2px;
+  }
+}
+
+.cb-panel {
+  display: block;
+}
+
+// ── groups / fields ──────────────────────────────────────────────────────────
+.cb-group {
+  border: 1px solid var(--sd-border, #{t.$mid});
+  border-radius: t.$radius-card;
+  background: var(--sd-bg-1, #{t.$surface});
+  padding: 0.85rem 1rem;
+  margin-block: 0.75rem;
+
+  legend {
+    font-weight: 700;
+    padding-inline: 0.4rem;
+  }
+}
+
+.cb-field {
+  display: grid;
+  gap: 0.3rem;
+  margin-block: 0.6rem;
+
+  label {
+    font-weight: 600;
+  }
+
+  input,
+  select {
+    background: var(--sd-bg-0, #{t.$charcoal});
+    border: 1px solid var(--sd-border, #{t.$mid});
+    border-radius: t.$radius-sm;
+    color: var(--sd-text, #{t.$offwhite});
+    padding: 0.45rem 0.6rem;
+  }
+
+  input[aria-invalid='true'] {
+    border-color: var(--sd-danger, #{t.$pastel-rose});
+  }
+}
+
+.cb-checks {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.cb-check {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  gap: 0.3rem 0.6rem;
+
+  .cb-check-label {
+    font-weight: 600;
+  }
+  .cb-hint {
+    grid-column: 2;
+  }
+
+  &--disabled {
+    opacity: 0.55;
+  }
+}
+
+.cb-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.6rem;
+  margin-block: 0.5rem 1rem;
+}
+
+// ── table ────────────────────────────────────────────────────────────────────
+.cb-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-block: 0.5rem;
+
+  th,
+  td {
+    text-align: left;
+    padding: 0.45rem 0.6rem;
+    border-bottom: 1px solid var(--sd-border, #{t.$mid});
+    vertical-align: top;
+  }
+
+  th {
+    color: var(--sd-text-muted, #{t.$light});
+    font-weight: 700;
+  }
+}
+
+.cb-detail-row td {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.cb-detail-title {
+  margin-block: 0.6rem 0.2rem;
+  font-size: 0.95rem;
+}
+
+.cb-versions,
+.cb-artifacts {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.cb-this {
+  color: var(--sd-accent, #{t.$neon});
+  font-weight: 700;
+}
+
+.cb-row-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+// ── badges / status ──────────────────────────────────────────────────────────
+.cb-badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: t.$radius-sm;
+  border: 1px solid var(--sd-border, #{t.$mid});
+  font-size: 0.8rem;
+  font-weight: 700;
+
+  &--total {
+    border-color: var(--sd-accent, #{t.$neon});
+    color: var(--sd-accent, #{t.$neon});
+  }
+}
+
+.cb-status {
+  font-size: 0.85rem;
+}
+
+// ── buttons ──────────────────────────────────────────────────────────────────
+.cb-btn {
+  background: var(--sd-accent, #{t.$neon});
+  color: #{t.$black};
+  border: 1px solid var(--sd-accent, #{t.$neon});
+  border-radius: t.$radius-sm;
+  padding: 0.45rem 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--sd-accent, #{t.$neon-bright});
+    outline-offset: 2px;
+  }
+
+  &--ghost {
+    background: transparent;
+    color: var(--sd-text, #{t.$offwhite});
+    border-color: var(--sd-border, #{t.$mid});
+  }
+
+  &--danger {
+    background: var(--sd-danger, #{t.$pastel-rose});
+    border-color: var(--sd-danger, #{t.$pastel-rose});
+    color: #{t.$black};
+  }
+}
+
+// ── notices ──────────────────────────────────────────────────────────────────
+.cb-success {
+  color: #{t.$pastel-mint};
+}
+.cb-error {
+  color: #{t.$pastel-rose};
+}
+.cb-warning {
+  color: #{t.$pastel-peach};
+  border: 1px solid #{t.$pastel-peach};
+  border-radius: t.$radius-sm;
+  padding: 0.5rem 0.75rem;
+  margin-block: 0.5rem;
+}
+
+// ── restore confirm (alertdialog) ────────────────────────────────────────────
+.cb-confirm {
+  border: 1px solid var(--sd-danger, #{t.$pastel-rose});
+  border-radius: t.$radius-card;
+  background: var(--sd-bg-1, #{t.$surface});
+  padding: 1rem;
+  margin-block: 1rem;
+}
+
+.cb-confirm-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}

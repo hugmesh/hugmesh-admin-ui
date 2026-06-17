@@ -27,6 +27,7 @@ import { DesktopGovernanceComponent } from './desktop-governance/desktop-governa
 import { WorkloadConsoleComponent } from './workload-console/workload-console.component';
 import { WorkloadLogsComponent } from './workload-console/workload-logs.component';
 import { WorkloadTerminalComponent } from './workload-console/workload-terminal.component';
+import { CloudBackupsComponent } from './cloud-backups/cloud-backups.component';
 import { superadminGuard } from './superadmin.guard';
 import { gamesServicesGuard } from './games-services.guard';
 import { workloadConsoleGuard } from './workload-console.guard';
@@ -79,6 +80,11 @@ export const ADMIN_ROUTES: Routes = [
   { path: 'backup', component: BackupComponent },
   { path: 'recovery', component: RecoveryComponent },
   { path: 'backups', component: BackupHistoryComponent },
+  // Cloud Backups console (per-domain + superadmin TOTAL) over the bff `cloudbackup`
+  // surfaces — DISTINCT from the legacy USB Backup/Recovery/Backups-history module
+  // above (mirrors the bff's distinct /bff/admin/cloud-backups prefix). The TOTAL
+  // tab inside is superadmin-only (hidden for an admin; the bff is authoritative).
+  { path: 'cloud-backups', component: CloudBackupsComponent },
   { path: 'announcements', component: AnnouncementListComponent },
   { path: 'test-reports', component: TestReportsComponent },
   { path: 'forum', component: ForumAdminComponent },
