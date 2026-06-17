@@ -619,6 +619,30 @@ export class BffService {
       }
     }
   }
+
+  // ── OIDC provider default-role mappings ──────────────────────────────────
+  async oidcProviderRoles(): Promise<OidcProviderMapping[]> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/oidc-providers/roles`, { headers: { authorization: `Bearer ${t}` } });
+    if (!r.ok) return [];
+    const body: { providers: OidcProviderMapping[] } = await r.json();
+    return body.providers ?? [];
+  }
+
+  async setOidcProviderRoles(provider: string, roles: string[]): Promise<void> {
+    const t = this.session.session()?.bffToken;
+    await fetch(`${CFG.bff}/bff/admin/oidc-providers/${encodeURIComponent(provider)}/roles`, {
+      method: 'PUT', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      body: JSON.stringify({ roles }),
+    });
+  }
+
+  async clearOidcProviderRoles(provider: string): Promise<void> {
+    const t = this.session.session()?.bffToken;
+    await fetch(`${CFG.bff}/bff/admin/oidc-providers/${encodeURIComponent(provider)}/roles`, {
+      method: 'DELETE', headers: { authorization: `Bearer ${t}` },
+    });
+  }
 }
 
 // ── Backup & Recovery DTOs (mirror the BFF backup package shapes) ─────
@@ -919,3 +943,8 @@ export interface DeviceRegistration {
   last_seen_at?: string | null;
   licenses: DeviceSshLicense[];
 }
+
+// ── OIDC provider default-role mapping DTOs ──────────────────────────────────
+/** One row from oidc_provider_default_roles: a provider name → set of role names
+ *  that new users receive when they first register via that identity provider. */
+export interface OidcProviderMapping { provider: string; roles: string[]; }

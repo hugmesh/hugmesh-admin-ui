@@ -1,0 +1,65 @@
+<section aria-labelledby="oidc-roles-heading">
+  <h2 id="oidc-roles-heading">OIDC Provider Default Roles</h2>
+  <p>
+    Configure which roles new users automatically receive when registering via a given
+    identity provider. Changes take effect for new registrations only.
+  </p>
+
+  <div role="alert" aria-live="polite" class="form-error" *ngIf="formError()">
+    {{ formError() }}
+  </div>
+
+  <!-- Existing mappings -->
+  <table aria-label="OIDC provider role mappings" *ngIf="providers().length > 0">
+    <thead>
+      <tr>
+        <th scope="col">Provider</th>
+        <th scope="col">Default roles</th>
+        <th scope="col"><span class="sr-only">Actions</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let m of providers()">
+        <td>{{ m.provider }}</td>
+        <td>{{ m.roles.join(', ') || '(none)' }}</td>
+        <td>
+          <button type="button" (click)="remove(m.provider)"
+                  [attr.aria-label]="'Remove role mapping for ' + m.provider">
+            Remove
+          </button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <p *ngIf="providers().length === 0" class="empty-state">
+    No provider role mappings configured. New users receive no auto-assigned roles.
+  </p>
+
+  <!-- Add / replace mapping form -->
+  <form (ngSubmit)="save()" aria-label="Set default roles for an OIDC provider">
+    <h3>Set roles for a provider</h3>
+
+    <label for="oidc-provider-name">Provider name</label>
+    <input id="oidc-provider-name" type="text" [(ngModel)]="provider" name="provider"
+           placeholder="e.g. google, github, custom-oidc-company"
+           aria-describedby="oidc-provider-hint" autocomplete="off" />
+    <span id="oidc-provider-hint" class="hint">
+      Must match the Casdoor identity provider name exactly (lowercase).
+    </span>
+
+    <fieldset>
+      <legend>Default roles</legend>
+      <label *ngFor="let r of availableRoles" class="role-checkbox">
+        <input type="checkbox" [value]="r"
+               [checked]="selectedRoles.includes(r)"
+               (change)="toggleRole(r)"
+               [attr.aria-label]="r + ' role'" />
+        {{ r }}
+      </label>
+    </fieldset>
+
+    <button type="submit" [disabled]="saving()">
+      {{ saving() ? 'Saving…' : 'Save' }}
+    </button>
+  </form>
+</section>
