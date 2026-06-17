@@ -20,7 +20,9 @@ import { StoragePoolsComponent } from './storage-pools.component';
 import { EgressVpnComponent } from './egress-vpn.component';
 import { SuperadminDomainsComponent } from './superadmin-domains.component';
 import { OidcProviderRolesComponent } from './oidc-provider-roles.component';
+import { GamesServicesComponent } from './games-services/games-services.component';
 import { superadminGuard } from './superadmin.guard';
+import { gamesServicesGuard } from './games-services.guard';
 
 /** Routes exposed by the Admin native-federation remote. The snapdragon.systems
  *  host mounts these at /admin, so they resolve to /admin (allowlist),
@@ -46,7 +48,10 @@ import { superadminGuard } from './superadmin.guard';
  *  /admin/node-storage (attach + register ADDITIONAL node-pinned storage so designated services
  *  have space on that node — ADMIN-capable, ownership-gated downstream in the BFF), and
  *  /admin/egress-vpn (the SUPERADMIN-only Egress VPN console — import provider WireGuard/OpenVPN
- *  configs that nodes use for outgoing public egress, additionally superadmin-guarded).
+ *  configs that nodes use for outgoing public egress, additionally superadmin-guarded), and
+ *  /admin/games-services (the games app-store operator console — add/run dockerized FOSS game
+ *  servers from the catalog; gated on a games-services role: ADMIN catalog-enable+create/run or
+ *  RUNNER mod-delegated run/stop, behind the games-services guard).
  *  Casdoor-admin-role guarded by the host. */
 export const ADMIN_ROUTES: Routes = [
   { path: '', component: AdminComponent },
@@ -70,4 +75,5 @@ export const ADMIN_ROUTES: Routes = [
   { path: 'egress-vpn', component: EgressVpnComponent, canActivate: [superadminGuard] },
   { path: 'superadmin/domains', component: SuperadminDomainsComponent, canActivate: [superadminGuard] },
   { path: 'oidc-providers', component: OidcProviderRolesComponent },
+  { path: 'games-services', component: GamesServicesComponent, canActivate: [gamesServicesGuard] },
 ];

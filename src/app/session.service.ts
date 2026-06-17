@@ -22,6 +22,11 @@ export class SessionService {
   readonly loggedIn = computed(() => this.session() !== null);
   readonly isAdmin = computed(() => (this.session()?.roles ?? []).includes('admin'));
   readonly isSuperadmin = computed(() => (this.session()?.roles ?? []).includes('superadmin'));
+  /** Games app-store DERIVED roles (materialized in Casdoor; surfaced lowercased,
+   *  ROLE_-prefix-stripped, in session.roles). ADMIN = catalog-enable + create/run;
+   *  RUNNER = mod-delegated run/stop only. */
+  readonly isGamesServicesAdmin = computed(() => (this.session()?.roles ?? []).includes('games_services_admin'));
+  readonly isGamesServicesRunner = computed(() => (this.session()?.roles ?? []).includes('games_services_runner'));
   /** Matrix/Mastodon are usable only after full registration completes. */
   readonly fullyRegistered = computed(() => this.session()?.registrationComplete === true);
 

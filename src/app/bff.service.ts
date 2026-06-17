@@ -786,6 +786,51 @@ export class BffService {
     if (r.ok) return r.json() as Promise<T>;
     throw new Error(await this.errorOf(r));
   }
+
+  // ── Games app-store (games-services control plane) ──────────────────────────
+  // The operator UI reads the offered catalog + lists/creates/run-stops instances.
+  // Authz is enforced at the BFF (the games-services derived roles + DomainScope);
+  // this console additionally greys-out create for a runner (the BFF is the real gate).
+  //   GET  /bff/games-services/catalog            → [GameOffer]      (offered + enabled for the domain)
+  //   GET  /bff/games-services/instances          → [GameInstance]   (own brand)
+  //   POST /bff/games-services/instances          → GameInstance     (201; 403 on the creation gate)
+  //   POST /bff/games-services/instances/{id}/{suspend|resume|terminate} → GameInstance
+
+  /** The catalog servers offered + enabled for the caller's domain. */
+  async gamesOfferedCatalog(): Promise<GameOffer[]> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/games-services/catalog`, { headers: { authorization: `Bearer ${t}` } });
+    return r.ok ? r.json() : [];
+  }
+
+  /** The caller's own-brand instances. */
+  async gamesInstances(): Promise<GameInstance[]> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/games-services/instances`, { headers: { authorization: `Bearer ${t}` } });
+    return r.ok ? r.json() : [];
+  }
+
+  /** Request a new instance. Returns the persisted row, or throws the BFF {error}
+   *  (the creation gate → 403; a duplicate name → 409). */
+  async createGameInstance(req: CreateGameInstanceRequest): Promise<GameInstance> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/games-services/instances`, {
+      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      body: JSON.stringify(req),
+    });
+    if (r.ok) return r.json();
+    throw new Error(await this.errorOf(r));
+  }
+
+  /** Run/stop transition (suspend | resume | terminate). Returns the updated row. */
+  async gameInstanceAction(id: string, action: 'suspend' | 'resume' | 'terminate'): Promise<GameInstance> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(
+      `${CFG.bff}/bff/games-services/instances/${encodeURIComponent(id)}/${action}`,
+      { method: 'POST', headers: { authorization: `Bearer ${t}` } });
+    if (r.ok) return r.json();
+    throw new Error(await this.errorOf(r));
+  }
 }
 
 // ── Backup & Recovery DTOs (mirror the BFF backup package shapes) ─────
@@ -1183,4 +1228,41 @@ export interface ImportVpnConfigRequest {
   provider?: string;
   config: string;
   secretRef?: string;
+}
+
+// ── Games app-store DTOs ──────────────────────────────────────────────────────
+
+/** An offered + enabled catalog server for the caller's domain (admin-bff
+ *  GameCatalogEntryResponse, surfaced via the offer). */
+export interface GameOffer {
+  slug: string;
+  displayName: string;
+  licenseSpdx: string;
+  protocol: string;
+  maxInstances: number;
+  summary?: string | null;
+}
+
+/** Body for POST /bff/games-services/instances. domain + owner come from the JWT. */
+export interface CreateGameInstanceRequest {
+  slug: string;
+  name: string;
+  ttlSeconds?: number | null;
+}
+
+/** One game_instance row (admin-bff GameInstanceResponse). */
+export interface GameInstance {
+  id: string;
+  domain: string;
+  slug: string;
+  name: string;
+  state: 'pending' | 'active' | 'suspended' | 'terminated';
+  propagationState: string;
+  ownerSubject: string;
+  createdAt: string;
+  endingAt?: string | null;
+  namespace?: string | null;
+  nodePort?: number | null;
+  consolePath?: string | null;
+  updatedAt: string;
 }
