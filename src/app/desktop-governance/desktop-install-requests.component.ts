@@ -67,7 +67,7 @@ export class DesktopInstallRequestsComponent implements OnInit {
   /** The id of the row whose approve panel is open (only one at a time). */
   readonly openApprove = signal<string | null>(null);
 
-  private readonly operator = computed(() => (this.session.session()?.id ?? '').toLowerCase());
+  private get operator(): string { return (this.session.session()?.id ?? '').toLowerCase(); }
 
   async ngOnInit(): Promise<void> {
     await this.reload();
@@ -92,7 +92,7 @@ export class DesktopInstallRequestsComponent implements OnInit {
   hasLicense(r: DesktopInstallRequest): boolean {
     const d = this.deviceOf(r);
     if (!d) return false;
-    const op = this.operator();
+    const op = this.operator;
     return d.licenses.some((l) =>
       l.state === 'active'
       && (l.operator ?? '').toLowerCase() === op

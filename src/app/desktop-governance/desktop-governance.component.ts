@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DesktopCatalogComponent } from './desktop-catalog.component';
 import { DesktopSudoComponent } from './desktop-sudo.component';
@@ -41,9 +41,11 @@ type DesktopTab = 'catalog' | 'sudo' | 'requests' | 'terminal';
   styleUrl: './desktop-governance.component.scss',
 })
 export class DesktopGovernanceComponent {
-  tab: DesktopTab = 'catalog';
+  /** The active sub-tab as a signal so the tab nav + the lazily-rendered child stay reactive
+   *  under any change-detection strategy. */
+  readonly tab = signal<DesktopTab>('catalog');
 
   select(tab: DesktopTab): void {
-    this.tab = tab;
+    this.tab.set(tab);
   }
 }

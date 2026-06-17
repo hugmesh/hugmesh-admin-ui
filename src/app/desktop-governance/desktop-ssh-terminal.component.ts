@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Terminal } from '@xterm/xterm';
@@ -57,23 +57,28 @@ export class DesktopSshTerminalComponent implements OnInit, AfterViewInit, OnDes
   private term?: Terminal;
   private ws?: WebSocket;
 
-  private readonly operator = computed(() => (this.session.session()?.id ?? '').toLowerCase());
+  // The {@code deviceId}-dependent predicates are plain GETTERS (not computed) so they re-
+  // evaluate against the live {@code [(ngModel)]} selection every change-detection pass; a
+  // {@code computed} would not react to the plain {@code deviceId} field changing.
+  private get operator(): string { return (this.session.session()?.id ?? '').toLowerCase(); }
 
-  readonly selectedDevice = computed(() => this.devices().find((d) => d.id === this.deviceId));
+  get selectedDevice(): DeviceRegistration | undefined {
+    return this.devices().find((d) => d.id === this.deviceId);
+  }
 
-  readonly hasLicense = computed(() => {
-    const d = this.selectedDevice();
+  hasLicense(): boolean {
+    const d = this.selectedDevice;
     if (!d) return false;
-    const op = this.operator();
+    const op = this.operator;
     return d.licenses.some((l) =>
       l.state === 'active'
       && (l.operator ?? '').toLowerCase() === op
       && (l.scope_type === 'DEVICE' ? l.device_id === d.id : (l.target_domain ?? '') === d.domain));
-  });
+  }
 
-  readonly superadminOwned = computed(() => this.selectedDevice()?.owner_type === 'SUPERADMIN');
+  superadminOwned(): boolean { return this.selectedDevice?.owner_type === 'SUPERADMIN'; }
 
-  readonly gateReason = computed(() => {
+  gateReason(): string {
     if (!this.deviceId) return 'Pick a device to open an SSH terminal on.';
     if (this.superadminOwned()) {
       return 'This device is superadmin-owned — the in-UI SSH terminal is not available on it.';
@@ -82,9 +87,9 @@ export class DesktopSshTerminalComponent implements OnInit, AfterViewInit, OnDes
       return 'You hold no active device-SSH license for this device — the SSH terminal is blocked.';
     }
     return '';
-  });
+  }
 
-  readonly canOpen = computed(() => this.gateReason() === '');
+  canOpen(): boolean { return this.gateReason() === ''; }
 
   async ngOnInit(): Promise<void> {
     this.devices.set(await this.bff.devices());

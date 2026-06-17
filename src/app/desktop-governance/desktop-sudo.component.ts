@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BffService, DeviceRegistration, DesktopSudoGrant } from '../bff.service';
@@ -53,56 +53,54 @@ export class DesktopSudoComponent implements OnInit {
   readonly grantError = signal('');
 
   /** The acting admin's operator key (the device-ssh-license operator). Lower-cased for the
-   *  case-insensitive match against {@code license.operator}. */
-  private readonly operator = computed(() => (this.session.session()?.id ?? '').toLowerCase());
-  private readonly superadmin = computed(() => this.session.isSuperadmin());
+   *  case-insensitive match against {@code license.operator}. The {@code deviceId}-dependent
+   *  predicates below are plain GETTERS (not signals/computed) so they re-evaluate every change-
+   *  detection pass against the live {@code [(ngModel)]} selection (a {@code computed} would not
+   *  react to the plain {@code deviceId} field changing). */
+  private get operator(): string { return (this.session.session()?.id ?? '').toLowerCase(); }
+  private get superadmin(): boolean { return this.session.isSuperadmin(); }
 
   /** The device currently selected in the picker (or undefined). */
-  readonly selectedDevice = computed(() =>
-    this.devices().find((d) => d.id === this.deviceId));
+  get selectedDevice(): DeviceRegistration | undefined {
+    return this.devices().find((d) => d.id === this.deviceId);
+  }
 
   /** Whether the acting admin holds an ACTIVE device-ssh-license for the selected device
    *  (per-device OR per-domain scope). Drives the disabled state + helptext (the BFF is the
    *  authority — this is presentation). */
-  readonly hasLicense = computed(() => {
-    const d = this.selectedDevice();
+  hasLicense(): boolean {
+    const d = this.selectedDevice;
     if (!d) return false;
-    const op = this.operator();
+    const op = this.operator;
     return d.licenses.some((l) =>
       l.state === 'active'
       && (l.operator ?? '').toLowerCase() === op
       && (l.scope_type === 'DEVICE'
         ? l.device_id === d.id
         : (l.target_domain ?? '') === d.domain));
-  });
+  }
 
   /** Whether the selected device is SUPERADMIN-owned (a clean 422 at the BFF). */
-  readonly superadminOwned = computed(() => this.selectedDevice()?.owner_type === 'SUPERADMIN');
-
-  /** Whether granting on the selected device would cross the own-domain wall for a SCOPED
-   *  admin. A superadmin is unscoped, so the wall never applies; we can only compare against
-   *  the devices the BFF returned (own-domain for a scoped admin), so this stays false in
-   *  practice for a scoped admin and is a defensive presentation hint. */
-  readonly crossDomain = computed(() => false);
+  superadminOwned(): boolean { return this.selectedDevice?.owner_type === 'SUPERADMIN'; }
 
   /** The single reason the Grant action is blocked (presentation), or '' when permitted. */
-  readonly gateReason = computed(() => {
+  gateReason(): string {
     if (!this.deviceId) return 'Pick a device to grant sudo on.';
     if (this.superadminOwned()) {
       return 'This device is superadmin-owned — desktop sudo cannot be granted on it.';
     }
     if (!this.hasLicense()) {
-      return this.superadmin()
+      return this.superadmin
         ? 'You hold no active device-SSH license for this device. Grant yourself a '
           + 'license in Device licenses first.'
         : 'You hold no active device-SSH license for this device. An admin with a license '
           + '(or a superadmin) must act, or you must be granted one.';
     }
     return '';
-  });
+  }
 
   /** Whether the Grant action is permitted (presentation gate). */
-  readonly canGrant = computed(() => this.gateReason() === '');
+  canGrant(): boolean { return this.gateReason() === ''; }
 
   async ngOnInit(): Promise<void> {
     await this.reload();
