@@ -16,6 +16,7 @@ import { TestReportsComponent } from './test-reports/test-reports.component';
 import { ForumAdminComponent } from './forum-admin/forum-admin.component';
 import { AppealsComponent } from './appeals/appeals.component';
 import { DeviceLicensesComponent } from './device-licenses.component';
+import { EgressVpnComponent } from './egress-vpn.component';
 import { SuperadminDomainsComponent } from './superadmin-domains.component';
 import { superadminGuard } from './superadmin.guard';
 
@@ -51,10 +52,11 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('forum')!.component).toBe(ForumAdminComponent);
     expect(byPath('appeals')!.component).toBe(AppealsComponent);
     expect(byPath('device-licenses')!.component).toBe(DeviceLicensesComponent);
+    expect(byPath('egress-vpn')!.component).toBe(EgressVpnComponent);
     expect(byPath('superadmin/domains')!.component).toBe(SuperadminDomainsComponent);
   });
 
-  it('exposes exactly the eighteen admin views the host expects (incl. delegation + appeals + device-licenses + superadmin/domains)', () => {
+  it('exposes exactly the nineteen admin views the host expects (incl. delegation + appeals + device-licenses + egress-vpn + superadmin/domains)', () => {
     expect(ADMIN_ROUTES.map((r) => r.path)).toEqual([
       '',
       'usage',
@@ -73,12 +75,20 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
       'forum',
       'appeals',
       'device-licenses',
+      'egress-vpn',
       'superadmin/domains',
     ]);
   });
 
   it('superadmin-gates the device-licenses console (additive, behind the superadmin guard)', () => {
     expect(byPath('device-licenses')!.canActivate).toEqual([superadminGuard]);
+  });
+
+  it('superadmin-gates the egress-vpn console (additive, behind the superadmin guard)', () => {
+    const ev = byPath('egress-vpn');
+    expect(ev).toBeDefined();
+    expect(ev!.component).toBe(EgressVpnComponent);
+    expect(ev!.canActivate).toEqual([superadminGuard]);
   });
 
   it('superadmin-gates the domains console (multi-tenancy PR9, behind the superadmin guard)', () => {

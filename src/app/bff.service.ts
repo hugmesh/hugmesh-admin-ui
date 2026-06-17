@@ -543,6 +543,87 @@ export class BffService {
     throw new Error(err);
   }
 
+  // ── Egress-VPN console (SUPERADMIN-only, BFF /bff/admin/egress-vpn) ────────────
+  // Admins/superadmins import provider-downloaded VPN configs (ProtonVPN WireGuard
+  // .conf first-class; OpenVPN .ovpn fallback) that mesh NODES use for OUTGOING /
+  // egress traffic on public flows. The list view is ADMIN-readable (own-domain,
+  // scoped by the BFF) but every MUTATION is hasRole('SUPERADMIN'); this console is
+  // superadmin-route-guarded as defence-in-depth. The .conf text is sent for
+  // parse-validation only — the BFF stores a secret_ref + parsed metadata, NEVER the
+  // private key (secrets off-DB / off-git). Endpoints (admin-bff EgressVpnController):
+  //   GET    /bff/admin/egress-vpn                                  → { configs:[], assignments:[] }
+  //   POST   /bff/admin/egress-vpn/configs                          → VpnConfigRow (422 on bad config)
+  //   DELETE /bff/admin/egress-vpn/configs/{id}                     → { revoked }
+  //   POST   /bff/admin/egress-vpn/configs/{id}/assign/node/{fp}    → VpnNodeAssignmentRow
+  //   POST   /bff/admin/egress-vpn/configs/{id}/assign/domain/{dom} → VpnNodeAssignmentRow
+  //   DELETE /bff/admin/egress-vpn/assignments/{id}                 → { revoked }
+
+  /** Every imported VPN config + every active assignment (own-domain for an ADMIN,
+   *  all brands for a SUPERADMIN — the BFF scopes the read). */
+  async egressVpn(): Promise<{ configs: VpnConfigRow[]; assignments: VpnNodeAssignmentRow[] }> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/egress-vpn`, { headers: { authorization: `Bearer ${t}` } });
+    if (!r.ok) return { configs: [], assignments: [] };
+    const body = await r.json();
+    return { configs: body.configs ?? [], assignments: body.assignments ?? [] };
+  }
+
+  /** Import a provider VPN config. The .conf/.ovpn text is parse-validated by the BFF
+   *  (a malformed config → 422 {error}); only a secret_ref + metadata are persisted. */
+  async importVpnConfig(req: ImportVpnConfigRequest): Promise<VpnConfigRow> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/egress-vpn/configs`, {
+      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      body: JSON.stringify(req),
+    });
+    if (r.ok) return r.json();
+    throw new Error(await this.errorOf(r));
+  }
+
+  /** Revoke a config (CAS — never deleted; cascade-revokes its assignments). */
+  async revokeVpnConfig(configId: string): Promise<number> {
+    return this.vpnRevoke(`/bff/admin/egress-vpn/configs/${encodeURIComponent(configId)}`);
+  }
+
+  /** Assign a config to ONE node (by its machine_key_fp), optionally narrowed to a
+   *  single public service (akkoma/tuwunel/coturn; blank = all). */
+  async assignVpnNode(configId: string, nodeFp: string, serviceSlug?: string): Promise<VpnNodeAssignmentRow> {
+    return this.vpnAssign(
+      `/bff/admin/egress-vpn/configs/${encodeURIComponent(configId)}/assign/node/${encodeURIComponent(nodeFp)}`,
+      serviceSlug);
+  }
+
+  /** Assign a config to a whole DOMAIN (all that brand's public pods), optionally
+   *  narrowed to a single public service. */
+  async assignVpnDomain(configId: string, domain: string, serviceSlug?: string): Promise<VpnNodeAssignmentRow> {
+    return this.vpnAssign(
+      `/bff/admin/egress-vpn/configs/${encodeURIComponent(configId)}/assign/domain/${encodeURIComponent(domain)}`,
+      serviceSlug);
+  }
+
+  /** Un-assign (revoke an assignment) by id (CAS — never deleted). */
+  async revokeVpnAssignment(assignmentId: string): Promise<number> {
+    return this.vpnRevoke(`/bff/admin/egress-vpn/assignments/${encodeURIComponent(assignmentId)}`);
+  }
+
+  private async vpnAssign(path: string, serviceSlug?: string): Promise<VpnNodeAssignmentRow> {
+    const t = this.session.session()?.bffToken;
+    const body = serviceSlug && serviceSlug.trim() ? { serviceSlug: serviceSlug.trim() } : {};
+    const r = await fetch(`${CFG.bff}${path}`, {
+      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      body: JSON.stringify(body),
+    });
+    if (r.ok) return r.json();
+    throw new Error(await this.errorOf(r));
+  }
+
+  private async vpnRevoke(path: string): Promise<number> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}${path}`, { method: 'DELETE', headers: { authorization: `Bearer ${t}` } });
+    if (r.ok) return (await r.json()).revoked ?? 0;
+    throw new Error(await this.errorOf(r));
+  }
+
   // ── Domain registry console (SUPERADMIN-only, BFF /bff/admin/domains) ──────────
   // The RUNTIME source of truth for the cluster's brands/domains (multi-tenancy PR9),
   // the SUPERADMIN-managed twin of the build-time brands/domains.conf. EVERY endpoint is
@@ -918,4 +999,46 @@ export interface DeviceRegistration {
   mesh_id?: string | null;
   last_seen_at?: string | null;
   licenses: DeviceSshLicense[];
+}
+
+// ── Egress-VPN DTOs (mirror the admin-bff egressvpn package shapes) ────────────
+/** One imported provider VPN config (vpn_config). Carries a secret_ref + metadata
+ *  ONLY — never the .conf bytes / private key. */
+export interface VpnConfigRow {
+  id: string;
+  domain: string;
+  name: string;
+  kind: 'wireguard' | 'openvpn';
+  provider?: string | null;
+  endpoint?: string | null;
+  secretRef?: string | null;
+  state: 'active' | 'revoked';
+  createdBy?: string | null;
+  createdAt?: string | null;
+  propagationState?: string | null;
+  generation?: number;
+}
+/** One (config × NODE|DOMAIN) assignment (vpn_node_assignment) — which public pods
+ *  egress via the VPN; optional per-service serviceSlug. */
+export interface VpnNodeAssignmentRow {
+  id: string;
+  configId: string;
+  scopeType: 'DEVICE' | 'DOMAIN';
+  targetNodeId?: string | null;
+  targetDomain?: string | null;
+  serviceSlug?: string | null;
+  state: 'active' | 'revoked';
+  assignedBy?: string | null;
+  domain: string;
+  propagationState?: string | null;
+}
+/** Body for POST /bff/admin/egress-vpn/configs — import a provider VPN config. The
+ *  raw .conf/.ovpn text is sent for parse-validation; the BFF stores only a
+ *  secret_ref + parsed metadata (never the private key). */
+export interface ImportVpnConfigRequest {
+  domain: string;
+  name: string;
+  provider?: string;
+  config: string;
+  secretRef?: string;
 }
