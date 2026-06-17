@@ -17,6 +17,7 @@ import { ForumAdminComponent } from './forum-admin/forum-admin.component';
 import { AppealsComponent } from './appeals/appeals.component';
 import { DeviceLicensesComponent } from './device-licenses.component';
 import { SuperadminDomainsComponent } from './superadmin-domains.component';
+import { OidcProviderRolesComponent } from './oidc-provider-roles.component';
 import { superadminGuard } from './superadmin.guard';
 
 /** Routes exposed by the Admin native-federation remote. The snapdragon.systems
@@ -37,7 +38,9 @@ import { superadminGuard } from './superadmin.guard';
  *  /admin/device-licenses (the SUPERADMIN-only Device Licenses console over the
  *  device-ownership / SSH-operate-license registry — additionally superadmin-guarded), and
  *  /admin/superadmin/domains (the SUPERADMIN-only Domains console over the domain_registry
- *  brand list — multi-tenancy PR9, additionally superadmin-guarded).
+ *  brand list — multi-tenancy PR9, additionally superadmin-guarded), and
+ *  /admin/oidc-providers (configure which roles new users auto-receive when registering via
+ *  a given OIDC identity provider — domain-scoped for admins, all-domains for superadmin).
  *  Casdoor-admin-role guarded by the host. */
 export const ADMIN_ROUTES: Routes = [
   { path: '', component: AdminComponent },
@@ -58,4 +61,5 @@ export const ADMIN_ROUTES: Routes = [
   { path: 'appeals', component: AppealsComponent },
   { path: 'device-licenses', component: DeviceLicensesComponent, canActivate: [superadminGuard] },
   { path: 'superadmin/domains', component: SuperadminDomainsComponent, canActivate: [superadminGuard] },
+  { path: 'oidc-providers', component: OidcProviderRolesComponent },
 ];
