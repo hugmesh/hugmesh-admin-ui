@@ -1,0 +1,56 @@
+<section class="snap-desktop-gov" data-testid="desktop-ssh-terminal-view" aria-labelledby="dst-heading">
+  <h2 id="dst-heading">SSH terminal (in-UI)</h2>
+  <p class="dg-intro">
+    Open an interactive SSH terminal into a desktop device, riding your device-SSH license.
+    The terminal reuses the workload-console xterm.js bridge. <strong>Ships dark</strong>: the
+    admin-bff currently authorizes the session (the device-SSH license + own-domain wall are real)
+    but does not yet open a live terminal — the live bridge is a follow-on increment.
+  </p>
+
+  <form class="dg-toolbar" (ngSubmit)="open()" novalidate>
+    <label for="dst-device">Device</label>
+    <select id="dst-device" data-testid="dst-device" [(ngModel)]="deviceId" name="deviceId">
+      <option *ngFor="let d of devices()" [value]="d.id">{{ deviceLabel(d) }}</option>
+    </select>
+
+    <button
+      data-testid="dst-open"
+      type="submit"
+      [disabled]="!canOpen() || connected()"
+      [attr.aria-describedby]="!canOpen() ? 'dst-gate-help' : null"
+    >open terminal</button>
+    <button data-testid="dst-disconnect" type="button" (click)="disconnect()" [disabled]="!connected()"
+      >disconnect</button>
+
+    <span
+      *ngIf="!canOpen()"
+      id="dst-gate-help"
+      class="dg-helptext"
+      data-testid="dst-gate-help"
+      role="status"
+      aria-live="polite"
+    >{{ gateReason() }}</span>
+  </form>
+
+  <p *ngIf="error()" id="dst-err" data-testid="dst-error" role="alert" aria-live="assertive" class="field-error"
+    >{{ error() }}</p>
+  <p role="status" aria-live="polite" class="dg-status" data-testid="dst-status">{{ statusMsg() }}</p>
+
+  <!-- Dark-state panel: the session is authorized but no live TTY is opened yet. -->
+  <p
+    *ngIf="dark()"
+    class="dg-helptext dg-dark"
+    data-testid="dst-dark"
+    role="status"
+    aria-live="polite"
+  >{{ darkNote() }}</p>
+
+  <div
+    #term
+    class="dg-term"
+    data-testid="dst-term"
+    role="application"
+    aria-label="Interactive SSH terminal"
+    [class.dg-term-dark]="dark() || !connected()"
+  ></div>
+</section>

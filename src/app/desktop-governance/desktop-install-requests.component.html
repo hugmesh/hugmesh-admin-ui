@@ -1,0 +1,162 @@
+<section class="snap-desktop-gov" data-testid="desktop-install-requests-view" aria-labelledby="dir-heading">
+  <h2 id="dir-heading">Install-request inbox</h2>
+  <p class="dg-intro">
+    Non-sudo desktop users ask you to allow / install an app on their device. Decide each request:
+    <strong>deny</strong>, or <strong>approve</strong> — optionally adding the app to the Discover
+    catalog (and enabling it) and/or triggering a one-click <strong>remote install</strong> onto
+    the requester's device. Remote install rides your device-SSH license and the own-domain wall.
+  </p>
+
+  <!-- ── Pending inbox (the headline) ─────────────────────────────────────── -->
+  <h3 id="dir-pending-heading">Pending requests</h3>
+  <ul data-testid="dir-pending" aria-labelledby="dir-pending-heading" class="dg-cards">
+    <li *ngFor="let r of pending()" [attr.data-request-id]="r.id" class="dg-card">
+      <div class="dg-card-head">
+        <strong>{{ r.appRef }}</strong>
+        <span class="dg-meta">requested by {{ r.requester }}</span>
+        <span class="dg-meta">device: {{ deviceOf(r)?.hostname ?? r.deviceId }}</span>
+        <span class="dg-meta">domain: {{ r.domain }}</span>
+      </div>
+
+      <div class="dg-card-actions">
+        <button
+          type="button"
+          [attr.data-deny]="r.id"
+          [attr.aria-label]="'Deny install request: ' + requestLabel(r)"
+          (click)="deny(r)"
+        >deny</button>
+        <button
+          type="button"
+          [attr.data-approve-toggle]="r.id"
+          [attr.aria-expanded]="openApprove() === r.id"
+          [attr.aria-controls]="'dir-approve-' + r.id"
+          (click)="toggleApprove(r.id)"
+        >approve…</button>
+        <button
+          type="button"
+          [attr.data-remote-install]="r.id"
+          [disabled]="!canRemoteInstall(r)"
+          [attr.aria-describedby]="!canRemoteInstall(r) ? 'dir-ri-help-' + r.id : null"
+          [attr.aria-label]="'Remote-install ' + requestLabel(r)"
+          (click)="remoteInstall(r)"
+        >remote-install now</button>
+
+        <span
+          *ngIf="!canRemoteInstall(r)"
+          [id]="'dir-ri-help-' + r.id"
+          class="dg-helptext"
+          [attr.data-ri-help]="r.id"
+          role="status"
+          aria-live="polite"
+        >{{ remoteInstallGate(r) }}</span>
+      </div>
+
+      <!-- Approve panel: optional add-to-catalog + remote install in one action. -->
+      <fieldset
+        *ngIf="openApprove() === r.id"
+        [id]="'dir-approve-' + r.id"
+        class="dg-approve-panel"
+        [attr.data-approve-panel]="r.id"
+      >
+        <legend>Approve {{ r.appRef }}</legend>
+
+        <label [attr.for]="'dir-add-' + r.id">
+          <input
+            type="checkbox"
+            [id]="'dir-add-' + r.id"
+            [attr.data-add-catalog]="r.id"
+            [checked]="approveAddToCatalog()[r.id]"
+            (change)="setAddToCatalog(r.id, $any($event.target).checked)"
+          />
+          Add to the Discover catalog (and enable it)
+        </label>
+
+        <ng-container *ngIf="approveAddToCatalog()[r.id]">
+          <label [attr.for]="'dir-name-' + r.id">Display name (optional — defaults to the app ref)</label>
+          <input
+            [id]="'dir-name-' + r.id"
+            [attr.data-display-name]="r.id"
+            type="text"
+            [value]="approveDisplayName()[r.id] || ''"
+            [placeholder]="r.appRef"
+            (input)="setDisplayName(r.id, $any($event.target).value)"
+          />
+        </ng-container>
+
+        <label [attr.for]="'dir-ri-' + r.id">
+          <input
+            type="checkbox"
+            [id]="'dir-ri-' + r.id"
+            [attr.data-approve-remote]="r.id"
+            [checked]="approveRemoteInstall()[r.id]"
+            [disabled]="!canRemoteInstall(r)"
+            (change)="setRemoteInstall(r.id, $any($event.target).checked)"
+          />
+          Also trigger a remote install onto the device
+        </label>
+        <span
+          *ngIf="!canRemoteInstall(r)"
+          class="dg-helptext"
+          [attr.data-approve-ri-help]="r.id"
+        >{{ remoteInstallGate(r) }}</span>
+
+        <button
+          type="button"
+          [attr.data-approve-confirm]="r.id"
+          [attr.aria-label]="'Confirm approve: ' + requestLabel(r)"
+          (click)="approve(r)"
+        >approve</button>
+      </fieldset>
+
+      <p
+        *ngIf="noteFor(r.id) as n"
+        class="dg-note"
+        [class.dg-note-err]="n.kind === 'err'"
+        [attr.data-note]="r.id"
+        [attr.role]="n.kind === 'err' ? 'alert' : 'status'"
+        aria-live="polite"
+      >{{ n.text }}</p>
+    </li>
+
+    <li *ngIf="loaded() && pending().length === 0" class="dg-empty" data-testid="dir-pending-empty">
+      No pending install requests.
+    </li>
+  </ul>
+
+  <!-- ── Decided history ──────────────────────────────────────────────────── -->
+  <h3 id="dir-decided-heading">Recently decided</h3>
+  <table data-testid="dir-decided" aria-labelledby="dir-decided-heading">
+    <thead>
+      <tr>
+        <th scope="col">App</th>
+        <th scope="col">Requester</th>
+        <th scope="col">Device</th>
+        <th scope="col">Status</th>
+        <th scope="col">Decided by</th>
+        <th scope="col">Re-install</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let r of decided()" [attr.data-decided-id]="r.id" [attr.data-status]="r.status">
+        <td><code>{{ r.appRef }}</code></td>
+        <td>{{ r.requester }}</td>
+        <td>{{ deviceOf(r)?.hostname ?? r.deviceId }}</td>
+        <td><span class="dg-badge" [attr.data-decided-status]="r.status">{{ r.status }}</span></td>
+        <td>{{ r.decidedBy || '—' }}</td>
+        <td>
+          <button
+            *ngIf="r.status === 'approved' || r.status === 'installed'"
+            type="button"
+            [attr.data-reinstall]="r.id"
+            [disabled]="!canRemoteInstall(r)"
+            [attr.aria-label]="'Remote-install ' + requestLabel(r)"
+            (click)="remoteInstall(r)"
+          >remote-install</button>
+        </td>
+      </tr>
+      <tr *ngIf="loaded() && decided().length === 0">
+        <td colspan="6" class="dg-empty" data-testid="dir-decided-empty">No decided requests.</td>
+      </tr>
+    </tbody>
+  </table>
+</section>

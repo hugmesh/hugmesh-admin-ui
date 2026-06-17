@@ -1,0 +1,48 @@
+<section class="snap-desktop-gov-shell" data-testid="desktop-governance-view" aria-labelledby="dg-shell-heading">
+  <h1 id="dg-shell-heading">Desktop governance</h1>
+  <p class="dg-intro">
+    Govern the desktop fleet: curate the Discover store, grant SSO-enforced sudo, decide install
+    requests, and open an in-UI SSH terminal. Everything is per-domain (your brand; a superadmin
+    sees all) and re-enforced server-side.
+  </p>
+
+  <nav class="dg-tabs" aria-label="Desktop governance sections">
+    <button
+      type="button"
+      role="tab"
+      data-testid="dg-tab-catalog"
+      [attr.aria-selected]="tab === 'catalog'"
+      [class.dg-tab-active]="tab === 'catalog'"
+      (click)="select('catalog')"
+    >Discover curation</button>
+    <button
+      type="button"
+      role="tab"
+      data-testid="dg-tab-sudo"
+      [attr.aria-selected]="tab === 'sudo'"
+      [class.dg-tab-active]="tab === 'sudo'"
+      (click)="select('sudo')"
+    >Desktop sudo</button>
+    <button
+      type="button"
+      role="tab"
+      data-testid="dg-tab-requests"
+      [attr.aria-selected]="tab === 'requests'"
+      [class.dg-tab-active]="tab === 'requests'"
+      (click)="select('requests')"
+    >Install requests</button>
+    <button
+      type="button"
+      role="tab"
+      data-testid="dg-tab-terminal"
+      [attr.aria-selected]="tab === 'terminal'"
+      [class.dg-tab-active]="tab === 'terminal'"
+      (click)="select('terminal')"
+    >SSH terminal</button>
+  </nav>
+
+  <snap-desktop-catalog *ngIf="tab === 'catalog'" />
+  <snap-desktop-sudo *ngIf="tab === 'sudo'" />
+  <snap-desktop-install-requests *ngIf="tab === 'requests'" />
+  <snap-desktop-ssh-terminal *ngIf="tab === 'terminal'" />
+</section>
