@@ -21,6 +21,7 @@ import { EgressVpnComponent } from './egress-vpn.component';
 import { SuperadminDomainsComponent } from './superadmin-domains.component';
 import { OidcProviderRolesComponent } from './oidc-provider-roles.component';
 import { GamesServicesComponent } from './games-services/games-services.component';
+import { AnubisAdminComponent } from './anubis-admin.component';
 import { superadminGuard } from './superadmin.guard';
 import { gamesServicesGuard } from './games-services.guard';
 
@@ -51,7 +52,10 @@ import { gamesServicesGuard } from './games-services.guard';
  *  configs that nodes use for outgoing public egress, additionally superadmin-guarded), and
  *  /admin/games-services (the games app-store operator console — add/run dockerized FOSS game
  *  servers from the catalog; gated on a games-services role: ADMIN catalog-enable+create/run or
- *  RUNNER mod-delegated run/stop, behind the games-services guard).
+ *  RUNNER mod-delegated run/stop, behind the games-services guard), and
+ *  /admin/superadmin/anubis (SUPERADMIN-only read-only view of the Anubis PoW challenge sidecar:
+ *  status, configured settings, and proxied Prometheus metrics with auto-refresh — additionally
+ *  superadmin-guarded).
  *  Casdoor-admin-role guarded by the host. */
 export const ADMIN_ROUTES: Routes = [
   { path: '', component: AdminComponent },
@@ -76,4 +80,5 @@ export const ADMIN_ROUTES: Routes = [
   { path: 'superadmin/domains', component: SuperadminDomainsComponent, canActivate: [superadminGuard] },
   { path: 'oidc-providers', component: OidcProviderRolesComponent },
   { path: 'games-services', component: GamesServicesComponent, canActivate: [gamesServicesGuard] },
+  { path: 'superadmin/anubis', component: AnubisAdminComponent, canActivate: [superadminGuard] },
 ];
