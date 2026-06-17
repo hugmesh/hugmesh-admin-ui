@@ -1,0 +1,112 @@
+@use '../styles/tokens' as t;
+
+:host {
+  display: block;
+}
+
+.snap-device-pending {
+  display: block;
+  padding: 1rem;
+
+  .dp-intro {
+    color: var(--sd-text-soft, var(--sd-text));
+    max-width: 60ch;
+  }
+
+  form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-block: 0.75rem;
+  }
+
+  label {
+    font-weight: 600;
+    color: var(--sd-text);
+  }
+
+  input,
+  select {
+    background: var(--sd-bg-1);
+    color: var(--sd-text);
+    border: 1px solid var(--sd-border);
+    border-radius: t.$radius-sm;
+    padding: 0.5rem 0.75rem;
+
+    &[aria-invalid='true'] {
+      border-color: var(--sd-error);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  button {
+    background: var(--sd-accent);
+    color: var(--sd-text);
+    border: 1px solid var(--sd-accent-soft);
+    border-radius: t.$radius-sm;
+    padding: 0.4rem 0.8rem;
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  .dp-fp {
+    flex-basis: 100%;
+    margin: 0;
+    color: var(--sd-text-soft, var(--sd-text));
+
+    code {
+      word-break: break-all;
+    }
+  }
+
+  .dp-fp-label {
+    font-weight: 600;
+    margin-right: 0.5rem;
+  }
+
+  .field-notice {
+    color: var(--sd-ok, var(--sd-accent));
+  }
+
+  > ul {
+    list-style: none;
+    padding-left: 0;
+
+    > li {
+      margin-block: 0.5rem;
+    }
+  }
+
+  .dp-tag {
+    margin-inline: 0.5rem;
+    font-size: 0.85em;
+    padding: 0.1rem 0.4rem;
+    border-radius: t.$radius-sm;
+  }
+
+  .dp-tag-registered {
+    background: var(--sd-bg-2, var(--sd-bg-1));
+    color: var(--sd-text-soft, var(--sd-text));
+  }
+
+  .dp-tag-pending {
+    background: var(--sd-accent-soft);
+    color: var(--sd-text);
+  }
+
+  .dp-fp-inline {
+    display: block;
+    color: var(--sd-text-soft, var(--sd-text));
+    word-break: break-all;
+    font-size: 0.85em;
+  }
+}

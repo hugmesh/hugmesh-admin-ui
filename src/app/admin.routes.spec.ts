@@ -16,6 +16,7 @@ import { TestReportsComponent } from './test-reports/test-reports.component';
 import { ForumAdminComponent } from './forum-admin/forum-admin.component';
 import { AppealsComponent } from './appeals/appeals.component';
 import { DeviceLicensesComponent } from './device-licenses.component';
+import { DevicePendingComponent } from './device-pending.component';
 import { StoragePoolsComponent } from './storage-pools.component';
 import { EgressVpnComponent } from './egress-vpn.component';
 import { SuperadminDomainsComponent } from './superadmin-domains.component';
@@ -61,6 +62,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('forum')!.component).toBe(ForumAdminComponent);
     expect(byPath('appeals')!.component).toBe(AppealsComponent);
     expect(byPath('device-licenses')!.component).toBe(DeviceLicensesComponent);
+    expect(byPath('device-pending')!.component).toBe(DevicePendingComponent);
     expect(byPath('node-storage')!.component).toBe(StoragePoolsComponent);
     expect(byPath('egress-vpn')!.component).toBe(EgressVpnComponent);
     expect(byPath('superadmin/domains')!.component).toBe(SuperadminDomainsComponent);
@@ -69,7 +71,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('superadmin/anubis')!.component).toBe(AnubisAdminComponent);
   });
 
-  it('exposes exactly the twenty-six admin views the host expects (incl. delegation + appeals + device-licenses + node-storage + egress-vpn + superadmin/domains + oidc-providers + games-services + superadmin/anubis + the HIDDEN-tier workloads console + its logs/terminal sub-views)', () => {
+  it('exposes exactly the twenty-seven admin views the host expects (incl. delegation + appeals + device-licenses + device-pending + node-storage + egress-vpn + superadmin/domains + oidc-providers + games-services + superadmin/anubis + the HIDDEN-tier workloads console + its logs/terminal sub-views)', () => {
     expect(ADMIN_ROUTES.map((r) => r.path)).toEqual([
       '',
       'usage',
@@ -88,6 +90,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
       'forum',
       'appeals',
       'device-licenses',
+      'device-pending',
       'node-storage',
       'egress-vpn',
       'superadmin/domains',
@@ -117,6 +120,13 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
 
   it('superadmin-gates the device-licenses console (additive, behind the superadmin guard)', () => {
     expect(byPath('device-licenses')!.canActivate).toEqual([superadminGuard]);
+  });
+
+  it('superadmin-gates the device-pending pick-list (assign enrolled nodes; behind the superadmin guard)', () => {
+    const dp = byPath('device-pending');
+    expect(dp).toBeDefined();
+    expect(dp!.component).toBe(DevicePendingComponent);
+    expect(dp!.canActivate).toEqual([superadminGuard]);
   });
 
   it('superadmin-gates the egress-vpn console (additive, behind the superadmin guard)', () => {

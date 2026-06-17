@@ -70,6 +70,22 @@ describe('AdminComponent', () => {
     expect(link!.textContent!.trim()).toBe('Device licenses');
   });
 
+  it('hides the superadmin-only Pending devices menu item from a non-superadmin', () => {
+    superadmin.set(false);
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('[data-menu="device-pending"]')).toBeNull();
+  });
+
+  it('surfaces the Pending devices menu item for a superadmin', () => {
+    superadmin.set(true);
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    const link = el.querySelector('[data-menu="device-pending"]');
+    expect(link).not.toBeNull();
+    expect(link!.textContent!.trim()).toBe('Pending devices');
+  });
+
   it('hides the superadmin-only Egress VPN menu item from a non-superadmin', () => {
     superadmin.set(false);
     fixture.detectChanges();
