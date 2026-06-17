@@ -3,7 +3,17 @@
 # GitLab (mirror_trigger_builds=true), so this runs on push / mirror-sync on the
 # privileged x86 runner (shell executor with docker, matching the generator CI).
 # Images carry NO keys — KEYS material is supplied from the USB at first boot.
-stages: [test, build]
+
+# Centralized OWASP pen-test stage (SCA + authenticated ZAP DAST baseline) pulled
+# from the generator. ONE source of truth: onboarded repos get the full harness
+# (Dependency-Check SCA + ZAP baseline + custom probes + nuclei) by extending the
+# hidden .pentest-* jobs below. See memory snapdragon-pentest-standard.
+include:
+  - project: 'Snapdragon-Systems/snapdragon-generator'
+    ref: main
+    file: '/tests/pentest/ci/pentest-stage.gitlab-ci.yml'
+
+stages: [test, build, pentest]
 
 test:
   stage: test
@@ -40,3 +50,35 @@ build:image:
     - docker build --pull -t "$CI_REGISTRY_IMAGE:$TAG" -t "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG" .
     - docker push "$CI_REGISTRY_IMAGE:$TAG"
     - docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG"
+
+# -----------------------------------------------------------------------------
+# OWASP pen-test stage — extends the centralized .pentest-* jobs from the
+# generator (included above). Non-blocking (allow_failure) so a finding surfaces
+# in the MR security widget without breaking the build/image pipeline; rules
+# mirror this repo's existing security-job rules (default branch + merge request).
+# -----------------------------------------------------------------------------
+
+# SCA — OWASP Dependency-Check over this repo (self-checkout). The full harness
+# scan; the `make pentest` target mirrors it locally with `npm audit`.
+pentest:sca:
+  extends: .pentest-sca
+  allow_failure: true
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+# DAST — authenticated ZAP baseline (passiveScan + spider + custom probes +
+# nuclei) via the shared harness. This Angular repo does not vendor the harness,
+# so fetch it from the generator into PENTEST_HARNESS_DIR before the base script
+# runs run-pentest.sh.
+pentest:dast:
+  extends: .pentest-dast-baseline
+  allow_failure: true
+  variables:
+    PENTEST_HARNESS_DIR: "${CI_PROJECT_DIR}/.pentest-harness/tests/pentest"
+  before_script:
+    - rm -rf .pentest-harness
+    - git clone --depth 1 --branch main "${CI_SERVER_PROTOCOL}://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/Snapdragon-Systems/snapdragon-generator.git" .pentest-harness
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
