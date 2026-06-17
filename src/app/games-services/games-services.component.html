@@ -1,0 +1,142 @@
+<section class="snap-games-services" data-testid="games-services-view" aria-labelledby="gs-heading">
+  <h2 id="gs-heading">Games app store</h2>
+  <p class="gs-intro">
+    Run dockerized FOSS game servers offered to your domain. Create an instance from an
+    offered server, then start, pause or stop it. Catalog curation + offers are managed by a
+    superadmin.
+  </p>
+
+  <!-- ── Create an instance (ADMIN only; RUNNER sees it disabled + help) ─────────── -->
+  <form (ngSubmit)="create()" novalidate aria-labelledby="gs-form-heading" aria-describedby="gs-form-help">
+    <h3 id="gs-form-heading">Create an instance</h3>
+    <p id="gs-form-help" class="field-help">
+      <span *ngIf="canCreate()">
+        Pick a server offered to your domain and give the instance a DNS-label name. A
+        superadmin must have offered the server, your admin must have enabled it, and the
+        per-server quota must have headroom — otherwise the request is refused.
+      </span>
+      <span *ngIf="!canCreate()" data-testid="gs-runner-help">
+        You can start, pause and stop instances. Creating new instances needs the games
+        app-store admin role.
+      </span>
+    </p>
+
+    <label for="gs-slug">Game server</label>
+    <select
+      id="gs-slug"
+      data-testid="gs-slug"
+      [(ngModel)]="slug"
+      name="slug"
+      [disabled]="!canCreate()"
+      [attr.aria-disabled]="!canCreate() ? 'true' : null"
+      [attr.aria-describedby]="!canCreate() ? 'gs-form-help' : null"
+    >
+      <option value="">Choose a server…</option>
+      <option *ngFor="let o of offers()" [value]="o.slug">
+        {{ o.displayName }} ({{ o.licenseSpdx }}, up to {{ o.maxInstances }})
+      </option>
+    </select>
+
+    <label for="gs-name">Instance name</label>
+    <input
+      id="gs-name"
+      data-testid="gs-name"
+      [(ngModel)]="name"
+      name="name"
+      placeholder="world1"
+      autocomplete="off"
+      [disabled]="!canCreate()"
+      [attr.aria-disabled]="!canCreate() ? 'true' : null"
+      [attr.aria-invalid]="formError() ? 'true' : null"
+      [attr.aria-errormessage]="formError() ? 'gs-error' : null"
+    />
+
+    <label for="gs-ttl">Auto-stop after (hours, optional)</label>
+    <input
+      id="gs-ttl"
+      data-testid="gs-ttl"
+      [(ngModel)]="ttlHours"
+      name="ttlHours"
+      type="number"
+      min="0"
+      placeholder="leave blank to run until stopped"
+      [disabled]="!canCreate()"
+      [attr.aria-disabled]="!canCreate() ? 'true' : null"
+    />
+
+    <button
+      data-testid="gs-create"
+      type="submit"
+      [disabled]="!canCreate()"
+      [attr.aria-disabled]="!canCreate() ? 'true' : null"
+    >Create instance</button>
+
+    <span
+      *ngIf="formError()"
+      id="gs-error"
+      class="field-error"
+      data-testid="gs-form-error"
+      role="alert"
+      aria-live="assertive"
+    >{{ formError() }}</span>
+  </form>
+
+  <!-- ── Offered catalog (read) ──────────────────────────────────────────────────── -->
+  <h3 id="gs-offers-heading">Offered servers</h3>
+  <ul data-testid="gs-offers" aria-labelledby="gs-offers-heading">
+    <li *ngFor="let o of offers()" [attr.data-slug]="o.slug">
+      <strong>{{ o.displayName }}</strong>
+      <span>· {{ o.licenseSpdx }}</span>
+      <span>· {{ o.protocol }}</span>
+      <span>· max {{ o.maxInstances }}</span>
+      <span *ngIf="o.summary" class="gs-summary">— {{ o.summary }}</span>
+    </li>
+    <li *ngIf="!offers().length" data-testid="gs-offers-empty" class="gs-empty">
+      No servers are offered to your domain yet.
+    </li>
+  </ul>
+
+  <!-- ── Instances (run/stop; ADMIN or RUNNER) ──────────────────────────────────── -->
+  <h3 id="gs-instances-heading">Instances</h3>
+  <span
+    *ngIf="actionError()"
+    id="gs-action-error"
+    class="field-error"
+    data-testid="gs-action-error"
+    role="alert"
+    aria-live="assertive"
+  >{{ actionError() }}</span>
+  <ul data-testid="gs-instances" aria-labelledby="gs-instances-heading">
+    <li *ngFor="let i of instances()" [attr.data-instance-id]="i.id" [attr.data-state]="i.state">
+      <strong>{{ i.name }}</strong>
+      <span>· {{ i.slug }}</span>
+      <span class="gs-state" [attr.data-state]="i.state">{{ i.state }}</span>
+      <span *ngIf="i.nodePort">· port {{ i.nodePort }}</span>
+      <span *ngIf="i.consolePath">· console {{ i.consolePath }}</span>
+
+      <span class="gs-actions">
+        <button
+          data-testid="gs-suspend"
+          type="button"
+          (click)="act(i, 'suspend')"
+          [disabled]="i.state !== 'active' && i.state !== 'pending'"
+        >Pause</button>
+        <button
+          data-testid="gs-resume"
+          type="button"
+          (click)="act(i, 'resume')"
+          [disabled]="i.state !== 'suspended'"
+        >Resume</button>
+        <button
+          data-testid="gs-terminate"
+          type="button"
+          (click)="act(i, 'terminate')"
+          [disabled]="i.state === 'terminated'"
+        >Stop</button>
+      </span>
+    </li>
+    <li *ngIf="!instances().length" data-testid="gs-instances-empty" class="gs-empty">
+      No instances running yet.
+    </li>
+  </ul>
+</section>

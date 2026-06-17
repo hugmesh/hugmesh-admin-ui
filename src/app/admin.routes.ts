@@ -17,7 +17,9 @@ import { ForumAdminComponent } from './forum-admin/forum-admin.component';
 import { AppealsComponent } from './appeals/appeals.component';
 import { DeviceLicensesComponent } from './device-licenses.component';
 import { SuperadminDomainsComponent } from './superadmin-domains.component';
+import { GamesServicesComponent } from './games-services/games-services.component';
 import { superadminGuard } from './superadmin.guard';
+import { gamesServicesGuard } from './games-services.guard';
 
 /** Routes exposed by the Admin native-federation remote. The snapdragon.systems
  *  host mounts these at /admin, so they resolve to /admin (allowlist),
@@ -58,4 +60,5 @@ export const ADMIN_ROUTES: Routes = [
   { path: 'appeals', component: AppealsComponent },
   { path: 'device-licenses', component: DeviceLicensesComponent, canActivate: [superadminGuard] },
   { path: 'superadmin/domains', component: SuperadminDomainsComponent, canActivate: [superadminGuard] },
+  { path: 'games-services', component: GamesServicesComponent, canActivate: [gamesServicesGuard] },
 ];

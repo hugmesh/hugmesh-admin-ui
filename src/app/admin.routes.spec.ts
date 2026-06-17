@@ -17,7 +17,9 @@ import { ForumAdminComponent } from './forum-admin/forum-admin.component';
 import { AppealsComponent } from './appeals/appeals.component';
 import { DeviceLicensesComponent } from './device-licenses.component';
 import { SuperadminDomainsComponent } from './superadmin-domains.component';
+import { GamesServicesComponent } from './games-services/games-services.component';
 import { superadminGuard } from './superadmin.guard';
+import { gamesServicesGuard } from './games-services.guard';
 
 /**
  * These specs lock down the federation contract: `./routes` (exposed under the
@@ -52,9 +54,10 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('appeals')!.component).toBe(AppealsComponent);
     expect(byPath('device-licenses')!.component).toBe(DeviceLicensesComponent);
     expect(byPath('superadmin/domains')!.component).toBe(SuperadminDomainsComponent);
+    expect(byPath('games-services')!.component).toBe(GamesServicesComponent);
   });
 
-  it('exposes exactly the eighteen admin views the host expects (incl. delegation + appeals + device-licenses + superadmin/domains)', () => {
+  it('exposes exactly the nineteen admin views the host expects (incl. delegation + appeals + device-licenses + superadmin/domains + games-services)', () => {
     expect(ADMIN_ROUTES.map((r) => r.path)).toEqual([
       '',
       'usage',
@@ -74,6 +77,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
       'appeals',
       'device-licenses',
       'superadmin/domains',
+      'games-services',
     ]);
   });
 
@@ -86,6 +90,13 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(domains).toBeDefined();
     expect(domains!.component).toBe(SuperadminDomainsComponent);
     expect(domains!.canActivate).toEqual([superadminGuard]);
+  });
+
+  it('games-gates the games-services operator console (behind the games-services guard)', () => {
+    const gs = byPath('games-services');
+    expect(gs).toBeDefined();
+    expect(gs!.component).toBe(GamesServicesComponent);
+    expect(gs!.canActivate).toEqual([gamesServicesGuard]);
   });
 
   it('exposes the appeals console as a plain ADMIN route (no superadmin guard)', () => {
