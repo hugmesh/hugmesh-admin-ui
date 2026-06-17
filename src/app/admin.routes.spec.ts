@@ -16,6 +16,7 @@ import { TestReportsComponent } from './test-reports/test-reports.component';
 import { ForumAdminComponent } from './forum-admin/forum-admin.component';
 import { AppealsComponent } from './appeals/appeals.component';
 import { DeviceLicensesComponent } from './device-licenses.component';
+import { StoragePoolsComponent } from './storage-pools.component';
 import { SuperadminDomainsComponent } from './superadmin-domains.component';
 import { superadminGuard } from './superadmin.guard';
 
@@ -51,10 +52,11 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('forum')!.component).toBe(ForumAdminComponent);
     expect(byPath('appeals')!.component).toBe(AppealsComponent);
     expect(byPath('device-licenses')!.component).toBe(DeviceLicensesComponent);
+    expect(byPath('node-storage')!.component).toBe(StoragePoolsComponent);
     expect(byPath('superadmin/domains')!.component).toBe(SuperadminDomainsComponent);
   });
 
-  it('exposes exactly the eighteen admin views the host expects (incl. delegation + appeals + device-licenses + superadmin/domains)', () => {
+  it('exposes exactly the nineteen admin views the host expects (incl. delegation + appeals + device-licenses + node-storage + superadmin/domains)', () => {
     expect(ADMIN_ROUTES.map((r) => r.path)).toEqual([
       '',
       'usage',
@@ -73,6 +75,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
       'forum',
       'appeals',
       'device-licenses',
+      'node-storage',
       'superadmin/domains',
     ]);
   });
@@ -93,6 +96,13 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(appeals).toBeDefined();
     expect(appeals!.component).toBe(AppealsComponent);
     expect(appeals!.canActivate).toBeUndefined();
+  });
+
+  it('exposes the node-storage console as a plain ADMIN route (ADMIN-CAPABLE — the deliberate divergence from device-licenses; ownership is gated by the BFF)', () => {
+    const storage = byPath('node-storage');
+    expect(storage).toBeDefined();
+    expect(storage!.component).toBe(StoragePoolsComponent);
+    expect(storage!.canActivate).toBeUndefined();
   });
 
   it('declares every route with either a component or children (no dead routes)', () => {

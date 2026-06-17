@@ -51,6 +51,7 @@ export class AdminComponent implements OnInit {
     { path: 'forum', label: 'Forum admin' },
     { path: 'appeals', label: 'Appeals' },
     { path: 'device-licenses', label: 'Device licenses', superadminOnly: true },
+    { path: 'node-storage', label: 'Node storage' },
     { path: 'superadmin/domains', label: 'Domains', superadminOnly: true },
   ];
 
