@@ -1,0 +1,196 @@
+<section aria-labelledby="wc-heading" class="workload-console">
+  <h2 id="wc-heading">Workload Console</h2>
+  <p class="wc-intro">
+    Pod management, live logs and an interactive terminal for the cluster's app-tier
+    workloads. Admins see a read-only view of their own domain; superadmins manage workloads
+    cross-cluster.
+  </p>
+
+  <!-- namespace picker + reload -->
+  <form class="wc-toolbar" (ngSubmit)="reload()">
+    <label for="wc-ns">Namespace</label>
+    <input id="wc-ns" name="ns" type="text" [(ngModel)]="namespace"
+           aria-describedby="wc-ns-hint" />
+    <span id="wc-ns-hint" class="wc-hint">
+      An app-tier namespace<ng-container *ngIf="isSuperadmin()"> ("*" lists all app-tier pods)</ng-container>.
+    </span>
+    <button type="submit">Refresh</button>
+  </form>
+
+  <p *ngIf="error()" role="alert" aria-live="assertive" class="wc-error">{{ error() }}</p>
+  <p *ngIf="actionMsg()" role="status" aria-live="polite" class="wc-status">{{ actionMsg() }}</p>
+
+  <!-- pod table -->
+  <table class="wc-pods" *ngIf="!loading(); else loadingTpl">
+    <caption class="wc-caption">Pods in {{ namespace }}</caption>
+    <thead>
+      <tr>
+        <th scope="col">Pod</th>
+        <th scope="col">Workload</th>
+        <th scope="col">Phase</th>
+        <th scope="col">Ready</th>
+        <th scope="col">Restarts</th>
+        <th scope="col">Node</th>
+        <th scope="col">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let p of pods()" [attr.data-pod]="p.name">
+        <th scope="row">{{ p.name }}</th>
+        <td>{{ p.workload }}</td>
+        <td>{{ p.phase }}</td>
+        <td>{{ p.ready ? 'ready' : 'not ready' }}</td>
+        <td>{{ p.restarts }}</td>
+        <td>{{ p.node }}</td>
+        <td class="wc-actions">
+          <button type="button" [attr.aria-label]="'Inspect pod ' + p.name"
+                  (click)="inspect(p)">inspect</button>
+          <ng-container *ngIf="isSuperadmin()">
+            <button type="button" class="wc-danger"
+                    [attr.aria-label]="'Restart workload ' + p.workload + ' (deletes its pods)'"
+                    (click)="rolloutRestart(p)">restart</button>
+            <button type="button" class="wc-danger"
+                    [attr.aria-label]="'Delete pod ' + p.name"
+                    (click)="deletePod(p)">delete pod</button>
+          </ng-container>
+        </td>
+      </tr>
+      <tr *ngIf="pods().length === 0">
+        <td colspan="7" class="wc-empty">No pods (or the console is not enabled for you).</td>
+      </tr>
+    </tbody>
+  </table>
+  <ng-template #loadingTpl><p aria-live="polite">Loading pods…</p></ng-template>
+
+  <!-- inspect drawer -->
+  <aside *ngIf="selected() as s" class="wc-drawer" role="dialog"
+         aria-labelledby="wc-drawer-heading" aria-modal="false">
+    <div class="wc-drawer-head">
+      <h3 id="wc-drawer-heading">{{ s.name }}</h3>
+      <button type="button" aria-label="Close inspect panel" (click)="closeDrawer()">close</button>
+    </div>
+
+    <nav class="wc-tabs" aria-label="Pod detail tabs">
+      <button type="button" [class.active]="activeTab==='detail'"  [attr.aria-pressed]="activeTab==='detail'"  (click)="showTab('detail')">Detail</button>
+      <button type="button" [class.active]="activeTab==='metrics'" [attr.aria-pressed]="activeTab==='metrics'" (click)="showTab('metrics')">Metrics</button>
+      <button type="button" [class.active]="activeTab==='events'"  [attr.aria-pressed]="activeTab==='events'"  (click)="showTab('events')">Events</button>
+      <button type="button" [class.active]="activeTab==='storage'" [attr.aria-pressed]="activeTab==='storage'" (click)="showTab('storage')">Storage</button>
+      <button type="button" [class.active]="activeTab==='network'" [attr.aria-pressed]="activeTab==='network'" (click)="showTab('network')">Network</button>
+      <button type="button" [class.active]="activeTab==='logs'"    [attr.aria-pressed]="activeTab==='logs'"    (click)="showTab('logs')">Logs</button>
+    </nav>
+
+    <div class="wc-tab-body">
+      <dl *ngIf="activeTab==='detail'">
+        <dt>Namespace</dt><dd>{{ s.namespace }}</dd>
+        <dt>Workload</dt><dd>{{ s.workload }}</dd>
+        <dt>Phase</dt><dd>{{ s.phase }}</dd>
+        <dt>Node</dt><dd>{{ s.node }}</dd>
+        <dt>Service account</dt><dd>{{ s.serviceAccount }}</dd>
+        <dt>Owner</dt><dd>{{ s.ownerKind }}/{{ s.ownerName }}</dd>
+        <dt>Containers</dt>
+        <dd>
+          <ul>
+            <li *ngFor="let c of s.containers">{{ c.name }} — {{ c.image }} ({{ c.state }}, {{ c.restarts }} restarts)</li>
+          </ul>
+        </dd>
+      </dl>
+
+      <table *ngIf="activeTab==='metrics'">
+        <caption class="wc-caption">Container metrics</caption>
+        <thead><tr><th scope="col">Pod</th><th scope="col">CPU</th><th scope="col">Memory</th></tr></thead>
+        <tbody>
+          <tr *ngFor="let m of metrics()"><th scope="row">{{ m.name }}</th><td>{{ m.cpuMillicores }}</td><td>{{ m.memoryBytes }}</td></tr>
+        </tbody>
+      </table>
+
+      <ul *ngIf="activeTab==='events'" class="wc-events" aria-label="Namespace events">
+        <li *ngFor="let e of events()">[{{ e.type }}] {{ e.reason }} — {{ e.object }}: {{ e.message }} (×{{ e.count }})</li>
+      </ul>
+
+      <ul *ngIf="activeTab==='storage'" aria-label="Volumes">
+        <li *ngFor="let v of storage()">{{ v.name }} — {{ v.phase }} {{ v.capacity }} ({{ v.storageClass }})</li>
+      </ul>
+
+      <ul *ngIf="activeTab==='network'" aria-label="Network">
+        <li *ngFor="let n of network()">{{ n.kind }}/{{ n.name }} {{ n.summary }}</li>
+      </ul>
+
+      <div *ngIf="activeTab==='logs'">
+        <p class="wc-hint">Server-redacted log tail (last 200 lines).</p>
+        <pre class="wc-log" aria-label="Redacted pod log" tabindex="0">{{ logBody() }}</pre>
+        <p *ngIf="isSuperadmin()" class="wc-hint">
+          The superadmin live log stream and the interactive terminal open in their own views
+          (Workload logs / Workload terminal) and require a step-up token.
+        </p>
+      </div>
+    </div>
+  </aside>
+
+  <!-- SUPERADMIN control plane -->
+  <ng-container *ngIf="isSuperadmin()">
+    <section aria-labelledby="wc-stepup-heading" class="wc-panel">
+      <h3 id="wc-stepup-heading">Step-up (required for live logs / exec / port-forward)</h3>
+      <button type="button" (click)="stepUp()">Mint step-up token</button>
+      <span *ngIf="stepUpToken()" role="status" aria-live="polite" class="wc-status">{{ stepUpExpiresHint() }}</span>
+    </section>
+
+    <section aria-labelledby="wc-pending-heading" class="wc-panel" *ngIf="pendingIntents().length">
+      <h3 id="wc-pending-heading">Pending GitOps sync</h3>
+      <ul aria-label="Pending lifecycle intents">
+        <li *ngFor="let i of pendingIntents()">{{ i.kind }} {{ i.namespace }}/{{ i.workload }} <span *ngIf="i.imageRef">→ {{ i.imageRef }}</span> ({{ i.propagationState }})</li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="wc-grants-heading" class="wc-panel">
+      <h3 id="wc-grants-heading">Admin read grants</h3>
+      <form class="wc-grant-form" (ngSubmit)="issueGrant()">
+        <label for="wc-grantee">Grantee (subject)</label>
+        <input id="wc-grantee" name="grantee" type="text" [(ngModel)]="grantGrantee"
+               [attr.aria-invalid]="grantError() ? 'true' : null" aria-describedby="wc-grant-err" />
+        <label for="wc-grant-domain">Target domain</label>
+        <input id="wc-grant-domain" name="grantDomain" type="text" [(ngModel)]="grantDomain" />
+        <label for="wc-grant-ttl">TTL (hours)</label>
+        <input id="wc-grant-ttl" name="ttl" type="number" min="1" [(ngModel)]="grantTtlHours" />
+        <label class="wc-check">
+          <input type="checkbox" name="logAccess" [(ngModel)]="grantLogAccess" />
+          Include log access (default: status/topology/metrics only)
+        </label>
+        <button type="submit">Grant read access</button>
+      </form>
+      <p *ngIf="grantError()" id="wc-grant-err" role="alert" aria-live="assertive" class="wc-error">{{ grantError() }}</p>
+      <ul aria-label="Active grants">
+        <li *ngFor="let g of grants()" [attr.data-grant-id]="g.id">
+          {{ g.grantee }} — {{ g.targetDomain }} ({{ g.state }}, log: {{ g.logAccess ? 'yes' : 'no' }}, expires {{ g.expiresAt }})
+          <button type="button" *ngIf="g.state === 'active'"
+                  [attr.aria-label]="'Revoke ' + g.grantee + ' grant in ' + g.targetDomain"
+                  class="wc-danger" (click)="revokeGrant(g)">revoke</button>
+        </li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="wc-config-heading" class="wc-panel">
+      <h3 id="wc-config-heading">Master config (kill-switch)</h3>
+      <p class="wc-hint">
+        The GLOBAL row's <code>dangerous_tier_enabled</code> is the cluster-wide kill of
+        exec / log-stream / mutations — it applies even to superadmins.
+      </p>
+      <ul aria-label="Workload console config">
+        <li *ngFor="let c of config()" [attr.data-config-domain]="c.domain">
+          <strong>{{ c.domain }}</strong>
+          <label class="wc-check">
+            <input type="checkbox" [checked]="c.adminEnabled"
+                   [attr.aria-label]="'Admin console enabled for ' + c.domain"
+                   (change)="toggleConfig(c.domain, !c.adminEnabled, c.dangerousTierEnabled)" />
+            admin enabled
+          </label>
+          <label class="wc-check">
+            <input type="checkbox" [checked]="c.dangerousTierEnabled"
+                   [attr.aria-label]="'Dangerous tier enabled for ' + c.domain"
+                   (change)="toggleConfig(c.domain, c.adminEnabled, !c.dangerousTierEnabled)" />
+            dangerous tier enabled
+          </label>
+        </li>
+      </ul>
+    </section>
+  </ng-container>
+</section>

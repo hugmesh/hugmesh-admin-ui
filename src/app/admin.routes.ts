@@ -23,8 +23,12 @@ import { SuperadminDomainsComponent } from './superadmin-domains.component';
 import { OidcProviderRolesComponent } from './oidc-provider-roles.component';
 import { GamesServicesComponent } from './games-services/games-services.component';
 import { AnubisAdminComponent } from './anubis-admin.component';
+import { WorkloadConsoleComponent } from './workload-console/workload-console.component';
+import { WorkloadLogsComponent } from './workload-console/workload-logs.component';
+import { WorkloadTerminalComponent } from './workload-console/workload-terminal.component';
 import { superadminGuard } from './superadmin.guard';
 import { gamesServicesGuard } from './games-services.guard';
+import { workloadConsoleGuard } from './workload-console.guard';
 
 /** Routes exposed by the Admin native-federation remote. The snapdragon.systems
  *  host mounts these at /admin, so they resolve to /admin (allowlist),
@@ -86,4 +90,12 @@ export const ADMIN_ROUTES: Routes = [
   { path: 'oidc-providers', component: OidcProviderRolesComponent },
   { path: 'games-services', component: GamesServicesComponent, canActivate: [gamesServicesGuard] },
   { path: 'superadmin/anubis', component: AnubisAdminComponent, canActivate: [superadminGuard] },
+  // ── WORKLOAD CONSOLE (HIDDEN tier) ──────────────────────────────────────────────
+  // Registered but NEVER auto-surfaced in the menu (the host loads it only when the
+  // grant guard passes — a server-confirmed capability probe that 404s on deny). The
+  // logs/terminal sub-routes are the SUPERADMIN DANGEROUS surfaces (the BFF re-enforces
+  // SA + step-up + dangerous-tier on each).
+  { path: 'workloads', component: WorkloadConsoleComponent, canActivate: [workloadConsoleGuard] },
+  { path: 'workloads/logs', component: WorkloadLogsComponent, canActivate: [workloadConsoleGuard] },
+  { path: 'workloads/terminal', component: WorkloadTerminalComponent, canActivate: [workloadConsoleGuard] },
 ];

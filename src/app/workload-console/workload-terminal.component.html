@@ -1,0 +1,28 @@
+<section aria-labelledby="wct-heading" class="workload-console">
+  <h2 id="wct-heading">Workload terminal (interactive)</h2>
+  <p class="wc-intro">
+    Superadmin interactive shell into a container (full <code>exec -it</code> TTY). Requires a
+    step-up token and the dangerous tier to be enabled; tailnet-only. The session is recorded
+    to a tamper-evident signed transcript and the pod is force-rescheduled when the terminal
+    closes.
+  </p>
+
+  <form class="wc-toolbar" (ngSubmit)="connect()">
+    <label for="wct-ns">Namespace</label>
+    <input id="wct-ns" name="ns" type="text" [(ngModel)]="namespace" />
+    <label for="wct-pod">Pod</label>
+    <input id="wct-pod" name="pod" type="text" [(ngModel)]="pod"
+           [attr.aria-invalid]="error() ? 'true' : null" aria-describedby="wct-err" />
+    <label for="wct-container">Container</label>
+    <input id="wct-container" name="container" type="text" [(ngModel)]="container" />
+    <label for="wct-command">Command</label>
+    <input id="wct-command" name="command" type="text" [(ngModel)]="command" />
+    <button type="submit" [disabled]="connected()">Connect</button>
+    <button type="button" (click)="disconnect()" [disabled]="!connected()">Disconnect</button>
+  </form>
+
+  <p *ngIf="error()" id="wct-err" role="alert" aria-live="assertive" class="wc-error">{{ error() }}</p>
+  <p role="status" aria-live="polite" class="wc-status">{{ statusMsg() }}</p>
+
+  <div #term class="wc-term" role="application" aria-label="Interactive container terminal"></div>
+</section>
