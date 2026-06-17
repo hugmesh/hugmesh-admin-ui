@@ -19,7 +19,9 @@ import { DeviceLicensesComponent } from './device-licenses.component';
 import { StoragePoolsComponent } from './storage-pools.component';
 import { EgressVpnComponent } from './egress-vpn.component';
 import { SuperadminDomainsComponent } from './superadmin-domains.component';
+import { OidcProviderRolesComponent } from './oidc-provider-roles.component';
 import { GamesServicesComponent } from './games-services/games-services.component';
+import { AnubisAdminComponent } from './anubis-admin.component';
 import { superadminGuard } from './superadmin.guard';
 import { gamesServicesGuard } from './games-services.guard';
 
@@ -58,10 +60,12 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('node-storage')!.component).toBe(StoragePoolsComponent);
     expect(byPath('egress-vpn')!.component).toBe(EgressVpnComponent);
     expect(byPath('superadmin/domains')!.component).toBe(SuperadminDomainsComponent);
+    expect(byPath('oidc-providers')!.component).toBe(OidcProviderRolesComponent);
     expect(byPath('games-services')!.component).toBe(GamesServicesComponent);
+    expect(byPath('superadmin/anubis')!.component).toBe(AnubisAdminComponent);
   });
 
-  it('exposes exactly the admin views the host expects (incl. delegation + appeals + device-licenses + node-storage + egress-vpn + superadmin/domains + games-services)', () => {
+  it('exposes exactly the twenty-three admin views the host expects (incl. delegation + appeals + device-licenses + node-storage + egress-vpn + superadmin/domains + oidc-providers + games-services + superadmin/anubis)', () => {
     expect(ADMIN_ROUTES.map((r) => r.path)).toEqual([
       '',
       'usage',
@@ -83,7 +87,9 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
       'node-storage',
       'egress-vpn',
       'superadmin/domains',
+      'oidc-providers',
       'games-services',
+      'superadmin/anubis',
     ]);
   });
 
@@ -110,6 +116,13 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(gs).toBeDefined();
     expect(gs!.component).toBe(GamesServicesComponent);
     expect(gs!.canActivate).toEqual([gamesServicesGuard]);
+  });
+
+  it('superadmin-gates the anubis console (read-only PoW sidecar view, behind the superadmin guard)', () => {
+    const anubis = byPath('superadmin/anubis');
+    expect(anubis).toBeDefined();
+    expect(anubis!.component).toBe(AnubisAdminComponent);
+    expect(anubis!.canActivate).toEqual([superadminGuard]);
   });
 
   it('exposes the appeals console as a plain ADMIN route (no superadmin guard)', () => {
