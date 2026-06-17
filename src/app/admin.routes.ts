@@ -16,6 +16,7 @@ import { TestReportsComponent } from './test-reports/test-reports.component';
 import { ForumAdminComponent } from './forum-admin/forum-admin.component';
 import { AppealsComponent } from './appeals/appeals.component';
 import { DeviceLicensesComponent } from './device-licenses.component';
+import { DevicePendingComponent } from './device-pending.component';
 import { StoragePoolsComponent } from './storage-pools.component';
 import { EgressVpnComponent } from './egress-vpn.component';
 import { SuperadminDomainsComponent } from './superadmin-domains.component';
@@ -42,6 +43,9 @@ import { gamesServicesGuard } from './games-services.guard';
  *  domain-scoped), and
  *  /admin/device-licenses (the SUPERADMIN-only Device Licenses console over the
  *  device-ownership / SSH-operate-license registry — additionally superadmin-guarded), and
+ *  /admin/device-pending (the SUPERADMIN-only Pending Devices pick-list — assign a
+ *  headscale-enrolled node into the registry; the machine-key fingerprint is an OPAQUE
+ *  token captured from headscale, never typed/edited — additionally superadmin-guarded), and
  *  /admin/superadmin/domains (the SUPERADMIN-only Domains console over the domain_registry
  *  brand list — multi-tenancy PR9, additionally superadmin-guarded), and
  *  /admin/oidc-providers (configure which roles new users auto-receive when registering via
@@ -75,6 +79,7 @@ export const ADMIN_ROUTES: Routes = [
   { path: 'forum', component: ForumAdminComponent },
   { path: 'appeals', component: AppealsComponent },
   { path: 'device-licenses', component: DeviceLicensesComponent, canActivate: [superadminGuard] },
+  { path: 'device-pending', component: DevicePendingComponent, canActivate: [superadminGuard] },
   { path: 'node-storage', component: StoragePoolsComponent },
   { path: 'egress-vpn', component: EgressVpnComponent, canActivate: [superadminGuard] },
   { path: 'superadmin/domains', component: SuperadminDomainsComponent, canActivate: [superadminGuard] },

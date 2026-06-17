@@ -1,0 +1,104 @@
+<section class="snap-device-pending" data-testid="device-pending-view" aria-labelledby="dp-heading">
+  <h2 id="dp-heading">Pending devices</h2>
+  <p class="dp-intro">
+    Assign a headscale-enrolled node into the device registry. The machine-key fingerprint
+    is captured from headscale and is read-only — you never type or edit it. Pick a node,
+    then assign its owner type, domain residency, physical owner and mesh.
+  </p>
+
+  <form (ngSubmit)="register()" novalidate>
+    <label for="dp-node">Enrolled node (unassigned)</label>
+    <select
+      id="dp-node"
+      data-testid="dp-node"
+      [(ngModel)]="selectedFp"
+      name="selectedFp"
+    >
+      <option *ngFor="let n of pendingOnly()" [value]="n.machineKeyFp">
+        {{ n.hostname || n.machineKeyFp }}{{ n.user ? ' · ' + n.user : '' }}
+      </option>
+    </select>
+
+    <!-- The fingerprint is an OPAQUE TOKEN — displayed read-only, NEVER an editable input. -->
+    <p class="dp-fp" data-testid="dp-fp" aria-live="polite">
+      <span class="dp-fp-label">Machine key fingerprint (opaque):</span>
+      <code data-testid="dp-fp-value">{{ selected()?.machineKeyFp || '—' }}</code>
+    </p>
+
+    <label for="dp-owner-type">Owner type</label>
+    <select id="dp-owner-type" data-testid="dp-owner-type" [(ngModel)]="ownerType" name="ownerType">
+      <option value="ADMIN">ADMIN (mesh-extension)</option>
+      <option value="SUPERADMIN">SUPERADMIN (primary/core)</option>
+    </select>
+
+    <label for="dp-image-type">Image type</label>
+    <select id="dp-image-type" data-testid="dp-image-type" [(ngModel)]="imageType" name="imageType">
+      <option value="mesh-extension">mesh-extension</option>
+      <option value="primary">primary</option>
+      <option value="client">client</option>
+    </select>
+
+    <label for="dp-domain">Domain (residency)</label>
+    <input
+      id="dp-domain"
+      data-testid="dp-domain"
+      [(ngModel)]="domain"
+      name="domain"
+      placeholder="brand-a"
+      [attr.aria-invalid]="formError() ? 'true' : null"
+      [attr.aria-describedby]="formError() ? 'dp-error' : null"
+    />
+
+    <label for="dp-physical-owner">Physical owner (email or Discord handle)</label>
+    <input
+      id="dp-physical-owner"
+      data-testid="dp-physical-owner"
+      [(ngModel)]="physicalOwner"
+      name="physicalOwner"
+      placeholder="owner (email/discord)"
+      [attr.aria-invalid]="formError() ? 'true' : null"
+      [attr.aria-describedby]="formError() ? 'dp-error' : null"
+    />
+
+    <label for="dp-mesh">Mesh id</label>
+    <input
+      id="dp-mesh"
+      data-testid="dp-mesh"
+      [(ngModel)]="meshId"
+      name="meshId"
+      placeholder="mesh id"
+      [attr.aria-invalid]="formError() ? 'true' : null"
+      [attr.aria-describedby]="formError() ? 'dp-error' : null"
+    />
+
+    <button data-testid="dp-register" type="submit" [disabled]="!selectedFp">Register node</button>
+
+    <span
+      *ngIf="formError()"
+      id="dp-error"
+      class="field-error"
+      data-testid="dp-error"
+      role="alert"
+      aria-live="assertive"
+    >{{ formError() }}</span>
+
+    <span
+      *ngIf="formNotice()"
+      class="field-notice"
+      data-testid="dp-notice"
+      role="status"
+      aria-live="polite"
+    >{{ formNotice() }}</span>
+  </form>
+
+  <ul data-testid="dp-nodes" aria-label="Headscale-enrolled nodes and their registration status">
+    <li *ngFor="let n of nodes()" [attr.data-fp]="n.machineKeyFp">
+      <strong>{{ n.hostname || n.machineKeyFp }}</strong>
+      <span *ngIf="n.registered" class="dp-tag dp-tag-registered" data-testid="dp-registered">
+        registered · {{ n.domain }} ({{ n.ownerType }})
+      </span>
+      <span *ngIf="!n.registered" class="dp-tag dp-tag-pending" data-testid="dp-pending">pending</span>
+      <code class="dp-fp-inline">{{ n.machineKeyFp }}</code>
+    </li>
+  </ul>
+</section>

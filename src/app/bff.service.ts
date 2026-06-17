@@ -543,6 +543,43 @@ export class BffService {
     throw new Error(err);
   }
 
+  // ── Device PENDING pick-list (machine_key_fp AUTO-CAPTURE; SUPERADMIN assigns) ──
+  // The single source of truth for a device's identity is HEADSCALE (it mints the
+  // machine keys). The superadmin picks a headscale-ENROLLED node from this pending
+  // list and assigns owner_type/domain/image_type; the machine_key_fp is an OPAQUE
+  // TOKEN captured from headscale — NEVER typed, edited, or normalised in the UI. The
+  // BFF re-validates the fp against headscale at register (still enrolled + mesh
+  // matches, else 409). admin-bff #68 (ships dark / advisory until a live control node
+  // confirms the canonical fp field). Endpoints (admin-bff DeviceLicenseController):
+  //   GET  /bff/admin/device-licenses/pending  → { nodes:[PendingNode] }
+  //   POST /bff/admin/device-licenses/register  (opaque machineKeyFp) → Device
+
+  /** The pending pick-list: every headscale-enrolled node LEFT-JOINed with the
+   *  registry. ADMIN sees own-domain registered rows; SUPERADMIN also sees the
+   *  unregistered (registered=false) candidates available to assign. */
+  async pendingNodes(): Promise<PendingNode[]> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/device-licenses/pending`, {
+      headers: { authorization: `Bearer ${t}` },
+    });
+    return r.ok ? (await r.json()).nodes ?? [] : [];
+  }
+
+  /** Register (assign) a pending headscale-enrolled node. The {@link RegisterDeviceInput.machineKeyFp}
+   *  is the OPAQUE token straight from the pending list — passed through verbatim (the BFF
+   *  re-validates it against headscale). Returns the created/idempotent device row. */
+  async registerFromPending(input: RegisterDeviceInput): Promise<DeviceRegistration> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/device-licenses/register`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${t}`, 'content-type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    if (r.ok) return (await r.json()) as DeviceRegistration;
+    const err = (await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`;
+    throw new Error(err);
+  }
+
   // ── Egress-VPN console (SUPERADMIN-only, BFF /bff/admin/egress-vpn) ────────────
   // Admins/superadmins import provider-downloaded VPN configs (ProtonVPN WireGuard
   // .conf first-class; OpenVPN .ovpn fallback) that mesh NODES use for OUTGOING /
@@ -1143,6 +1180,34 @@ export interface DeviceRegistration {
   mesh_id?: string | null;
   last_seen_at?: string | null;
   licenses: DeviceSshLicense[];
+}
+
+/** One row of the device PENDING pick-list (machine_key_fp AUTO-CAPTURE) — a
+ *  headscale-enrolled node LEFT-JOINed with device_registry. The superadmin picks an
+ *  `!registered` row and assigns owner_type/domain/image_type. `machineKeyFp` is an
+ *  OPAQUE token captured from headscale — NEVER typed, edited, or normalised. */
+export interface PendingNode {
+  machineKeyFp: string;
+  hostname?: string | null;
+  user?: string | null;
+  meshId?: string | null;
+  registered: boolean;
+  domain?: string | null;
+  ownerType?: string | null;
+}
+
+/** Body for POST /bff/admin/device-licenses/register. `machineKeyFp` is the OPAQUE token
+ *  from the pending list (passed through verbatim — the BFF re-validates it against
+ *  headscale). The superadmin assigns the rest. */
+export interface RegisterDeviceInput {
+  machineKeyFp: string;
+  hostname: string;
+  ownerType: 'SUPERADMIN' | 'ADMIN';
+  imageType: 'primary' | 'mesh-extension' | 'client';
+  physicalOwner: string;
+  domain: string;
+  meshId: string;
+  tailnetId?: string;
 }
 
 // ── OIDC provider default-role mapping DTOs ──────────────────────────────────
