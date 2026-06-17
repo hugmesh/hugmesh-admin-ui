@@ -1,0 +1,131 @@
+:host {
+  display: block;
+}
+
+.intro {
+  color: var(--snap-color-muted, #555);
+  max-width: 64ch;
+}
+
+.tab-bar {
+  display: flex;
+  gap: 0;
+  border-block-end: 2px solid var(--snap-color-border, #ddd);
+  margin-block-end: 1.25rem;
+}
+
+.tab {
+  padding: 0.5rem 1rem;
+  background: none;
+  border: none;
+  border-block-end: 3px solid transparent;
+  margin-block-end: -2px;
+  cursor: pointer;
+  font: inherit;
+  color: var(--snap-color-muted, #555);
+
+  &.active {
+    border-block-end-color: var(--snap-color-primary, #1565c0);
+    color: var(--snap-color-primary, #1565c0);
+    font-weight: 600;
+  }
+
+  &:hover:not(.active) {
+    color: var(--snap-color-text, #222);
+  }
+}
+
+.notice {
+  border-inline-start: 4px solid;
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  margin-block-end: 1rem;
+
+  &--warn {
+    border-color: var(--snap-color-warn, #f57c00);
+    background: var(--snap-color-warn-bg, #fff8e1);
+  }
+}
+
+.settings-table,
+.metrics-table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-block-end: 1rem;
+
+  th, td {
+    padding: 0.5rem 0.75rem;
+    text-align: start;
+    border-block-end: 1px solid var(--snap-color-border, #ddd);
+  }
+
+  th {
+    font-weight: 600;
+    background: var(--snap-color-surface, #f5f5f5);
+  }
+}
+
+.col-value { text-align: end; }
+
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.85em;
+  font-weight: 600;
+
+  &--ok  { background: #e8f5e9; color: #2e7d32; }
+  &--warn { background: #fff8e1; color: #e65100; }
+  &--off  { background: #f5f5f5; color: #757575; }
+}
+
+.metrics-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-block-end: 1rem;
+  flex-wrap: wrap;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  font-size: 0.9em;
+}
+
+.raw-metrics {
+  font-size: 0.8em;
+  background: var(--snap-color-surface, #f5f5f5);
+  border: 1px solid var(--snap-color-border, #ddd);
+  border-radius: 4px;
+  padding: 0.75rem;
+  overflow: auto;
+  max-block-size: 60vh;
+  white-space: pre;
+}
+
+.loading,
+.empty-state {
+  color: var(--snap-color-muted, #666);
+  font-style: italic;
+}
+
+.btn-secondary {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--snap-color-border, #ccc);
+  border-radius: 4px;
+  background: var(--snap-color-surface, #fafafa);
+  cursor: pointer;
+  font: inherit;
+
+  &:hover:not(:disabled) {
+    background: var(--snap-color-hover, #f0f0f0);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+}

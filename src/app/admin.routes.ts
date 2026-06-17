@@ -18,6 +18,7 @@ import { AppealsComponent } from './appeals/appeals.component';
 import { DeviceLicensesComponent } from './device-licenses.component';
 import { SuperadminDomainsComponent } from './superadmin-domains.component';
 import { OidcProviderRolesComponent } from './oidc-provider-roles.component';
+import { AnubisAdminComponent } from './anubis-admin.component';
 import { superadminGuard } from './superadmin.guard';
 
 /** Routes exposed by the Admin native-federation remote. The snapdragon.systems
@@ -40,7 +41,9 @@ import { superadminGuard } from './superadmin.guard';
  *  /admin/superadmin/domains (the SUPERADMIN-only Domains console over the domain_registry
  *  brand list — multi-tenancy PR9, additionally superadmin-guarded), and
  *  /admin/oidc-providers (configure which roles new users auto-receive when registering via
- *  a given OIDC identity provider — domain-scoped for admins, all-domains for superadmin).
+ *  a given OIDC identity provider — domain-scoped for admins, all-domains for superadmin), and
+ *  /admin/superadmin/anubis (SUPERADMIN-only read-only view of the Anubis PoW challenge sidecar:
+ *  status, configured settings, and proxied Prometheus metrics with auto-refresh).
  *  Casdoor-admin-role guarded by the host. */
 export const ADMIN_ROUTES: Routes = [
   { path: '', component: AdminComponent },
@@ -62,4 +65,5 @@ export const ADMIN_ROUTES: Routes = [
   { path: 'device-licenses', component: DeviceLicensesComponent, canActivate: [superadminGuard] },
   { path: 'superadmin/domains', component: SuperadminDomainsComponent, canActivate: [superadminGuard] },
   { path: 'oidc-providers', component: OidcProviderRolesComponent },
+  { path: 'superadmin/anubis', component: AnubisAdminComponent, canActivate: [superadminGuard] },
 ];
