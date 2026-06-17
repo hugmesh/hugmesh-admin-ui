@@ -1,0 +1,141 @@
+@use '../styles/tokens' as t;
+
+:host {
+  display: block;
+}
+
+.snap-storage-pools {
+  display: block;
+  padding: 1rem;
+
+  .sp-intro {
+    color: var(--sd-text-soft, var(--sd-text));
+    max-width: 60ch;
+  }
+
+  .sp-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-block: 0.75rem;
+
+    h3 {
+      flex-basis: 100%;
+      margin: 0;
+    }
+  }
+
+  label {
+    font-weight: 600;
+    color: var(--sd-text);
+  }
+
+  input,
+  select {
+    background: var(--sd-bg-1);
+    color: var(--sd-text);
+    border: 1px solid var(--sd-border);
+    border-radius: t.$radius-sm;
+    padding: 0.5rem 0.75rem;
+
+    &[aria-invalid='true'] {
+      border-color: var(--sd-error);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  button {
+    background: var(--sd-accent);
+    color: var(--sd-text);
+    border: 1px solid var(--sd-accent-soft);
+    border-radius: t.$radius-sm;
+    padding: 0.4rem 0.8rem;
+    cursor: pointer;
+  }
+
+  .field-error {
+    color: var(--sd-error);
+    flex-basis: 100%;
+  }
+
+  .field-warning {
+    color: var(--sd-warn, #b8860b);
+    flex-basis: 100%;
+    max-width: 60ch;
+  }
+
+  .sp-muted {
+    color: var(--sd-text-soft, var(--sd-text));
+    font-size: 0.9em;
+  }
+
+  > ul {
+    list-style: none;
+    padding-left: 0;
+
+    > li.sp-pool {
+      margin-block: 1rem;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--sd-border);
+      border-radius: t.$radius-sm;
+    }
+
+    ul {
+      list-style: none;
+      padding-left: 0.5rem;
+      margin-block: 0.5rem;
+    }
+  }
+
+  .sp-pool-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .sp-chip {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid var(--sd-border);
+    background: var(--sd-bg-1);
+
+    &--ok {
+      border-color: var(--sd-ok, #2e7d32);
+      color: var(--sd-ok, #2e7d32);
+    }
+    &--warn {
+      border-color: var(--sd-warn, #b8860b);
+      color: var(--sd-warn, #b8860b);
+    }
+    &--err {
+      border-color: var(--sd-error);
+      color: var(--sd-error);
+    }
+  }
+
+  .sp-bar {
+    height: 0.6rem;
+    width: 100%;
+    max-width: 32rem;
+    background: var(--sd-bg-1);
+    border: 1px solid var(--sd-border);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-block: 0.35rem 0.15rem;
+
+    .sp-bar-fill {
+      display: block;
+      height: 100%;
+      background: var(--sd-accent);
+    }
+  }
+}

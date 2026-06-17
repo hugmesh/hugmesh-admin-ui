@@ -1,0 +1,158 @@
+<section class="snap-storage-pools" data-testid="storage-pools-view" aria-labelledby="sp-heading">
+  <h2 id="sp-heading">Node storage</h2>
+  <p class="sp-intro">
+    Attach additional storage to a specific mesh node and assign services to use that
+    space. Storage is node-pinned: a service placed on a pool runs on that node and its
+    volume binds there.
+  </p>
+
+  <!-- ── Attach a pool to a node ───────────────────────────────────────────── -->
+  <form class="sp-form" (ngSubmit)="attach()" novalidate aria-labelledby="sp-attach-heading">
+    <h3 id="sp-attach-heading">Attach a pool</h3>
+
+    <label for="sp-device">Node</label>
+    <select id="sp-device" data-testid="sp-device" [(ngModel)]="attachDeviceId" name="attachDeviceId">
+      <option *ngFor="let d of devices()" [value]="d.id">{{ d.hostname }} ({{ d.domain }})</option>
+    </select>
+
+    <label for="sp-disk">Disk serial</label>
+    <input
+      id="sp-disk"
+      data-testid="sp-disk"
+      [(ngModel)]="diskSerial"
+      name="diskSerial"
+      placeholder="WWN / serial"
+      [attr.aria-invalid]="attachError() ? 'true' : null"
+      [attr.aria-describedby]="attachError() ? 'sp-attach-error' : null"
+    />
+
+    <label for="sp-path">Node-local path</label>
+    <input id="sp-path" data-testid="sp-path" [(ngModel)]="poolPath" name="poolPath" placeholder="/var/snapdragon/storage/…" />
+
+    <label for="sp-reserved">Reserved (GiB)</label>
+    <input id="sp-reserved" data-testid="sp-reserved" type="number" min="1" [(ngModel)]="reservedGiB" name="reservedGiB" />
+
+    <label for="sp-fs">Filesystem</label>
+    <input id="sp-fs" data-testid="sp-fs" [(ngModel)]="filesystem" name="filesystem" placeholder="ext4" />
+
+    <label for="sp-exclusive">
+      <input id="sp-exclusive" data-testid="sp-exclusive" type="checkbox" [(ngModel)]="exclusive" name="exclusive" />
+      Exclusive (one service per pool — default for video)
+    </label>
+
+    <button data-testid="sp-attach" type="submit">Attach pool</button>
+
+    <span
+      *ngIf="attachError()"
+      id="sp-attach-error"
+      class="field-error"
+      data-testid="sp-attach-error"
+      role="alert"
+      aria-live="assertive"
+    >{{ attachError() }}</span>
+  </form>
+
+  <!-- ── Assign a service to a pool ────────────────────────────────────────── -->
+  <form class="sp-form" (ngSubmit)="assign()" novalidate aria-labelledby="sp-assign-heading">
+    <h3 id="sp-assign-heading">Assign a service</h3>
+
+    <label for="sp-pool">Pool</label>
+    <select id="sp-pool" data-testid="sp-pool" [(ngModel)]="assignPoolId" name="assignPoolId">
+      <option *ngFor="let p of activePools()" [value]="p.id">
+        {{ p.diskSerial }} on {{ p.deviceId }} ({{ humanBytes(p.reservedBytes) }})
+      </option>
+    </select>
+
+    <label for="sp-service">Service name</label>
+    <input
+      id="sp-service"
+      data-testid="sp-service"
+      [(ngModel)]="serviceName"
+      name="serviceName"
+      placeholder="owncast"
+      [attr.aria-invalid]="assignError() ? 'true' : null"
+      [attr.aria-describedby]="assignError() ? 'sp-assign-error' : null"
+    />
+
+    <label for="sp-pvc">PVC name</label>
+    <input id="sp-pvc" data-testid="sp-pvc" [(ngModel)]="pvcName" name="pvcName" placeholder="owncast-data" />
+
+    <label for="sp-requested">Requested (GiB)</label>
+    <input id="sp-requested" data-testid="sp-requested" type="number" min="1" [(ngModel)]="requestedGiB" name="requestedGiB" />
+
+    <button data-testid="sp-assign" type="submit">Assign service</button>
+
+    <span
+      *ngIf="assignWarning()"
+      class="field-warning"
+      data-testid="sp-assign-warning"
+      role="status"
+      aria-live="polite"
+    >{{ assignWarning() }}</span>
+
+    <span
+      *ngIf="assignError()"
+      id="sp-assign-error"
+      class="field-error"
+      data-testid="sp-assign-error"
+      role="alert"
+      aria-live="assertive"
+    >{{ assignError() }}</span>
+  </form>
+
+  <!-- ── Pools + their assignments ─────────────────────────────────────────── -->
+  <ul data-testid="sp-pools" aria-label="Attached storage pools and their service assignments">
+    <li *ngFor="let p of pools()" [attr.data-pool-id]="p.id" class="sp-pool">
+      <div class="sp-pool-head">
+        <strong>{{ p.diskSerial }}</strong>
+        <span class="sp-muted">on node {{ p.deviceId }} · {{ p.domain }} · {{ p.filesystem || 'fs?' }}</span>
+        <span
+          class="sp-chip"
+          [attr.data-prop]="p.propagationState"
+          [class.sp-chip--ok]="p.propagationState === 'applied'"
+          [class.sp-chip--warn]="p.propagationState === 'pending'"
+          [class.sp-chip--err]="p.propagationState === 'failed' || p.propagationState === 'degraded'"
+          [attr.aria-label]="'Reconcile state: ' + p.propagationState"
+        >{{ p.propagationState }}</span>
+        <span *ngIf="p.state === 'detached'" class="sp-chip sp-chip--err" aria-label="Pool detached">detached</span>
+      </div>
+
+      <!-- capacity bar: committed vs reserved -->
+      <div
+        class="sp-bar"
+        [attr.data-capacity]="p.id"
+        role="meter"
+        [attr.aria-valuemin]="0"
+        [attr.aria-valuemax]="p.reservedBytes"
+        [attr.aria-valuenow]="committedBytes(p.id)"
+        [attr.aria-label]="'Capacity: ' + humanBytes(committedBytes(p.id)) + ' of ' + humanBytes(p.reservedBytes) + ' committed'"
+      >
+        <span class="sp-bar-fill" [style.width.%]="committedFraction(p) * 100"></span>
+      </div>
+      <small class="sp-muted">
+        {{ humanBytes(committedBytes(p.id)) }} / {{ humanBytes(p.reservedBytes) }} committed
+        <span *ngIf="p.isExclusive"> · exclusive</span>
+      </small>
+
+      <ul [attr.aria-label]="'Service assignments on ' + p.diskSerial">
+        <li *ngFor="let a of assignmentsForPool(p.id)" [attr.data-assignment-id]="a.id">
+          {{ a.serviceName }} → {{ a.pvcName }} ({{ humanBytes(a.requestedBytes) }})
+          <button
+            type="button"
+            [attr.data-revoke]="a.id"
+            [attr.aria-label]="'Revoke ' + a.serviceName + ' assignment on ' + p.diskSerial"
+            (click)="revoke(a.id)"
+          >revoke</button>
+        </li>
+      </ul>
+
+      <button
+        *ngIf="p.state === 'active'"
+        type="button"
+        [attr.data-detach]="p.id"
+        [attr.aria-label]="'Detach pool ' + p.diskSerial + ' from node ' + p.deviceId"
+        (click)="detach(p.id)"
+      >detach pool</button>
+    </li>
+  </ul>
+</section>

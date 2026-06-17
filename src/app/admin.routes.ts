@@ -16,6 +16,7 @@ import { TestReportsComponent } from './test-reports/test-reports.component';
 import { ForumAdminComponent } from './forum-admin/forum-admin.component';
 import { AppealsComponent } from './appeals/appeals.component';
 import { DeviceLicensesComponent } from './device-licenses.component';
+import { StoragePoolsComponent } from './storage-pools.component';
 import { SuperadminDomainsComponent } from './superadmin-domains.component';
 import { superadminGuard } from './superadmin.guard';
 
@@ -57,5 +58,6 @@ export const ADMIN_ROUTES: Routes = [
   { path: 'forum', component: ForumAdminComponent },
   { path: 'appeals', component: AppealsComponent },
   { path: 'device-licenses', component: DeviceLicensesComponent, canActivate: [superadminGuard] },
+  { path: 'node-storage', component: StoragePoolsComponent },
   { path: 'superadmin/domains', component: SuperadminDomainsComponent, canActivate: [superadminGuard] },
 ];

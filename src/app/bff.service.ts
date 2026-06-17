@@ -619,6 +619,68 @@ export class BffService {
       }
     }
   }
+
+  // ── Node-storage console (ADMIN-capable, BFF /bff/admin/device-storage-pools) ──
+  // ADDITIONAL storage an operator ATTACHES to a specific mesh node so services can use
+  // SPACE on that node (schema 085). DELIBERATE DIVERGENCE from device-licenses: storage is
+  // ADMIN-CAPABLE (not superadmin-only) but OWNERSHIP-gated downstream in the BFF — an ADMIN
+  // acts ONLY on own-domain ADMIN-owned nodes (DENY -> 403), any SUPERADMIN-owned node is
+  // SUPERADMIN-only, SUPERADMIN unrestricted. The pool/assignment domain is stamped from the
+  // node's RESIDENCY by the BFF, never the caller. Over-subscription / unknown-node -> 422.
+  // Endpoints (admin-bff StoragePoolController):
+  //   GET    /bff/admin/device-storage-pools                          → { pools, assignments }
+  //   POST   /bff/admin/device-storage-pools/{deviceId}/pools         → StoragePool (attach)
+  //   DELETE /bff/admin/device-storage-pools/pools/{poolId}           → { detached }
+  //   POST   /bff/admin/device-storage-pools/pools/{poolId}/assignments → ServiceAssignment
+  //   DELETE /bff/admin/device-storage-pools/assignments/{assignmentId} → { revoked }
+
+  /** Pools + assignments VISIBLE to the caller (ADMIN own-domain, SUPERADMIN all). */
+  async storagePools(): Promise<{ pools: StoragePool[]; assignments: ServiceAssignment[] }> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/device-storage-pools`, {
+      headers: { authorization: `Bearer ${t}` },
+    });
+    if (!r.ok) return { pools: [], assignments: [] };
+    const body = await r.json();
+    return { pools: body.pools ?? [], assignments: body.assignments ?? [] };
+  }
+
+  /** Attach additional storage to a node. Throws the BFF {error} (403 ownership DENY /
+   *  422 unknown-node). */
+  async attachPool(deviceId: string, body: AttachPoolBody): Promise<StoragePool> {
+    return this.storageMutation('POST',
+      `/bff/admin/device-storage-pools/${encodeURIComponent(deviceId)}/pools`, body);
+  }
+
+  /** Detach a pool (refused by the BFF with 422 while it still has an active assignment). */
+  async detachPool(poolId: string): Promise<{ detached: number }> {
+    return this.storageMutation('DELETE',
+      `/bff/admin/device-storage-pools/pools/${encodeURIComponent(poolId)}`);
+  }
+
+  /** Assign a service to a pool (capacity-aware; over-subscription / exclusivity → 422). */
+  async assignService(poolId: string, body: AssignServiceBody): Promise<ServiceAssignment> {
+    return this.storageMutation('POST',
+      `/bff/admin/device-storage-pools/pools/${encodeURIComponent(poolId)}/assignments`, body);
+  }
+
+  /** Revoke an assignment (CAS state flip, never deleted = audit). */
+  async revokeAssignment(assignmentId: string): Promise<{ revoked: number }> {
+    return this.storageMutation('DELETE',
+      `/bff/admin/device-storage-pools/assignments/${encodeURIComponent(assignmentId)}`);
+  }
+
+  private async storageMutation<T>(method: string, path: string, body?: unknown): Promise<T> {
+    const t = this.session.session()?.bffToken;
+    const init: RequestInit = { method, headers: { authorization: `Bearer ${t}` } };
+    if (body !== undefined) {
+      (init.headers as Record<string, string>)['content-type'] = 'application/json';
+      init.body = JSON.stringify(body);
+    }
+    const r = await fetch(`${CFG.bff}${path}`, init);
+    if (r.ok) return r.json() as Promise<T>;
+    throw new Error(await this.errorOf(r));
+  }
 }
 
 // ── Backup & Recovery DTOs (mirror the BFF backup package shapes) ─────
@@ -918,4 +980,55 @@ export interface DeviceRegistration {
   mesh_id?: string | null;
   last_seen_at?: string | null;
   licenses: DeviceSshLicense[];
+}
+
+// ── Node-storage DTOs (mirror the admin-bff storage package shapes, camelCase records) ──
+/** A registered additional-storage pool PINNED to one node. reservedBytes is the operator's
+ *  capacity claim (the node-agent df is authoritative); propagationState surfaces the
+ *  reconcile/patch ACK; a node-pinned PV = NO HA (data loss on disk loss → scope to
+ *  replaceable data). */
+export interface StoragePool {
+  id: string;
+  deviceId: string;
+  diskSerial: string;
+  poolPath: string;
+  reservedBytes: number;
+  isExclusive: boolean;
+  filesystem?: string | null;
+  state: 'active' | 'detached';
+  domain: string;
+  propagationState: 'pending' | 'applied' | 'failed' | 'degraded';
+  generation: number;
+  createdBy: string;
+  createdAt?: string | null;
+}
+/** A (pool × service) placement row. An active row pins the service to the pool's node. */
+export interface ServiceAssignment {
+  id: string;
+  poolId: string;
+  serviceName: string;
+  pvcName: string;
+  requestedBytes: number;
+  state: 'active' | 'revoked';
+  assignedBy: string;
+  assignedAt?: string | null;
+  domain: string;
+  propagationState: 'pending' | 'applied' | 'failed' | 'degraded';
+  generation: number;
+}
+/** Body for POST .../{deviceId}/pools (attach). exclusive defaults true for video on the
+ *  UI; reservedBytes must be > 0. */
+export interface AttachPoolBody {
+  diskSerial: string;
+  poolPath: string;
+  reservedBytes: number;
+  exclusive: boolean;
+  filesystem?: string | null;
+}
+/** Body for POST .../pools/{poolId}/assignments (assign). requestedBytes must be > 0 and
+ *  not over-subscribe the pool's reservedBytes. */
+export interface AssignServiceBody {
+  serviceName: string;
+  pvcName: string;
+  requestedBytes: number;
 }
