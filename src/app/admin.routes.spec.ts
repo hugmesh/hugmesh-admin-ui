@@ -23,6 +23,7 @@ import { SuperadminDomainsComponent } from './superadmin-domains.component';
 import { OidcProviderRolesComponent } from './oidc-provider-roles.component';
 import { GamesServicesComponent } from './games-services/games-services.component';
 import { AnubisAdminComponent } from './anubis-admin.component';
+import { DesktopGovernanceComponent } from './desktop-governance/desktop-governance.component';
 import { superadminGuard } from './superadmin.guard';
 import { gamesServicesGuard } from './games-services.guard';
 import { WorkloadConsoleComponent } from './workload-console/workload-console.component';
@@ -67,11 +68,12 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('egress-vpn')!.component).toBe(EgressVpnComponent);
     expect(byPath('superadmin/domains')!.component).toBe(SuperadminDomainsComponent);
     expect(byPath('oidc-providers')!.component).toBe(OidcProviderRolesComponent);
+    expect(byPath('desktop')!.component).toBe(DesktopGovernanceComponent);
     expect(byPath('games-services')!.component).toBe(GamesServicesComponent);
     expect(byPath('superadmin/anubis')!.component).toBe(AnubisAdminComponent);
   });
 
-  it('exposes exactly the twenty-seven admin views the host expects (incl. delegation + appeals + device-licenses + device-pending + node-storage + egress-vpn + superadmin/domains + oidc-providers + games-services + superadmin/anubis + the HIDDEN-tier workloads console + its logs/terminal sub-views)', () => {
+  it('exposes exactly the twenty-eight admin views the host expects (incl. delegation + appeals + device-licenses + device-pending + node-storage + desktop governance + egress-vpn + superadmin/domains + oidc-providers + games-services + superadmin/anubis + the HIDDEN-tier workloads console + its logs/terminal sub-views)', () => {
     expect(ADMIN_ROUTES.map((r) => r.path)).toEqual([
       '',
       'usage',
@@ -95,6 +97,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
       'egress-vpn',
       'superadmin/domains',
       'oidc-providers',
+      'desktop',
       'games-services',
       'superadmin/anubis',
       'workloads',
@@ -141,6 +144,13 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(domains).toBeDefined();
     expect(domains!.component).toBe(SuperadminDomainsComponent);
     expect(domains!.canActivate).toEqual([superadminGuard]);
+  });
+
+  it('leaves the desktop-governance console UN-superadmin-guarded (ADMIN/SUPERADMIN; the BFF gates ADMIN/SUPERADMIN own-domain)', () => {
+    const desktop = byPath('desktop');
+    expect(desktop).toBeDefined();
+    expect(desktop!.component).toBe(DesktopGovernanceComponent);
+    expect(desktop!.canActivate).toBeUndefined();
   });
 
   it('games-gates the games-services operator console (behind the games-services guard)', () => {

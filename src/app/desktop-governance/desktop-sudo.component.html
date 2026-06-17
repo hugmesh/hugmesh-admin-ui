@@ -1,0 +1,91 @@
+<section class="snap-desktop-gov" data-testid="desktop-sudo-view" aria-labelledby="ds-heading">
+  <h2 id="ds-heading">Desktop sudo</h2>
+  <p class="dg-intro">
+    Grant or revoke SSO-enforced desktop sudo for a user on a device. Default-none: the desktop
+    bakes no sudoers, so an <strong>active grant is the only thing that confers sudo</strong> — and
+    it is centrally revocable at the IdP (the SSO claim drops at the next token refresh). A grant
+    <strong>rides your device-SSH license</strong> and respects the own-domain wall.
+  </p>
+
+  <!-- ── Grant form ───────────────────────────────────────────────────────── -->
+  <h3 id="ds-grant-heading">Grant sudo</h3>
+  <form (ngSubmit)="grant()" aria-labelledby="ds-grant-heading" novalidate>
+    <label for="ds-subject">Subject (Casdoor user)</label>
+    <input
+      id="ds-subject"
+      data-testid="ds-subject"
+      [(ngModel)]="subject"
+      name="subject"
+      placeholder="google:alice@example.com"
+      [attr.aria-invalid]="grantError() ? 'true' : null"
+      [attr.aria-describedby]="grantError() ? 'ds-grant-error' : null"
+    />
+
+    <label for="ds-device">Device</label>
+    <select id="ds-device" data-testid="ds-device" [(ngModel)]="deviceId" name="deviceId">
+      <option *ngFor="let d of devices()" [value]="d.id">{{ deviceLabel(d) }}</option>
+    </select>
+
+    <button
+      data-testid="ds-grant"
+      type="submit"
+      [disabled]="!canGrant()"
+      [attr.aria-describedby]="!canGrant() ? 'ds-gate-help' : null"
+    >grant sudo</button>
+
+    <!-- Defence-in-depth helptext: WHY the grant is blocked (the BFF re-enforces too). -->
+    <span
+      *ngIf="!canGrant()"
+      id="ds-gate-help"
+      class="dg-helptext"
+      data-testid="ds-gate-help"
+      role="status"
+      aria-live="polite"
+    >{{ gateReason() }}</span>
+
+    <span
+      *ngIf="grantError()"
+      id="ds-grant-error"
+      class="field-error"
+      data-testid="ds-grant-error"
+      role="alert"
+      aria-live="assertive"
+    >{{ grantError() }}</span>
+  </form>
+
+  <!-- ── Active grants ────────────────────────────────────────────────────── -->
+  <h3 id="ds-grants-heading">Sudo grants</h3>
+  <table data-testid="ds-grants" aria-labelledby="ds-grants-heading">
+    <thead>
+      <tr>
+        <th scope="col">Subject</th>
+        <th scope="col">Device</th>
+        <th scope="col">Domain</th>
+        <th scope="col">State</th>
+        <th scope="col">Propagation</th>
+        <th scope="col">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let g of grants()" [attr.data-grant-id]="g.id" [attr.data-state]="g.state">
+        <td>{{ g.subject }}</td>
+        <td>{{ grantDeviceLabel(g) }}</td>
+        <td>{{ g.domain }}</td>
+        <td><span class="dg-badge" [attr.data-grant-state]="g.state">{{ g.state }}</span></td>
+        <td data-testid="ds-prop">{{ g.propagationState }}</td>
+        <td>
+          <button
+            *ngIf="g.state === 'active'"
+            type="button"
+            [attr.data-revoke]="g.id"
+            [attr.aria-label]="'Revoke desktop sudo for ' + g.subject + ' on ' + grantDeviceLabel(g)"
+            (click)="revoke(g.id)"
+          >revoke</button>
+        </td>
+      </tr>
+      <tr *ngIf="loaded() && grants().length === 0">
+        <td colspan="6" class="dg-empty" data-testid="ds-empty">No sudo grants.</td>
+      </tr>
+    </tbody>
+  </table>
+</section>

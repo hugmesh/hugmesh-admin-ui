@@ -1061,6 +1061,125 @@ export class BffService {
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`);
     return r.json().catch(() => ({} as T));
   }
+
+  // ── DESKTOP APP GOVERNANCE (ADMIN/SUPERADMIN, admin-bff /bff/admin/desktop/**) ──
+  // The UI front-end for the desktop-governance admin-bff foundation (admin-bff PR #70,
+  // ships dark). FIVE surfaces, all under /bff/admin/desktop and coarse-gated
+  // hasAnyRole('ADMIN','SUPERADMIN') with own-domain scope from the validated issuer
+  // (NEVER a request field); SUPERADMIN unscoped. The console mirrors that posture for
+  // presentation (disable + helptext) but the BFF is the source of truth.
+  //
+  //   DISCOVER CATALOG (default-NONE allowlist; add != enable):
+  //     GET    /bff/admin/desktop/catalog                 → [DesktopCatalogEntry]
+  //     POST   /bff/admin/desktop/catalog  {appRef,displayName,source?} → DesktopCatalogEntry (201)
+  //     POST   /bff/admin/desktop/catalog/{id}/enable     → { updated, enabled:true }
+  //     POST   /bff/admin/desktop/catalog/{id}/disable    → { updated, enabled:false }
+  //     DELETE /bff/admin/desktop/catalog/{id}            → { removed }
+  //   SUDO grant (rides device-ssh-license; own-domain wall; SA unscoped):
+  //     GET    /bff/admin/desktop/sudo                    → [DesktopSudoGrant]
+  //     POST   /bff/admin/desktop/sudo/grant  {subject,deviceId} → DesktopSudoGrant
+  //              403 = no active ssh-license; 422 = superadmin-owned device / cross-domain
+  //     DELETE /bff/admin/desktop/sudo/{grantId}          → { revoked }
+  //   INSTALL-REQUEST inbox (brand-scoped; single-winner CAS decide):
+  //     GET    /bff/admin/desktop/install-requests        → [DesktopInstallRequest]
+  //     POST   /bff/admin/desktop/install-requests/{id}/decide?status=approved|denied|installed
+  //                                                       → { decided, status }
+  //   REMOTE-INSTALL trigger (rides ssh-license; own-domain; NOT superadmin-owned node):
+  //     POST   /bff/admin/desktop/remote-install  {deviceId,appRef} → string (403 on deny)
+  //   SSH-TERMINAL session open (SCAFFOLD — admin-bff ships dark; authorization is REAL,
+  //   returns a {dark:true} descriptor; the live xterm.js WS reuses the workload-console
+  //   TTY infra in a follow-on increment):
+  //     POST   /bff/admin/desktop/ssh-terminal/sessions?deviceId=... → DesktopSshSession (403 on deny)
+
+  /** The acting admin's Discover catalog (own brand; SUPERADMIN all brands). A dark/denied
+   *  surface yields [] (no existence leak) via the shared workloadGet helper. */
+  async desktopCatalog(): Promise<DesktopCatalogEntry[]> {
+    return this.workloadGet<DesktopCatalogEntry[]>('/bff/admin/desktop/catalog', []);
+  }
+
+  /** Add an app ref to the caller's brand catalog (DISABLED by default — add != enable).
+   *  The domain is the caller's validated brand (never sent). Throws the BFF {error} on
+   *  a validation reject (bad source / duplicate ref). */
+  async desktopCatalogAdd(appRef: string, displayName: string, source?: string): Promise<DesktopCatalogEntry> {
+    const body: Record<string, string> = { appRef, displayName };
+    if (source) body['source'] = source;
+    return this.workloadMutate<DesktopCatalogEntry>('POST', '/bff/admin/desktop/catalog', body);
+  }
+
+  /** Enable a catalog row (make it appear in the brand's Discover store). */
+  async desktopCatalogEnable(id: string): Promise<{ updated: number; enabled: boolean }> {
+    return this.workloadMutate('POST', `/bff/admin/desktop/catalog/${encodeURIComponent(id)}/enable`);
+  }
+
+  /** Disable a catalog row (remove from Discover; KEEPS the row). */
+  async desktopCatalogDisable(id: string): Promise<{ updated: number; enabled: boolean }> {
+    return this.workloadMutate('POST', `/bff/admin/desktop/catalog/${encodeURIComponent(id)}/disable`);
+  }
+
+  /** Remove a catalog row entirely. */
+  async desktopCatalogRemove(id: string): Promise<{ removed: number }> {
+    return this.workloadMutate('DELETE', `/bff/admin/desktop/catalog/${encodeURIComponent(id)}`);
+  }
+
+  /** The acting admin's desktop-sudo grants (own brand; SUPERADMIN all). */
+  async desktopSudoGrants(): Promise<DesktopSudoGrant[]> {
+    return this.workloadGet<DesktopSudoGrant[]>('/bff/admin/desktop/sudo', []);
+  }
+
+  /** Grant a desktop user SSO-enforced sudo on a device (idempotent; domain stamped from the
+   *  device's residency). Throws the BFF {error}: 403 = the acting admin holds no active
+   *  device-ssh-license for the target; 422 = the device is superadmin-owned OR in another
+   *  brand (own-domain wall). */
+  async desktopSudoGrant(subject: string, deviceId: string): Promise<DesktopSudoGrant> {
+    return this.workloadMutate<DesktopSudoGrant>('POST', '/bff/admin/desktop/sudo/grant', { subject, deviceId });
+  }
+
+  /** Revoke a sudo grant by id (CAS audit; removes the SSO claim at the next token refresh). */
+  async desktopSudoRevoke(grantId: string): Promise<{ revoked: number }> {
+    return this.workloadMutate('DELETE', `/bff/admin/desktop/sudo/${encodeURIComponent(grantId)}`);
+  }
+
+  /** The brand's desktop install-request inbox (own brand; SUPERADMIN all). */
+  async desktopInstallRequests(): Promise<DesktopInstallRequest[]> {
+    return this.workloadGet<DesktopInstallRequest[]>('/bff/admin/desktop/install-requests', []);
+  }
+
+  /** Decide an install request (CAS pending -> approved|denied|installed, single-winner,
+   *  brand-scoped). Returns the affected row count (decided:0 = already decided / out of scope). */
+  async desktopDecideRequest(id: string, status: DesktopRequestDecision): Promise<{ decided: number; status: string }> {
+    return this.workloadMutate('POST',
+      `/bff/admin/desktop/install-requests/${encodeURIComponent(id)}/decide?status=${encodeURIComponent(status)}`);
+  }
+
+  /** Trigger a one-click remote install of {@code appRef} onto {@code deviceId}, riding the
+   *  acting admin's device-ssh-license. The operator is the caller's JWT subject (never sent).
+   *  Throws the BFF {error} (403) when not permitted: no active own-domain ssh-license, the ref
+   *  is not in the domain's ENABLED allowlist, or the device is cross-domain / superadmin-owned. */
+  async desktopRemoteInstall(deviceId: string, appRef: string): Promise<string> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/desktop/remote-install`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      body: JSON.stringify({ deviceId, appRef }),
+    });
+    if (r.ok) return r.text();
+    throw new Error(await this.errorOf(r));
+  }
+
+  /** Open (authorize) an in-UI SSH-terminal session for {@code deviceId}. SCAFFOLD — the
+   *  admin-bff currently SHIPS DARK: the authorization is REAL (same own-domain device-ssh-
+   *  license check as remote-install; 403 on deny) but it returns a {@code dark:true}
+   *  descriptor rather than opening a live TTY. The live xterm.js WebSocket bridge (reusing
+   *  the workload-console TTY/SSE infra) lands in a follow-on increment; until then the
+   *  component renders the terminal greyed with helptext explaining the dark state. */
+  async desktopOpenSshSession(deviceId: string): Promise<DesktopSshSession> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(
+      `${CFG.bff}/bff/admin/desktop/ssh-terminal/sessions?deviceId=${encodeURIComponent(deviceId)}`,
+      { method: 'POST', headers: { authorization: `Bearer ${t}` } });
+    if (r.ok) return r.json();
+    throw new Error(await this.errorOf(r));
+  }
 }
 
 // ── Backup & Recovery DTOs (mirror the BFF backup package shapes) ─────
@@ -1592,4 +1711,69 @@ export interface WorkloadGrantRequest { grantee: string; targetDomain: string; l
 export interface WorkloadConfigRow {
   id: string; domain: string; adminEnabled: boolean; dangerousTierEnabled: boolean;
   updatedBy?: string | null; updatedAt?: string | null; generation: number;
+}
+
+// ── DESKTOP APP GOVERNANCE DTOs (mirror the admin-bff desktop package records) ──
+/** The catalog entry source — Flatpak (default) over the OCI registry, or raw OCI. */
+export type DesktopSource = 'FLATPAK' | 'OCI';
+/** The terminal statuses an admin may decide an install request into. */
+export type DesktopRequestDecision = 'approved' | 'denied' | 'installed';
+
+/** One {@code desktop_app_catalog} row — an app ref in a brand's Plasma Discover
+ *  allowlist. The store is DEFAULT-NONE: {@code enabled} is false on add, so a row only
+ *  appears in Discover after a separate enable. {@code domain} is the brand (validated
+ *  issuer; the read scope). */
+export interface DesktopCatalogEntry {
+  id: string;
+  appRef: string;
+  displayName: string;
+  source: string;
+  enabled: boolean;
+  addedBy: string;
+  domain: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+/** One {@code desktop_sudo_grant} row — the per-(domain, subject, device) SSO-enforced sudo
+ *  grant. DEFAULT-NONE: an ACTIVE grant is the only thing that confers sudo (emitted as a
+ *  revocable SSO claim); revoke is a CAS active->revoked (never deleted = audit). */
+export interface DesktopSudoGrant {
+  id: string;
+  subject: string;
+  deviceId: string;
+  state: string;
+  grantedBy?: string | null;
+  grantedAt?: string | null;
+  revokedAt?: string | null;
+  revokedBy?: string | null;
+  domain: string;
+  propagationState: string;
+  generation: number;
+}
+
+/** One {@code desktop_install_request} row — a non-sudo user's request that an admin
+ *  allow/install an app on their device. {@code requester} == JWT subject; {@code domain}
+ *  stamped from the issuer; an admin decision stamps {@code decidedBy}/{@code decidedAt}. */
+export interface DesktopInstallRequest {
+  id: string;
+  requester: string;
+  appRef: string;
+  deviceId: string;
+  status: string;
+  decidedBy?: string | null;
+  decidedAt?: string | null;
+  domain: string;
+  createdAt?: string | null;
+}
+
+/** The descriptor returned by POST /bff/admin/desktop/ssh-terminal/sessions. The admin-bff
+ *  SCAFFOLD ships dark: the authorization is REAL (403 on deny) but the response carries
+ *  {@code dark:true} + a note instead of opening a live TTY. When the live WS bridge lands,
+ *  the descriptor will carry the WebSocket handshake params instead and {@code dark} flips
+ *  false. */
+export interface DesktopSshSession {
+  deviceId: string;
+  dark: boolean;
+  note?: string | null;
 }

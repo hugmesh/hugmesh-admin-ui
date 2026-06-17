@@ -55,6 +55,7 @@ export class AdminComponent implements OnInit {
     { path: 'device-licenses', label: 'Device licenses', superadminOnly: true },
     { path: 'device-pending', label: 'Pending devices', superadminOnly: true },
     { path: 'node-storage', label: 'Node storage' },
+    { path: 'desktop', label: 'Desktop governance' },
     { path: 'egress-vpn', label: 'Egress VPN', superadminOnly: true },
     { path: 'superadmin/domains', label: 'Domains', superadminOnly: true },
     // HIDDEN tier — surfaced ONLY when the server-confirmed workload capability probe passes.

@@ -23,6 +23,7 @@ import { SuperadminDomainsComponent } from './superadmin-domains.component';
 import { OidcProviderRolesComponent } from './oidc-provider-roles.component';
 import { GamesServicesComponent } from './games-services/games-services.component';
 import { AnubisAdminComponent } from './anubis-admin.component';
+import { DesktopGovernanceComponent } from './desktop-governance/desktop-governance.component';
 import { WorkloadConsoleComponent } from './workload-console/workload-console.component';
 import { WorkloadLogsComponent } from './workload-console/workload-logs.component';
 import { WorkloadTerminalComponent } from './workload-console/workload-terminal.component';
@@ -88,6 +89,7 @@ export const ADMIN_ROUTES: Routes = [
   { path: 'egress-vpn', component: EgressVpnComponent, canActivate: [superadminGuard] },
   { path: 'superadmin/domains', component: SuperadminDomainsComponent, canActivate: [superadminGuard] },
   { path: 'oidc-providers', component: OidcProviderRolesComponent },
+  { path: 'desktop', component: DesktopGovernanceComponent },
   { path: 'games-services', component: GamesServicesComponent, canActivate: [gamesServicesGuard] },
   { path: 'superadmin/anubis', component: AnubisAdminComponent, canActivate: [superadminGuard] },
   // ── WORKLOAD CONSOLE (HIDDEN tier) ──────────────────────────────────────────────

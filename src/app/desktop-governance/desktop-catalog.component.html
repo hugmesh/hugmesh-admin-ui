@@ -1,0 +1,117 @@
+<section class="snap-desktop-gov" data-testid="desktop-catalog-view" aria-labelledby="dc-heading">
+  <h2 id="dc-heading">Discover curation</h2>
+  <p class="dg-intro">
+    Curate which Flatpak / OCI apps a brand's KDE Plasma Discover store MAY offer. The store is
+    <strong>default-none</strong>: adding a ref here does <em>not</em> make it appear in Discover —
+    you must also <strong>enable</strong> the row. Each entry is scoped to the brand domain (stamped
+    from your session — never a field on this form); a superadmin sees every brand.
+  </p>
+
+  <!-- ── Add an app ref ───────────────────────────────────────────────────── -->
+  <h3 id="dc-add-heading">Add an app to the catalog</h3>
+  <form (ngSubmit)="add()" aria-labelledby="dc-add-heading" novalidate>
+    <label for="dc-app-ref">App reference</label>
+    <input
+      id="dc-app-ref"
+      data-testid="dc-app-ref"
+      [(ngModel)]="appRef"
+      name="appRef"
+      placeholder="org.mozilla.firefox"
+      [attr.aria-invalid]="addError() ? 'true' : null"
+      [attr.aria-describedby]="addError() ? 'dc-add-error' : null"
+    />
+
+    <label for="dc-display-name">Display name</label>
+    <input
+      id="dc-display-name"
+      data-testid="dc-display-name"
+      [(ngModel)]="displayName"
+      name="displayName"
+      placeholder="Firefox"
+      [attr.aria-invalid]="addError() ? 'true' : null"
+      [attr.aria-describedby]="addError() ? 'dc-add-error' : null"
+    />
+
+    <label for="dc-source">Source</label>
+    <select id="dc-source" data-testid="dc-source" [(ngModel)]="source" name="source">
+      <option value="FLATPAK">Flatpak (over the OCI registry)</option>
+      <option value="OCI">OCI</option>
+    </select>
+
+    <button data-testid="dc-add" type="submit">Add (disabled — not in store yet)</button>
+
+    <span
+      *ngIf="addError()"
+      id="dc-add-error"
+      class="field-error"
+      data-testid="dc-add-error"
+      role="alert"
+      aria-live="assertive"
+    >{{ addError() }}</span>
+  </form>
+
+  <!-- ── The allowlist table ──────────────────────────────────────────────── -->
+  <h3 id="dc-table-heading">Catalog allowlist</h3>
+
+  <p
+    *ngIf="loaded() && storeEmpty()"
+    class="dg-helptext"
+    data-testid="dc-store-empty"
+    role="status"
+    aria-live="polite"
+  >
+    The Discover store currently serves <strong>nothing</strong> — no enabled apps (default-none).
+    Enable a row below to make it appear in Discover.
+  </p>
+
+  <table data-testid="dc-table" aria-labelledby="dc-table-heading">
+    <thead>
+      <tr>
+        <th scope="col">App</th>
+        <th scope="col">Reference</th>
+        <th scope="col">Source</th>
+        <th scope="col">Domain</th>
+        <th scope="col">In store</th>
+        <th scope="col">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let e of entries()" [attr.data-entry-id]="e.id" [attr.data-enabled]="e.enabled">
+        <td>{{ e.displayName }}</td>
+        <td><code>{{ e.appRef }}</code></td>
+        <td>{{ e.source }}</td>
+        <td data-testid="dc-domain">{{ e.domain }}</td>
+        <td>
+          <span *ngIf="e.enabled" class="dg-badge dg-badge-on" data-testid="dc-state">enabled</span>
+          <span *ngIf="!e.enabled" class="dg-badge dg-badge-off" data-testid="dc-state"
+            >disabled (default-none)</span>
+        </td>
+        <td>
+          <button
+            *ngIf="!e.enabled"
+            type="button"
+            [attr.data-enable]="e.id"
+            [attr.aria-label]="'Enable ' + e.displayName + ' in the ' + e.domain + ' Discover store'"
+            (click)="enable(e.id)"
+          >enable</button>
+          <button
+            *ngIf="e.enabled"
+            type="button"
+            [attr.data-disable]="e.id"
+            [attr.aria-label]="'Disable ' + e.displayName + ' in the ' + e.domain + ' Discover store'"
+            (click)="disable(e.id)"
+          >disable</button>
+          <button
+            type="button"
+            [attr.data-remove]="e.id"
+            [attr.aria-label]="'Remove ' + e.displayName + ' from the ' + e.domain + ' catalog'"
+            (click)="remove(e.id)"
+          >remove</button>
+        </td>
+      </tr>
+      <tr *ngIf="loaded() && entries().length === 0">
+        <td colspan="6" class="dg-empty" data-testid="dc-empty">No catalog entries yet.</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
