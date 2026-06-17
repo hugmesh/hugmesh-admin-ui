@@ -6,8 +6,10 @@ import { BffService } from './bff.service';
 import { SessionService } from './session.service';
 
 /** One admin own-component module surfaced in the admin menu. A `superadminOnly`
- *  item is hidden from the menu unless the session carries the superadmin role. */
-interface AdminMenuItem { path: string; label: string; superadminOnly?: boolean; }
+ *  item is hidden from the menu unless the session carries the superadmin role; a
+ *  `hidden` item belongs to the HIDDEN tier — it is surfaced ONLY when a server-confirmed
+ *  capability probe passes (e.g. the Workload Console, gated on an active grant). */
+interface AdminMenuItem { path: string; label: string; superadminOnly?: boolean; hidden?: boolean; }
 
 /**
  * Admin micro-frontend (own repo: snapdragon-admin-ui). Visible only to Casdoor
@@ -54,12 +56,24 @@ export class AdminComponent implements OnInit {
     { path: 'node-storage', label: 'Node storage' },
     { path: 'egress-vpn', label: 'Egress VPN', superadminOnly: true },
     { path: 'superadmin/domains', label: 'Domains', superadminOnly: true },
+    // HIDDEN tier — surfaced ONLY when the server-confirmed workload capability probe passes.
+    { path: 'workloads', label: 'Workload console', hidden: true },
   ];
 
+  /** Whether the HIDDEN-tier Workload Console is visible to this session — set from the
+   *  server-confirmed capability probe (200 = live grant/role; 404 = dark/denied). The
+   *  route is ALSO grant-guarded, so this only governs the menu's discoverability. */
+  readonly workloadVisible = signal(false);
+
   /** The menu the current session may see: superadmin-only items appear only for a
-   *  superadmin (defence-in-depth — the route itself is superadmin-guarded too). */
+   *  superadmin (defence-in-depth — the route itself is superadmin-guarded too); HIDDEN-tier
+   *  items appear only when their server-confirmed capability is present. */
   readonly menu = computed(() =>
-    this.allMenu.filter((item) => !item.superadminOnly || this.session.isSuperadmin()));
+    this.allMenu.filter((item) => {
+      if (item.superadminOnly && !this.session.isSuperadmin()) return false;
+      if (item.hidden && !this.workloadVisible()) return false;
+      return true;
+    }));
 
   email = '';
   discord = '';
@@ -69,7 +83,18 @@ export class AdminComponent implements OnInit {
   readonly emailError = signal('');
   readonly discordError = signal('');
 
-  async ngOnInit(): Promise<void> { this.refresh(await this.bff.allowlist()); }
+  async ngOnInit(): Promise<void> {
+    this.refresh(await this.bff.allowlist());
+    // HIDDEN-tier discovery: probe the workload-console capability (404 on deny = stays
+    // hidden). Best-effort + defensive — a probe error never breaks the menu.
+    try {
+      const cap = typeof this.bff.workloadCapability === 'function'
+        ? await this.bff.workloadCapability() : null;
+      this.workloadVisible.set(cap !== null);
+    } catch {
+      this.workloadVisible.set(false);
+    }
+  }
   private refresh(a: { emails: string[]; discord: string[] }): void {
     this.emails.set(a.emails); this.discordUsers.set(a.discord);
   }

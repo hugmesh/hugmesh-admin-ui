@@ -844,6 +844,186 @@ export class BffService {
     const r = await fetch(`${CFG.bff}/bff/admin/anubis/metrics`, { headers: { authorization: `Bearer ${t}` } });
     return r.ok ? r.json() : { enabled: false, raw: '', metrics: [] };
   }
+
+  // ── Workload Console (podman/OpenShift-equivalent pod-mgmt + live-log + TTY) ──
+  // The whole surface 404s when the feature is dark (generator gate off / DB master flag
+  // off / no active grant) — the capability probe is the server-confirmed gate the
+  // workloadConsoleGuard + the HIDDEN menu entry read. ADMIN reads /bff/admin/workloads/**
+  // (read-only own-domain, grant-gated); SUPERADMIN reaches /bff/superadmin/workloads/**.
+
+  /** The capability probe — 200 (with a body) iff the caller has a live grant/role on the
+   *  workload console; 404 on deny (no existence leak). Returns null on any non-200. */
+  async workloadCapability(): Promise<WorkloadCapability | null> {
+    const t = this.session.session()?.bffToken;
+    try {
+      const r = await fetch(`${CFG.bff}/bff/admin/workloads/capability`, {
+        headers: { authorization: `Bearer ${t}` },
+      });
+      return r.ok ? (await r.json()) as WorkloadCapability : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Pods for one namespace (ADMIN own-domain attributed). */
+  async workloadPods(namespace: string): Promise<WorkloadPod[]> {
+    return this.workloadGet<WorkloadPod[]>(`/bff/admin/workloads/pods/${encodeURIComponent(namespace)}`, []);
+  }
+
+  /** All pods across the app-tier allowlist (SUPERADMIN cross-cluster view). */
+  async workloadAllPods(): Promise<WorkloadPod[]> {
+    return this.workloadGet<WorkloadPod[]>(`/bff/superadmin/workloads/pods`, []);
+  }
+
+  async workloadInspect(namespace: string, name: string): Promise<WorkloadPodInspect | null> {
+    return this.workloadGet<WorkloadPodInspect | null>(
+      `/bff/admin/workloads/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}`, null);
+  }
+
+  async workloadMetrics(namespace: string): Promise<WorkloadMetric[]> {
+    return this.workloadGet<WorkloadMetric[]>(`/bff/admin/workloads/metrics/${encodeURIComponent(namespace)}`, []);
+  }
+
+  async workloadEvents(namespace: string): Promise<WorkloadEvent[]> {
+    return this.workloadGet<WorkloadEvent[]>(`/bff/admin/workloads/events/${encodeURIComponent(namespace)}`, []);
+  }
+
+  async workloadStorage(namespace: string): Promise<WorkloadVolume[]> {
+    return this.workloadGet<WorkloadVolume[]>(`/bff/admin/workloads/storage/${encodeURIComponent(namespace)}`, []);
+  }
+
+  async workloadNetwork(namespace: string): Promise<WorkloadNetwork[]> {
+    return this.workloadGet<WorkloadNetwork[]>(`/bff/admin/workloads/network/${encodeURIComponent(namespace)}`, []);
+  }
+
+  /** Non-stream, server-redacted log read (admin log_access-gated). */
+  async workloadLogs(namespace: string, pod: string, container?: string, tail = 200): Promise<WorkloadLogResult> {
+    const t = this.session.session()?.bffToken;
+    const q = new URLSearchParams();
+    if (container) q.set('container', container);
+    q.set('tail', String(tail));
+    const r = await fetch(
+      `${CFG.bff}/bff/admin/workloads/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(pod)}/logs?${q}`,
+      { headers: { authorization: `Bearer ${t}` } });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  }
+
+  /** SUPERADMIN live log-tail (SSE, server-redacted). Mirrors {@link streamJobEvents}. */
+  async streamWorkloadLogs(namespace: string, pod: string, container: string | undefined,
+                           onLine: (e: WorkloadLogLine) => void, signal?: AbortSignal): Promise<void> {
+    const t = this.session.session()?.bffToken;
+    const q = container ? `?container=${encodeURIComponent(container)}` : '';
+    const r = await fetch(
+      `${CFG.bff}/bff/superadmin/workloads/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(pod)}/logs/stream${q}`,
+      { headers: { authorization: `Bearer ${t}`, accept: 'text/event-stream' }, signal });
+    if (!r.ok || !r.body) throw new Error(`HTTP ${r.status}`);
+    const reader = r.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let sep: number;
+      while ((sep = buffer.indexOf('\n\n')) >= 0) {
+        const frame = buffer.slice(0, sep);
+        buffer = buffer.slice(sep + 2);
+        for (const line of frame.split('\n')) {
+          if (line.startsWith('data:')) {
+            try { onLine(JSON.parse(line.slice(5).trim()) as WorkloadLogLine); } catch { /* keep-alive */ }
+          }
+        }
+      }
+    }
+  }
+
+  /** SUPERADMIN rollout-restart = delete the workload's pods (selfHeal-neutral). */
+  async workloadRolloutRestart(namespace: string, workload: string): Promise<unknown> {
+    return this.workloadMutate('POST',
+      `/bff/superadmin/workloads/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(workload)}/rollout-restart`);
+  }
+
+  /** SUPERADMIN delete one pod. */
+  async workloadDeletePod(namespace: string, pod: string): Promise<unknown> {
+    return this.workloadMutate('DELETE',
+      `/bff/superadmin/workloads/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(pod)}`);
+  }
+
+  /** SUPERADMIN mint a short-TTL step-up token (required for DANGEROUS ops). */
+  async workloadStepUp(operatorId?: string): Promise<WorkloadStepUp> {
+    const q = operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : '';
+    return this.workloadMutate<WorkloadStepUp>('POST', `/bff/superadmin/workloads/step-up${q}`);
+  }
+
+  /** SUPERADMIN GitOps lifecycle intent (scale/deploy/remove/export-manifest). The step-up
+   *  token, if present, is sent in X-Workload-StepUp (the BFF requires it for the DANGEROUS
+   *  tier). Returns the pending intent the UI surfaces as "pending sync". */
+  async workloadLifecycle(namespace: string, workload: string, verb: string,
+                          body: WorkloadLifecycleRequest, stepUpToken?: string): Promise<WorkloadIntent> {
+    const t = this.session.session()?.bffToken;
+    const headers: Record<string, string> = {
+      'content-type': 'application/json', authorization: `Bearer ${t}`,
+    };
+    if (stepUpToken) headers['X-Workload-StepUp'] = stepUpToken;
+    const r = await fetch(
+      `${CFG.bff}/bff/superadmin/workloads/lifecycle/${encodeURIComponent(namespace)}/${encodeURIComponent(workload)}/${encodeURIComponent(verb)}`,
+      { method: 'POST', headers, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`);
+    return r.json();
+  }
+
+  /** SUPERADMIN pending GitOps intents ("pending sync"). */
+  async workloadPendingIntents(): Promise<WorkloadIntent[]> {
+    return this.workloadGet<WorkloadIntent[]>(`/bff/superadmin/workloads/lifecycle/pending`, []);
+  }
+
+  // ── grants/config control plane (SUPERADMIN) ──────────────────────────────
+  async workloadGrants(): Promise<WorkloadGrant[]> {
+    return this.workloadGet<WorkloadGrant[]>(`/bff/superadmin/workloads/grants`, []);
+  }
+
+  async workloadGrant(body: WorkloadGrantRequest): Promise<WorkloadGrant> {
+    return this.workloadMutate<WorkloadGrant>('POST', `/bff/superadmin/workloads/grants`, body);
+  }
+
+  async workloadRevokeGrant(id: string): Promise<unknown> {
+    return this.workloadMutate('DELETE', `/bff/superadmin/workloads/grants/${encodeURIComponent(id)}`);
+  }
+
+  async workloadConfig(): Promise<WorkloadConfigRow[]> {
+    return this.workloadGet<WorkloadConfigRow[]>(`/bff/superadmin/workloads/config`, []);
+  }
+
+  async workloadPutConfig(domain: string, adminEnabled: boolean,
+                          dangerousTierEnabled: boolean): Promise<WorkloadConfigRow> {
+    return this.workloadMutate<WorkloadConfigRow>('PUT',
+      `/bff/superadmin/workloads/config/${encodeURIComponent(domain)}`,
+      { adminEnabled, dangerousTierEnabled });
+  }
+
+  // ── shared workload helpers ────────────────────────────────────────────────
+  private async workloadGet<T>(path: string, empty: T): Promise<T> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}${path}`, { headers: { authorization: `Bearer ${t}` } });
+    if (!r.ok) {
+      if (r.status === 404 || r.status === 403) return empty; // dark / denied — no existence leak
+      throw new Error(`HTTP ${r.status}`);
+    }
+    return r.json();
+  }
+
+  private async workloadMutate<T = unknown>(method: string, path: string, body?: unknown): Promise<T> {
+    const t = this.session.session()?.bffToken;
+    const init: RequestInit = { method, headers: { authorization: `Bearer ${t}` } };
+    if (body !== undefined) {
+      (init.headers as Record<string, string>)['content-type'] = 'application/json';
+      init.body = JSON.stringify(body);
+    }
+    const r = await fetch(`${CFG.bff}${path}`, init);
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`);
+    return r.json().catch(() => ({} as T));
+  }
 }
 
 // ── Backup & Recovery DTOs (mirror the BFF backup package shapes) ─────
@@ -1295,3 +1475,56 @@ export interface AnubisStatus {
 export interface AnubisMetric { name: string; labels?: string; value: number; }
 /** Full response from GET /bff/admin/anubis/metrics. */
 export interface AnubisMetricsResponse { enabled: boolean; raw: string; metrics: AnubisMetric[]; }
+
+// ── Workload Console DTOs (mirror the admin-bff workload package projections) ─────
+/** The capability probe response — present iff the caller has a live grant/role. */
+export interface WorkloadCapability { enabled: boolean; readOnly: boolean; domain: string; }
+export interface WorkloadContainer {
+  name: string; image: string; ready: boolean; restarts: number; state: string;
+}
+/** A projected pod summary (NO env / annotations / managedFields / secrets). */
+export interface WorkloadPod {
+  namespace: string; name: string; workload: string; phase: string; ready: boolean;
+  restarts: number; node: string; startedAt?: string | null; containers: WorkloadContainer[];
+}
+export interface WorkloadPodInspect {
+  namespace: string; name: string; workload: string; phase: string; node: string;
+  serviceAccount: string; startedAt?: string | null; containers: WorkloadContainer[];
+  labels: Record<string, string>; ownerKind?: string | null; ownerName?: string | null;
+}
+export interface WorkloadMetric { namespace: string; name: string; cpuMillicores: string; memoryBytes: string; }
+export interface WorkloadEvent {
+  namespace: string; type: string; reason: string; object: string; message: string;
+  lastSeen?: string | null; count: number;
+}
+export interface WorkloadVolume {
+  namespace: string; name: string; phase: string; capacity: string; storageClass: string; accessModes: string[];
+}
+export interface WorkloadNetwork { namespace: string; kind: string; name: string; summary: string; }
+/** A non-stream redacted log read. */
+export interface WorkloadLogResult { pod: string; container?: string | null; redacted: boolean; log: string; }
+/** One redacted live log line (SSE). */
+export interface WorkloadLogLine { container: string; line: string; ts?: string | null; }
+/** A short-TTL DANGEROUS-tier step-up token. */
+export interface WorkloadStepUp { stepUpToken: string; ttlMinutes: number; }
+/** A GitOps-PR lifecycle intent ("pending sync"). */
+export interface WorkloadIntent {
+  id: string; kind: string; namespace: string; workload: string; imageRef?: string | null;
+  replicas?: number | null; requestedBy: string; requestedAt?: string | null; domain: string;
+  propagationState: string; generation: number;
+}
+/** Body for a GitOps lifecycle verb (scale/deploy/remove/export-manifest). */
+export interface WorkloadLifecycleRequest { replicas?: number | null; imageRef?: string | null; confirm?: string | null; }
+/** A READ_ONLY grant lease row. */
+export interface WorkloadGrant {
+  id: string; grantee: string; targetDomain: string; accessLevel: string; logAccess: boolean;
+  state: string; grantedBy: string; grantedAt?: string | null; expiresAt?: string | null;
+  revokedAt?: string | null; revokedBy?: string | null; domain: string; propagationState: string; generation: number;
+}
+/** Body for POST /bff/superadmin/workloads/grants — issue a READ_ONLY grant lease. */
+export interface WorkloadGrantRequest { grantee: string; targetDomain: string; logAccess: boolean; ttlHours?: number | null; }
+/** A master kill-switch config row. */
+export interface WorkloadConfigRow {
+  id: string; domain: string; adminEnabled: boolean; dangerousTierEnabled: boolean;
+  updatedBy?: string | null; updatedAt?: string | null; generation: number;
+}

@@ -24,6 +24,10 @@ import { GamesServicesComponent } from './games-services/games-services.componen
 import { AnubisAdminComponent } from './anubis-admin.component';
 import { superadminGuard } from './superadmin.guard';
 import { gamesServicesGuard } from './games-services.guard';
+import { WorkloadConsoleComponent } from './workload-console/workload-console.component';
+import { WorkloadLogsComponent } from './workload-console/workload-logs.component';
+import { WorkloadTerminalComponent } from './workload-console/workload-terminal.component';
+import { workloadConsoleGuard } from './workload-console.guard';
 
 /**
  * These specs lock down the federation contract: `./routes` (exposed under the
@@ -65,7 +69,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('superadmin/anubis')!.component).toBe(AnubisAdminComponent);
   });
 
-  it('exposes exactly the twenty-three admin views the host expects (incl. delegation + appeals + device-licenses + node-storage + egress-vpn + superadmin/domains + oidc-providers + games-services + superadmin/anubis)', () => {
+  it('exposes exactly the twenty-six admin views the host expects (incl. delegation + appeals + device-licenses + node-storage + egress-vpn + superadmin/domains + oidc-providers + games-services + superadmin/anubis + the HIDDEN-tier workloads console + its logs/terminal sub-views)', () => {
     expect(ADMIN_ROUTES.map((r) => r.path)).toEqual([
       '',
       'usage',
@@ -90,7 +94,25 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
       'oidc-providers',
       'games-services',
       'superadmin/anubis',
+      'workloads',
+      'workloads/logs',
+      'workloads/terminal',
     ]);
+  });
+
+  it('grant-gates the HIDDEN-tier workload console + its DANGEROUS sub-views (behind the workload-console grant guard)', () => {
+    const wc = byPath('workloads');
+    expect(wc).toBeDefined();
+    expect(wc!.component).toBe(WorkloadConsoleComponent);
+    expect(wc!.canActivate).toEqual([workloadConsoleGuard]);
+
+    const logs = byPath('workloads/logs');
+    expect(logs!.component).toBe(WorkloadLogsComponent);
+    expect(logs!.canActivate).toEqual([workloadConsoleGuard]);
+
+    const term = byPath('workloads/terminal');
+    expect(term!.component).toBe(WorkloadTerminalComponent);
+    expect(term!.canActivate).toEqual([workloadConsoleGuard]);
   });
 
   it('superadmin-gates the device-licenses console (additive, behind the superadmin guard)', () => {
