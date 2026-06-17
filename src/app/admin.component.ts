@@ -52,6 +52,7 @@ export class AdminComponent implements OnInit {
     { path: 'appeals', label: 'Appeals' },
     { path: 'device-licenses', label: 'Device licenses', superadminOnly: true },
     { path: 'node-storage', label: 'Node storage' },
+    { path: 'egress-vpn', label: 'Egress VPN', superadminOnly: true },
     { path: 'superadmin/domains', label: 'Domains', superadminOnly: true },
   ];
 

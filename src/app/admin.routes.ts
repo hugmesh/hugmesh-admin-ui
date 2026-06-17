@@ -17,6 +17,7 @@ import { ForumAdminComponent } from './forum-admin/forum-admin.component';
 import { AppealsComponent } from './appeals/appeals.component';
 import { DeviceLicensesComponent } from './device-licenses.component';
 import { StoragePoolsComponent } from './storage-pools.component';
+import { EgressVpnComponent } from './egress-vpn.component';
 import { SuperadminDomainsComponent } from './superadmin-domains.component';
 import { OidcProviderRolesComponent } from './oidc-provider-roles.component';
 import { superadminGuard } from './superadmin.guard';
@@ -41,7 +42,11 @@ import { superadminGuard } from './superadmin.guard';
  *  /admin/superadmin/domains (the SUPERADMIN-only Domains console over the domain_registry
  *  brand list — multi-tenancy PR9, additionally superadmin-guarded), and
  *  /admin/oidc-providers (configure which roles new users auto-receive when registering via
- *  a given OIDC identity provider — domain-scoped for admins, all-domains for superadmin).
+ *  a given OIDC identity provider — domain-scoped for admins, all-domains for superadmin), and
+ *  /admin/node-storage (attach + register ADDITIONAL node-pinned storage so designated services
+ *  have space on that node — ADMIN-capable, ownership-gated downstream in the BFF), and
+ *  /admin/egress-vpn (the SUPERADMIN-only Egress VPN console — import provider WireGuard/OpenVPN
+ *  configs that nodes use for outgoing public egress, additionally superadmin-guarded).
  *  Casdoor-admin-role guarded by the host. */
 export const ADMIN_ROUTES: Routes = [
   { path: '', component: AdminComponent },
@@ -62,6 +67,7 @@ export const ADMIN_ROUTES: Routes = [
   { path: 'appeals', component: AppealsComponent },
   { path: 'device-licenses', component: DeviceLicensesComponent, canActivate: [superadminGuard] },
   { path: 'node-storage', component: StoragePoolsComponent },
+  { path: 'egress-vpn', component: EgressVpnComponent, canActivate: [superadminGuard] },
   { path: 'superadmin/domains', component: SuperadminDomainsComponent, canActivate: [superadminGuard] },
   { path: 'oidc-providers', component: OidcProviderRolesComponent },
 ];
