@@ -1,0 +1,25 @@
+<section aria-labelledby="wcl-heading" class="workload-console">
+  <h2 id="wcl-heading">Workload logs (live tail)</h2>
+  <p class="wc-intro">
+    Superadmin live <code>logs -f</code> stream. Every line is redacted server-side before it
+    reaches your browser. Requires a step-up token and the dangerous tier to be enabled.
+  </p>
+
+  <form class="wc-toolbar" (ngSubmit)="start()">
+    <label for="wcl-ns">Namespace</label>
+    <input id="wcl-ns" name="ns" type="text" [(ngModel)]="namespace" />
+    <label for="wcl-pod">Pod</label>
+    <input id="wcl-pod" name="pod" type="text" [(ngModel)]="pod"
+           [attr.aria-invalid]="error() ? 'true' : null" aria-describedby="wcl-err" />
+    <label for="wcl-container">Container</label>
+    <input id="wcl-container" name="container" type="text" [(ngModel)]="container" />
+    <button type="submit" [disabled]="streaming()">Start</button>
+    <button type="button" (click)="stop()" [disabled]="!streaming()">Stop</button>
+  </form>
+
+  <p *ngIf="error()" id="wcl-err" role="alert" aria-live="assertive" class="wc-error">{{ error() }}</p>
+  <p role="status" aria-live="polite" class="wc-status">{{ statusMsg() }}</p>
+
+  <pre class="wc-log" aria-label="Live redacted log stream" aria-live="polite" tabindex="0">{{ lines().length ? '' : '(no log lines yet)' }}<ng-container *ngFor="let l of lines()">{{ l.line }}
+</ng-container></pre>
+</section>
