@@ -1,0 +1,125 @@
+<section class="cb-total" aria-labelledby="cb-total-title">
+  <h3 id="cb-total-title">Total-cloud backup</h3>
+  <p class="cb-warning" role="note" data-testid="cloud-backup-total-warning">
+    Superadmin only. A total-cloud backup captures the infra control plane and every brand's state
+    at once. Choose the services to capture and the destination.
+  </p>
+
+  @if (notice()) {
+    <p class="cb-success" role="status" data-testid="cloud-backup-total-notice">{{ notice() }}</p>
+  }
+  @if (formError()) {
+    <p class="cb-error" role="alert" data-testid="cloud-backup-total-form-error">{{ formError() }}</p>
+  }
+
+  <form (ngSubmit)="create()" novalidate>
+    <fieldset class="cb-group" data-testid="cloud-backup-total-services">
+      <legend>Services to capture</legend>
+      @if (menuLoading()) {
+        <p class="cb-muted" role="status">Loading running services…</p>
+      } @else if (menuError()) {
+        <p class="cb-error" role="alert" data-testid="cloud-backup-total-menu-error">{{ menuError() }}</p>
+      } @else if (services().length === 0) {
+        <p class="cb-muted">No running services available.</p>
+      } @else {
+        <div class="cb-checks">
+          @for (s of services(); track trackKey($index, s)) {
+            <label class="cb-check" [class.cb-check--disabled]="!selectable(s)" [attr.data-service]="s.key">
+              <input
+                type="checkbox"
+                [checked]="isSelected(s.key)"
+                [disabled]="!selectable(s)"
+                (change)="toggle(s)"
+                [attr.aria-label]="s.displayName + (selectable(s) ? '' : ' (not installed)')"
+                [attr.data-testid]="'cloud-backup-total-service-' + s.key"
+              />
+              <span class="cb-check-label">{{ s.displayName }}</span>
+            </label>
+          }
+        </div>
+      }
+      @if (servicesInvalid()) {
+        <p class="cb-error" role="alert" data-testid="cloud-backup-total-services-error">
+          Select at least one service to capture.
+        </p>
+      }
+    </fieldset>
+
+    <fieldset class="cb-group">
+      <legend>Destination</legend>
+      <div class="cb-field">
+        <label for="cb-total-kind">Destination kind</label>
+        <select
+          id="cb-total-kind"
+          name="destinationKind"
+          [ngModel]="destinationKind()"
+          (ngModelChange)="destinationKind.set($event)"
+        >
+          @for (k of kinds; track k.value) {
+            <option [value]="k.value">{{ k.label }}</option>
+          }
+        </select>
+      </div>
+      <div class="cb-field">
+        <label for="cb-total-ref">Destination reference</label>
+        <input
+          id="cb-total-ref"
+          name="destinationRef"
+          type="text"
+          autocomplete="off"
+          [ngModel]="destinationRef()"
+          (ngModelChange)="destinationRef.set($event)"
+          [attr.aria-invalid]="destinationRefInvalid()"
+          aria-describedby="cb-total-ref-help"
+          placeholder="bucket / endpoint or node_storage_pool id"
+        />
+        <span id="cb-total-ref-help" class="cb-help">The bucket/endpoint or node-storage pool id.</span>
+        @if (destinationRefInvalid()) {
+          <p class="cb-error" role="alert" data-testid="cloud-backup-total-ref-error">
+            A destination reference is required.
+          </p>
+        }
+      </div>
+    </fieldset>
+
+    <fieldset class="cb-group">
+      <legend>Options</legend>
+      <div class="cb-field">
+        <label for="cb-total-setkey">Set key (optional)</label>
+        <input
+          id="cb-total-setkey"
+          name="setKey"
+          type="text"
+          autocomplete="off"
+          [ngModel]="setKey()"
+          (ngModelChange)="setKey.set($event)"
+          placeholder="(derived default)"
+        />
+      </div>
+      <div class="cb-field">
+        <label for="cb-total-enc">Encryption reference (optional)</label>
+        <input
+          id="cb-total-enc"
+          name="encryptionMeta"
+          type="text"
+          autocomplete="off"
+          [ngModel]="encryptionMeta()"
+          (ngModelChange)="encryptionMeta.set($event)"
+          aria-describedby="cb-total-enc-help"
+          placeholder="repo / age-recipient reference (JSON)"
+        />
+        <span id="cb-total-enc-help" class="cb-help">A reference only — never the key bytes.</span>
+      </div>
+    </fieldset>
+
+    <button
+      type="submit"
+      class="cb-btn cb-btn--danger"
+      [disabled]="!canCreate()"
+      aria-label="Create total-cloud backup"
+      data-testid="cloud-backup-total-submit"
+    >
+      {{ busy() ? 'Creating…' : 'Create total-cloud backup (' + selectedCount() + ' selected)' }}
+    </button>
+  </form>
+</section>

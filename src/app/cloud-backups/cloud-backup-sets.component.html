@@ -1,0 +1,189 @@
+<section class="cb-sets" aria-labelledby="cb-sets-title">
+  <h3 id="cb-sets-title">Backup sets</h3>
+
+  @if (isSuperadmin()) {
+    <form class="cb-filter" (ngSubmit)="load()">
+      <div class="cb-field">
+        <label for="cb-sets-domain">Filter by domain (superadmin)</label>
+        <input
+          id="cb-sets-domain"
+          name="domain"
+          type="text"
+          autocomplete="off"
+          [ngModel]="domainFilter()"
+          (ngModelChange)="domainFilter.set($event)"
+          aria-describedby="cb-sets-domain-help"
+          placeholder="all domains"
+        />
+        <span id="cb-sets-domain-help" class="cb-help">
+          Leave blank to see every brand's backups; a domain narrows the list. Admins always see only
+          their own brand (this filter is ignored for a non-superadmin).
+        </span>
+      </div>
+      <button type="submit" class="cb-btn" aria-label="Apply domain filter" [disabled]="loading()">
+        Apply filter
+      </button>
+    </form>
+  }
+
+  @if (notice()) {
+    <p class="cb-success" role="status" data-testid="cloud-backup-sets-notice">{{ notice() }}</p>
+  }
+  @if (listError()) {
+    <p class="cb-error" role="alert" data-testid="cloud-backup-sets-list-error">{{ listError() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="cb-muted" role="status" data-testid="cloud-backup-sets-loading">Loading backups…</p>
+  } @else if (sortedRows() && sortedRows()!.length === 0) {
+    <p class="cb-muted" data-testid="cloud-backup-sets-empty">No backups yet.</p>
+  } @else if (sortedRows()) {
+    <table class="cb-table" data-testid="cloud-backup-sets-list">
+      <caption class="cb-sr-only">Backup sets, newest first</caption>
+      <thead>
+        <tr>
+          <th scope="col">Set</th>
+          <th scope="col">Scope</th>
+          <th scope="col">Version</th>
+          <th scope="col">Status</th>
+          <th scope="col">Created</th>
+          <th scope="col">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (s of sortedRows(); track trackId($index, s)) {
+          <tr [attr.data-set-id]="s.id">
+            <td>{{ s.setKey }}</td>
+            <td>
+              <span
+                class="cb-badge"
+                [class.cb-badge--total]="s.scope === 'TOTAL'"
+                [attr.data-testid]="'cloud-backup-scope-' + s.scope"
+                [attr.aria-label]="'scope ' + s.scope"
+              >{{ s.scope }}</span>
+            </td>
+            <td>v{{ s.version }}</td>
+            <td>
+              <span class="cb-status" [attr.data-status]="s.status" [attr.aria-label]="'status ' + s.status">
+                {{ s.status }}
+              </span>
+            </td>
+            <td>{{ s.createdAt }}</td>
+            <td class="cb-row-actions">
+              <button
+                type="button"
+                class="cb-btn cb-btn--ghost"
+                [attr.aria-expanded]="isExpanded(s.id)"
+                [attr.aria-label]="(isExpanded(s.id) ? 'Hide details for ' : 'Show details for ') + s.setKey"
+                [attr.data-testid]="'cloud-backup-toggle-' + s.id"
+                (click)="toggle(s)"
+              >
+                {{ isExpanded(s.id) ? 'Hide details' : 'Details' }}
+              </button>
+              <button
+                type="button"
+                class="cb-btn cb-btn--danger"
+                [attr.aria-label]="'Restore ' + s.setKey + ' version ' + s.version"
+                [attr.data-testid]="'cloud-backup-restore-' + s.id"
+                (click)="askRestore(s)"
+              >
+                Restore…
+              </button>
+            </td>
+          </tr>
+
+          @if (isExpanded(s.id)) {
+            <tr class="cb-detail-row" [attr.data-testid]="'cloud-backup-detail-' + s.id">
+              <td colspan="6">
+                @if (detailError()) {
+                  <p class="cb-error" role="alert" data-testid="cloud-backup-detail-error">{{ detailError() }}</p>
+                }
+
+                <h4 class="cb-detail-title">Version history</h4>
+                <ul class="cb-versions" data-testid="cloud-backup-versions">
+                  @for (v of versions(); track v.id) {
+                    <li>
+                      v{{ v.version }} — {{ v.status }} — {{ v.createdAt }}
+                      @if (v.id === s.id) { <span class="cb-this">(this)</span> }
+                    </li>
+                  } @empty {
+                    <li class="cb-muted">No other versions.</li>
+                  }
+                </ul>
+
+                <h4 class="cb-detail-title">Per-service artifacts</h4>
+                <ul class="cb-artifacts" data-testid="cloud-backup-artifacts">
+                  @for (a of artifacts(); track a.id) {
+                    <li>{{ a.service }} — {{ a.kind }} — {{ a.status }}</li>
+                  } @empty {
+                    <li class="cb-muted">No artifacts recorded yet.</li>
+                  }
+                </ul>
+              </td>
+            </tr>
+          }
+        }
+      </tbody>
+    </table>
+  }
+
+  <!-- ── restore confirm (destructive) ───────────────────────────────────── -->
+  @if (restoreTargetId()) {
+    <div
+      class="cb-confirm"
+      role="alertdialog"
+      aria-labelledby="cb-restore-title"
+      aria-describedby="cb-restore-warning"
+      data-testid="cloud-backup-restore-confirm"
+    >
+      <h4 id="cb-restore-title">Confirm restore</h4>
+      <p id="cb-restore-warning" class="cb-warning" role="note">
+        Restoring OVERWRITES live cluster state with this backup's contents. This is destructive and
+        cannot be undone. It requires a fresh step-up.
+      </p>
+
+      @if (restoreError()) {
+        <p class="cb-error" role="alert" data-testid="cloud-backup-restore-error">{{ restoreError() }}</p>
+      }
+
+      <div class="cb-field">
+        <label for="cb-restore-stepup">Step-up token</label>
+        <input
+          id="cb-restore-stepup"
+          name="stepUpToken"
+          type="password"
+          autocomplete="off"
+          [(ngModel)]="stepUpToken"
+          aria-describedby="cb-restore-stepup-help"
+          [attr.aria-invalid]="restoreStepUpNeeded()"
+          data-testid="cloud-backup-restore-stepup"
+        />
+        <span id="cb-restore-stepup-help" class="cb-help">
+          Paste a valid step-up token. It is sent in the X-Backup-StepUp header and is never stored.
+        </span>
+      </div>
+
+      <div class="cb-confirm-actions">
+        <button
+          type="button"
+          class="cb-btn cb-btn--danger"
+          [disabled]="!canRestore()"
+          aria-label="Confirm restore"
+          data-testid="cloud-backup-restore-confirm-btn"
+          (click)="confirmRestore()"
+        >
+          {{ restoring() ? 'Restoring…' : 'Restore now' }}
+        </button>
+        <button
+          type="button"
+          class="cb-btn cb-btn--ghost"
+          aria-label="Cancel restore"
+          data-testid="cloud-backup-restore-cancel-btn"
+          (click)="cancelRestore()"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  }
+</section>

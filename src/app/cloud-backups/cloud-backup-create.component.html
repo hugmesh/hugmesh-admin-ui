@@ -1,0 +1,154 @@
+<section class="cb-create" aria-labelledby="cb-create-title">
+  <h3 id="cb-create-title">Create a backup</h3>
+  <p class="cb-muted">
+    Choose the running services to back up and where to write them. This creates a per-domain
+    (DOMAIN-scope) backup of your own brand.
+  </p>
+
+  @if (notice()) {
+    <p class="cb-success" role="status" data-testid="cloud-backup-create-notice">{{ notice() }}</p>
+  }
+  @if (formError()) {
+    <p class="cb-error" role="alert" data-testid="cloud-backup-create-form-error">{{ formError() }}</p>
+  }
+
+  <form (ngSubmit)="create()" novalidate>
+    <!-- ── per-service menu ─────────────────────────────────────────────── -->
+    <fieldset class="cb-group" data-testid="cloud-backup-create-services">
+      <legend>Services to back up</legend>
+
+      @if (menuLoading()) {
+        <p class="cb-muted" role="status">Loading running services…</p>
+      } @else if (menuError()) {
+        <p class="cb-error" role="alert" data-testid="cloud-backup-create-menu-error">{{ menuError() }}</p>
+      } @else if (services().length === 0) {
+        <p class="cb-muted" data-testid="cloud-backup-create-menu-empty">No running services available.</p>
+      } @else {
+        <div class="cb-checks">
+          @for (s of services(); track trackKey($index, s)) {
+            <label class="cb-check" [class.cb-check--disabled]="!selectable(s)" [attr.data-service]="s.key">
+              <input
+                type="checkbox"
+                [checked]="isSelected(s.key)"
+                [disabled]="!selectable(s)"
+                (change)="toggle(s)"
+                [attr.aria-label]="s.displayName + (selectable(s) ? '' : ' (not installed)')"
+                [attr.aria-describedby]="'cb-svc-hint-' + s.key"
+                [attr.data-testid]="'cloud-backup-service-' + s.key"
+              />
+              <span class="cb-check-label">{{ s.displayName }}</span>
+              <span class="cb-hint" [id]="'cb-svc-hint-' + s.key">
+                {{ s.defaultKind }}@if (s.optional) { · optional@if (!selectable(s)) { — not installed } }
+              </span>
+            </label>
+          }
+        </div>
+      }
+
+      @if (servicesInvalid()) {
+        <p class="cb-error" role="alert" data-testid="cloud-backup-create-services-error">
+          Select at least one service to back up.
+        </p>
+      }
+    </fieldset>
+
+    <!-- ── destination ──────────────────────────────────────────────────── -->
+    <fieldset class="cb-group" data-testid="cloud-backup-create-destination">
+      <legend>Destination</legend>
+      @if (configuredDestination()) {
+        <p class="cb-muted" data-testid="cloud-backup-create-destination-prefill">
+          Prefilled from your domain's configured destination. You can override it for this run.
+        </p>
+      }
+
+      <div class="cb-field">
+        <label for="cb-create-kind">Destination kind</label>
+        <select
+          id="cb-create-kind"
+          name="destinationKind"
+          [ngModel]="destinationKind()"
+          (ngModelChange)="destinationKind.set($event)"
+          aria-describedby="cb-create-kind-help"
+        >
+          @for (k of kinds; track k.value) {
+            <option [value]="k.value">{{ k.label }}</option>
+          }
+        </select>
+        <span id="cb-create-kind-help" class="cb-help">
+          Object store (S3/MinIO) or node storage (a superadmin device-attached FDE volume).
+        </span>
+      </div>
+
+      <div class="cb-field">
+        <label for="cb-create-ref">Destination reference</label>
+        <input
+          id="cb-create-ref"
+          name="destinationRef"
+          type="text"
+          autocomplete="off"
+          [ngModel]="destinationRef()"
+          (ngModelChange)="destinationRef.set($event)"
+          [attr.aria-invalid]="destinationRefInvalid()"
+          aria-describedby="cb-create-ref-help"
+          placeholder="bucket / endpoint or node_storage_pool id"
+        />
+        <span id="cb-create-ref-help" class="cb-help">
+          The bucket/endpoint (object store) or node-storage pool id (node storage). Never credentials.
+        </span>
+        @if (destinationRefInvalid()) {
+          <p class="cb-error" role="alert" data-testid="cloud-backup-create-ref-error">
+            A destination reference is required.
+          </p>
+        }
+      </div>
+    </fieldset>
+
+    <!-- ── optional fields ──────────────────────────────────────────────── -->
+    <fieldset class="cb-group">
+      <legend>Options</legend>
+      <div class="cb-field">
+        <label for="cb-create-setkey">Set key (optional)</label>
+        <input
+          id="cb-create-setkey"
+          name="setKey"
+          type="text"
+          autocomplete="off"
+          [ngModel]="setKey()"
+          (ngModelChange)="setKey.set($event)"
+          aria-describedby="cb-create-setkey-help"
+          placeholder="(derived default)"
+        />
+        <span id="cb-create-setkey-help" class="cb-help">
+          The logical backup identity (version-chain key). Leave blank for a derived default.
+        </span>
+      </div>
+
+      <div class="cb-field">
+        <label for="cb-create-enc">Encryption reference (optional)</label>
+        <input
+          id="cb-create-enc"
+          name="encryptionMeta"
+          type="text"
+          autocomplete="off"
+          [ngModel]="encryptionMeta()"
+          (ngModelChange)="encryptionMeta.set($event)"
+          aria-describedby="cb-create-enc-help"
+          placeholder="repo / age-recipient reference (JSON)"
+        />
+        <span id="cb-create-enc-help" class="cb-help">
+          A repo / age-recipient REFERENCE only — never the key bytes (the key rides a Secret).
+        </span>
+      </div>
+    </fieldset>
+
+    <button
+      type="submit"
+      class="cb-btn"
+      [disabled]="!canCreate()"
+      aria-label="Create backup"
+      data-testid="cloud-backup-create-submit"
+    >
+      {{ busy() ? 'Creating…' : 'Create backup (' + selectedCount() + ' selected)' }}
+    </button>
+  </form>
+</section>
