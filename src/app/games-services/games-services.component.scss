@@ -1,0 +1,74 @@
+.snap-games-services {
+  display: block;
+  max-width: 60rem;
+
+  .gs-intro {
+    margin: 0 0 1rem;
+    color: var(--snap-muted, #555);
+  }
+
+  form {
+    display: grid;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    max-width: 32rem;
+
+    label {
+      font-weight: 600;
+    }
+
+    .field-help {
+      margin: 0;
+      color: var(--snap-muted, #555);
+      font-size: 0.9rem;
+    }
+
+    .field-error {
+      color: var(--snap-error, #b00020);
+      font-weight: 600;
+    }
+
+    button[disabled],
+    select[disabled],
+    input[disabled] {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  ul {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    gap: 0.4rem;
+
+    li {
+      padding: 0.4rem 0.6rem;
+      border: 1px solid var(--snap-border, #ddd);
+      border-radius: 0.3rem;
+    }
+  }
+
+  .gs-state {
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0 0.4rem;
+
+    &[data-state='active'] { color: #1b7f3b; }
+    &[data-state='pending'] { color: #8a6d00; }
+    &[data-state='suspended'] { color: #555; }
+    &[data-state='terminated'] { color: #b00020; }
+  }
+
+  .gs-actions {
+    margin-left: 0.6rem;
+    display: inline-flex;
+    gap: 0.3rem;
+  }
+
+  .gs-summary,
+  .gs-empty {
+    color: var(--snap-muted, #555);
+  }
+}

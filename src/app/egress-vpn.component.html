@@ -1,0 +1,171 @@
+<section class="snap-egress-vpn" data-testid="egress-vpn-view" aria-labelledby="ev-heading">
+  <h2 id="ev-heading">Egress VPN</h2>
+  <p class="ev-intro">
+    Import provider-downloaded VPN configs (ProtonVPN WireGuard <code>.conf</code> first-class;
+    OpenVPN <code>.ovpn</code> fallback) that mesh nodes use for OUTGOING / egress traffic on
+    public-facing flows (coturn audio/video, made-public services). The tailnet + cluster-internal
+    traffic stay direct (split-tunnel). The config bytes are validated then stored as a secret
+    reference — the private key never lands in the database.
+  </p>
+
+  <!-- ── Import a config ──────────────────────────────────────────────────── -->
+  <h3 id="ev-import-heading">Import a config</h3>
+  <form (ngSubmit)="import()" aria-labelledby="ev-import-heading" novalidate>
+    <label for="ev-import-domain">Brand domain (owner)</label>
+    <input
+      id="ev-import-domain"
+      data-testid="ev-import-domain"
+      [(ngModel)]="importDomain"
+      name="importDomain"
+      placeholder="brand.example.com"
+      [attr.aria-invalid]="importError() ? 'true' : null"
+      [attr.aria-describedby]="importError() ? 'ev-import-error' : null"
+    />
+
+    <label for="ev-import-name">Name</label>
+    <input
+      id="ev-import-name"
+      data-testid="ev-import-name"
+      [(ngModel)]="importName"
+      name="importName"
+      placeholder="proton-us"
+      [attr.aria-invalid]="importError() ? 'true' : null"
+      [attr.aria-describedby]="importError() ? 'ev-import-error' : null"
+    />
+
+    <label for="ev-import-provider">Provider</label>
+    <input
+      id="ev-import-provider"
+      data-testid="ev-import-provider"
+      [(ngModel)]="importProvider"
+      name="importProvider"
+      placeholder="protonvpn"
+    />
+
+    <label for="ev-import-file">Config file (.conf / .ovpn)</label>
+    <input
+      id="ev-import-file"
+      data-testid="ev-import-file"
+      type="file"
+      name="importFile"
+      accept=".conf,.ovpn"
+      (change)="onConfigFile($event)"
+    />
+
+    <label for="ev-import-config">…or paste the config</label>
+    <textarea
+      id="ev-import-config"
+      data-testid="ev-import-config"
+      [(ngModel)]="importConfigText"
+      name="importConfig"
+      rows="4"
+      placeholder="[Interface]&#10;PrivateKey = …&#10;[Peer]&#10;PublicKey = …&#10;Endpoint = …"
+      [attr.aria-invalid]="importError() ? 'true' : null"
+      [attr.aria-describedby]="importError() ? 'ev-import-error' : null"
+    ></textarea>
+
+    <button data-testid="ev-import" type="submit">Import config</button>
+
+    <span
+      *ngIf="importError()"
+      id="ev-import-error"
+      class="field-error"
+      data-testid="ev-import-error"
+      role="alert"
+      aria-live="assertive"
+    >{{ importError() }}</span>
+  </form>
+
+  <!-- ── Assign a config ──────────────────────────────────────────────────── -->
+  <h3 id="ev-assign-heading">Assign a config</h3>
+  <form (ngSubmit)="assign()" aria-labelledby="ev-assign-heading" novalidate>
+    <label for="ev-assign-config">Config</label>
+    <select id="ev-assign-config" data-testid="ev-assign-config" [(ngModel)]="assignConfigId" name="assignConfigId">
+      <option *ngFor="let c of activeConfigs()" [value]="c.id">{{ c.name }} ({{ c.domain }}, {{ c.kind }})</option>
+    </select>
+
+    <label for="ev-assign-scope">Scope</label>
+    <select id="ev-assign-scope" data-testid="ev-assign-scope" [(ngModel)]="assignScope" name="assignScope">
+      <option value="NODE">Per node</option>
+      <option value="DOMAIN">Per domain</option>
+    </select>
+
+    <label for="ev-assign-node">Node machine-key fingerprint</label>
+    <input
+      id="ev-assign-node"
+      data-testid="ev-assign-node"
+      [(ngModel)]="assignNodeFp"
+      name="assignNodeFp"
+      placeholder="mkey:…"
+      [disabled]="assignScope === 'DOMAIN'"
+      [attr.aria-invalid]="assignError() ? 'true' : null"
+      [attr.aria-describedby]="assignError() ? 'ev-assign-error' : null"
+    />
+
+    <label for="ev-assign-domain">Target domain</label>
+    <input
+      id="ev-assign-domain"
+      data-testid="ev-assign-domain"
+      [(ngModel)]="assignDomain"
+      name="assignDomain"
+      placeholder="brand.example.com"
+      [disabled]="assignScope === 'NODE'"
+      [attr.aria-invalid]="assignError() ? 'true' : null"
+      [attr.aria-describedby]="assignError() ? 'ev-assign-error' : null"
+    />
+
+    <label for="ev-assign-service">Service (optional — blank = all public)</label>
+    <input
+      id="ev-assign-service"
+      data-testid="ev-assign-service"
+      [(ngModel)]="assignService"
+      name="assignService"
+      placeholder="coturn / akkoma / tuwunel"
+    />
+
+    <button data-testid="ev-assign" type="submit">Assign</button>
+
+    <span
+      *ngIf="assignError()"
+      id="ev-assign-error"
+      class="field-error"
+      data-testid="ev-assign-error"
+      role="alert"
+      aria-live="assertive"
+    >{{ assignError() }}</span>
+  </form>
+
+  <!-- ── Imported configs ─────────────────────────────────────────────────── -->
+  <h3 id="ev-configs-heading">Imported configs</h3>
+  <ul data-testid="ev-configs" aria-labelledby="ev-configs-heading">
+    <li *ngFor="let c of configs()" [attr.data-config-id]="c.id">
+      <strong>{{ c.name }}</strong>
+      — {{ c.kind }} · domain: {{ c.domain }}
+      <span *ngIf="c.endpoint"> · endpoint: {{ c.endpoint }}</span>
+      · <span [attr.data-config-state]="c.state">{{ c.state }}</span>
+      <button
+        *ngIf="c.state === 'active'"
+        type="button"
+        [attr.data-revoke-config]="c.id"
+        [attr.aria-label]="'Revoke VPN config ' + c.name + ' in ' + c.domain"
+        (click)="revokeConfig(c.id)"
+      >revoke</button>
+    </li>
+  </ul>
+
+  <!-- ── Active assignments ───────────────────────────────────────────────── -->
+  <h3 id="ev-assignments-heading">Active assignments</h3>
+  <ul data-testid="ev-assignments" aria-labelledby="ev-assignments-heading">
+    <li *ngFor="let a of assignments()" [attr.data-assignment-id]="a.id">
+      {{ assignmentTarget(a) }}
+      · <span [attr.data-assignment-state]="a.state">{{ a.state }}</span>
+      <button
+        *ngIf="a.state === 'active'"
+        type="button"
+        [attr.data-unassign]="a.id"
+        [attr.aria-label]="'Un-assign egress VPN from ' + assignmentTarget(a)"
+        (click)="unassign(a.id)"
+      >un-assign</button>
+    </li>
+  </ul>
+</section>

@@ -16,8 +16,14 @@ import { TestReportsComponent } from './test-reports/test-reports.component';
 import { ForumAdminComponent } from './forum-admin/forum-admin.component';
 import { AppealsComponent } from './appeals/appeals.component';
 import { DeviceLicensesComponent } from './device-licenses.component';
+import { StoragePoolsComponent } from './storage-pools.component';
+import { EgressVpnComponent } from './egress-vpn.component';
 import { SuperadminDomainsComponent } from './superadmin-domains.component';
+import { OidcProviderRolesComponent } from './oidc-provider-roles.component';
+import { GamesServicesComponent } from './games-services/games-services.component';
+import { AnubisAdminComponent } from './anubis-admin.component';
 import { superadminGuard } from './superadmin.guard';
+import { gamesServicesGuard } from './games-services.guard';
 
 /**
  * These specs lock down the federation contract: `./routes` (exposed under the
@@ -51,10 +57,15 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('forum')!.component).toBe(ForumAdminComponent);
     expect(byPath('appeals')!.component).toBe(AppealsComponent);
     expect(byPath('device-licenses')!.component).toBe(DeviceLicensesComponent);
+    expect(byPath('node-storage')!.component).toBe(StoragePoolsComponent);
+    expect(byPath('egress-vpn')!.component).toBe(EgressVpnComponent);
     expect(byPath('superadmin/domains')!.component).toBe(SuperadminDomainsComponent);
+    expect(byPath('oidc-providers')!.component).toBe(OidcProviderRolesComponent);
+    expect(byPath('games-services')!.component).toBe(GamesServicesComponent);
+    expect(byPath('superadmin/anubis')!.component).toBe(AnubisAdminComponent);
   });
 
-  it('exposes exactly the eighteen admin views the host expects (incl. delegation + appeals + device-licenses + superadmin/domains)', () => {
+  it('exposes exactly the twenty-three admin views the host expects (incl. delegation + appeals + device-licenses + node-storage + egress-vpn + superadmin/domains + oidc-providers + games-services + superadmin/anubis)', () => {
     expect(ADMIN_ROUTES.map((r) => r.path)).toEqual([
       '',
       'usage',
@@ -73,12 +84,24 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
       'forum',
       'appeals',
       'device-licenses',
+      'node-storage',
+      'egress-vpn',
       'superadmin/domains',
+      'oidc-providers',
+      'games-services',
+      'superadmin/anubis',
     ]);
   });
 
   it('superadmin-gates the device-licenses console (additive, behind the superadmin guard)', () => {
     expect(byPath('device-licenses')!.canActivate).toEqual([superadminGuard]);
+  });
+
+  it('superadmin-gates the egress-vpn console (additive, behind the superadmin guard)', () => {
+    const ev = byPath('egress-vpn');
+    expect(ev).toBeDefined();
+    expect(ev!.component).toBe(EgressVpnComponent);
+    expect(ev!.canActivate).toEqual([superadminGuard]);
   });
 
   it('superadmin-gates the domains console (multi-tenancy PR9, behind the superadmin guard)', () => {
@@ -88,11 +111,32 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(domains!.canActivate).toEqual([superadminGuard]);
   });
 
+  it('games-gates the games-services operator console (behind the games-services guard)', () => {
+    const gs = byPath('games-services');
+    expect(gs).toBeDefined();
+    expect(gs!.component).toBe(GamesServicesComponent);
+    expect(gs!.canActivate).toEqual([gamesServicesGuard]);
+  });
+
+  it('superadmin-gates the anubis console (read-only PoW sidecar view, behind the superadmin guard)', () => {
+    const anubis = byPath('superadmin/anubis');
+    expect(anubis).toBeDefined();
+    expect(anubis!.component).toBe(AnubisAdminComponent);
+    expect(anubis!.canActivate).toEqual([superadminGuard]);
+  });
+
   it('exposes the appeals console as a plain ADMIN route (no superadmin guard)', () => {
     const appeals = byPath('appeals');
     expect(appeals).toBeDefined();
     expect(appeals!.component).toBe(AppealsComponent);
     expect(appeals!.canActivate).toBeUndefined();
+  });
+
+  it('exposes the node-storage console as a plain ADMIN route (ADMIN-CAPABLE — the deliberate divergence from device-licenses; ownership is gated by the BFF)', () => {
+    const storage = byPath('node-storage');
+    expect(storage).toBeDefined();
+    expect(storage!.component).toBe(StoragePoolsComponent);
+    expect(storage!.canActivate).toBeUndefined();
   });
 
   it('declares every route with either a component or children (no dead routes)', () => {

@@ -16,10 +16,14 @@ import { TestReportsComponent } from './test-reports/test-reports.component';
 import { ForumAdminComponent } from './forum-admin/forum-admin.component';
 import { AppealsComponent } from './appeals/appeals.component';
 import { DeviceLicensesComponent } from './device-licenses.component';
+import { StoragePoolsComponent } from './storage-pools.component';
+import { EgressVpnComponent } from './egress-vpn.component';
 import { SuperadminDomainsComponent } from './superadmin-domains.component';
 import { OidcProviderRolesComponent } from './oidc-provider-roles.component';
+import { GamesServicesComponent } from './games-services/games-services.component';
 import { AnubisAdminComponent } from './anubis-admin.component';
 import { superadminGuard } from './superadmin.guard';
+import { gamesServicesGuard } from './games-services.guard';
 
 /** Routes exposed by the Admin native-federation remote. The snapdragon.systems
  *  host mounts these at /admin, so they resolve to /admin (allowlist),
@@ -42,8 +46,16 @@ import { superadminGuard } from './superadmin.guard';
  *  brand list — multi-tenancy PR9, additionally superadmin-guarded), and
  *  /admin/oidc-providers (configure which roles new users auto-receive when registering via
  *  a given OIDC identity provider — domain-scoped for admins, all-domains for superadmin), and
+ *  /admin/node-storage (attach + register ADDITIONAL node-pinned storage so designated services
+ *  have space on that node — ADMIN-capable, ownership-gated downstream in the BFF), and
+ *  /admin/egress-vpn (the SUPERADMIN-only Egress VPN console — import provider WireGuard/OpenVPN
+ *  configs that nodes use for outgoing public egress, additionally superadmin-guarded), and
+ *  /admin/games-services (the games app-store operator console — add/run dockerized FOSS game
+ *  servers from the catalog; gated on a games-services role: ADMIN catalog-enable+create/run or
+ *  RUNNER mod-delegated run/stop, behind the games-services guard), and
  *  /admin/superadmin/anubis (SUPERADMIN-only read-only view of the Anubis PoW challenge sidecar:
- *  status, configured settings, and proxied Prometheus metrics with auto-refresh).
+ *  status, configured settings, and proxied Prometheus metrics with auto-refresh — additionally
+ *  superadmin-guarded).
  *  Casdoor-admin-role guarded by the host. */
 export const ADMIN_ROUTES: Routes = [
   { path: '', component: AdminComponent },
@@ -63,7 +75,10 @@ export const ADMIN_ROUTES: Routes = [
   { path: 'forum', component: ForumAdminComponent },
   { path: 'appeals', component: AppealsComponent },
   { path: 'device-licenses', component: DeviceLicensesComponent, canActivate: [superadminGuard] },
+  { path: 'node-storage', component: StoragePoolsComponent },
+  { path: 'egress-vpn', component: EgressVpnComponent, canActivate: [superadminGuard] },
   { path: 'superadmin/domains', component: SuperadminDomainsComponent, canActivate: [superadminGuard] },
   { path: 'oidc-providers', component: OidcProviderRolesComponent },
+  { path: 'games-services', component: GamesServicesComponent, canActivate: [gamesServicesGuard] },
   { path: 'superadmin/anubis', component: AnubisAdminComponent, canActivate: [superadminGuard] },
 ];

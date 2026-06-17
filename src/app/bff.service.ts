@@ -543,6 +543,87 @@ export class BffService {
     throw new Error(err);
   }
 
+  // ── Egress-VPN console (SUPERADMIN-only, BFF /bff/admin/egress-vpn) ────────────
+  // Admins/superadmins import provider-downloaded VPN configs (ProtonVPN WireGuard
+  // .conf first-class; OpenVPN .ovpn fallback) that mesh NODES use for OUTGOING /
+  // egress traffic on public flows. The list view is ADMIN-readable (own-domain,
+  // scoped by the BFF) but every MUTATION is hasRole('SUPERADMIN'); this console is
+  // superadmin-route-guarded as defence-in-depth. The .conf text is sent for
+  // parse-validation only — the BFF stores a secret_ref + parsed metadata, NEVER the
+  // private key (secrets off-DB / off-git). Endpoints (admin-bff EgressVpnController):
+  //   GET    /bff/admin/egress-vpn                                  → { configs:[], assignments:[] }
+  //   POST   /bff/admin/egress-vpn/configs                          → VpnConfigRow (422 on bad config)
+  //   DELETE /bff/admin/egress-vpn/configs/{id}                     → { revoked }
+  //   POST   /bff/admin/egress-vpn/configs/{id}/assign/node/{fp}    → VpnNodeAssignmentRow
+  //   POST   /bff/admin/egress-vpn/configs/{id}/assign/domain/{dom} → VpnNodeAssignmentRow
+  //   DELETE /bff/admin/egress-vpn/assignments/{id}                 → { revoked }
+
+  /** Every imported VPN config + every active assignment (own-domain for an ADMIN,
+   *  all brands for a SUPERADMIN — the BFF scopes the read). */
+  async egressVpn(): Promise<{ configs: VpnConfigRow[]; assignments: VpnNodeAssignmentRow[] }> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/egress-vpn`, { headers: { authorization: `Bearer ${t}` } });
+    if (!r.ok) return { configs: [], assignments: [] };
+    const body = await r.json();
+    return { configs: body.configs ?? [], assignments: body.assignments ?? [] };
+  }
+
+  /** Import a provider VPN config. The .conf/.ovpn text is parse-validated by the BFF
+   *  (a malformed config → 422 {error}); only a secret_ref + metadata are persisted. */
+  async importVpnConfig(req: ImportVpnConfigRequest): Promise<VpnConfigRow> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/egress-vpn/configs`, {
+      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      body: JSON.stringify(req),
+    });
+    if (r.ok) return r.json();
+    throw new Error(await this.errorOf(r));
+  }
+
+  /** Revoke a config (CAS — never deleted; cascade-revokes its assignments). */
+  async revokeVpnConfig(configId: string): Promise<number> {
+    return this.vpnRevoke(`/bff/admin/egress-vpn/configs/${encodeURIComponent(configId)}`);
+  }
+
+  /** Assign a config to ONE node (by its machine_key_fp), optionally narrowed to a
+   *  single public service (akkoma/tuwunel/coturn; blank = all). */
+  async assignVpnNode(configId: string, nodeFp: string, serviceSlug?: string): Promise<VpnNodeAssignmentRow> {
+    return this.vpnAssign(
+      `/bff/admin/egress-vpn/configs/${encodeURIComponent(configId)}/assign/node/${encodeURIComponent(nodeFp)}`,
+      serviceSlug);
+  }
+
+  /** Assign a config to a whole DOMAIN (all that brand's public pods), optionally
+   *  narrowed to a single public service. */
+  async assignVpnDomain(configId: string, domain: string, serviceSlug?: string): Promise<VpnNodeAssignmentRow> {
+    return this.vpnAssign(
+      `/bff/admin/egress-vpn/configs/${encodeURIComponent(configId)}/assign/domain/${encodeURIComponent(domain)}`,
+      serviceSlug);
+  }
+
+  /** Un-assign (revoke an assignment) by id (CAS — never deleted). */
+  async revokeVpnAssignment(assignmentId: string): Promise<number> {
+    return this.vpnRevoke(`/bff/admin/egress-vpn/assignments/${encodeURIComponent(assignmentId)}`);
+  }
+
+  private async vpnAssign(path: string, serviceSlug?: string): Promise<VpnNodeAssignmentRow> {
+    const t = this.session.session()?.bffToken;
+    const body = serviceSlug && serviceSlug.trim() ? { serviceSlug: serviceSlug.trim() } : {};
+    const r = await fetch(`${CFG.bff}${path}`, {
+      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      body: JSON.stringify(body),
+    });
+    if (r.ok) return r.json();
+    throw new Error(await this.errorOf(r));
+  }
+
+  private async vpnRevoke(path: string): Promise<number> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}${path}`, { method: 'DELETE', headers: { authorization: `Bearer ${t}` } });
+    if (r.ok) return (await r.json()).revoked ?? 0;
+    throw new Error(await this.errorOf(r));
+  }
+
   // ── Domain registry console (SUPERADMIN-only, BFF /bff/admin/domains) ──────────
   // The RUNTIME source of truth for the cluster's brands/domains (multi-tenancy PR9),
   // the SUPERADMIN-managed twin of the build-time brands/domains.conf. EVERY endpoint is
@@ -642,6 +723,113 @@ export class BffService {
     await fetch(`${CFG.bff}/bff/admin/oidc-providers/${encodeURIComponent(provider)}/roles`, {
       method: 'DELETE', headers: { authorization: `Bearer ${t}` },
     });
+  }
+
+  // ── Node-storage console (ADMIN-capable, BFF /bff/admin/device-storage-pools) ──
+  // ADDITIONAL storage an operator ATTACHES to a specific mesh node so services can use
+  // SPACE on that node (schema 085). DELIBERATE DIVERGENCE from device-licenses: storage is
+  // ADMIN-CAPABLE (not superadmin-only) but OWNERSHIP-gated downstream in the BFF — an ADMIN
+  // acts ONLY on own-domain ADMIN-owned nodes (DENY -> 403), any SUPERADMIN-owned node is
+  // SUPERADMIN-only, SUPERADMIN unrestricted. The pool/assignment domain is stamped from the
+  // node's RESIDENCY by the BFF, never the caller. Over-subscription / unknown-node -> 422.
+  // Endpoints (admin-bff StoragePoolController):
+  //   GET    /bff/admin/device-storage-pools                          → { pools, assignments }
+  //   POST   /bff/admin/device-storage-pools/{deviceId}/pools         → StoragePool (attach)
+  //   DELETE /bff/admin/device-storage-pools/pools/{poolId}           → { detached }
+  //   POST   /bff/admin/device-storage-pools/pools/{poolId}/assignments → ServiceAssignment
+  //   DELETE /bff/admin/device-storage-pools/assignments/{assignmentId} → { revoked }
+
+  /** Pools + assignments VISIBLE to the caller (ADMIN own-domain, SUPERADMIN all). */
+  async storagePools(): Promise<{ pools: StoragePool[]; assignments: ServiceAssignment[] }> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/device-storage-pools`, {
+      headers: { authorization: `Bearer ${t}` },
+    });
+    if (!r.ok) return { pools: [], assignments: [] };
+    const body = await r.json();
+    return { pools: body.pools ?? [], assignments: body.assignments ?? [] };
+  }
+
+  /** Attach additional storage to a node. Throws the BFF {error} (403 ownership DENY /
+   *  422 unknown-node). */
+  async attachPool(deviceId: string, body: AttachPoolBody): Promise<StoragePool> {
+    return this.storageMutation('POST',
+      `/bff/admin/device-storage-pools/${encodeURIComponent(deviceId)}/pools`, body);
+  }
+
+  /** Detach a pool (refused by the BFF with 422 while it still has an active assignment). */
+  async detachPool(poolId: string): Promise<{ detached: number }> {
+    return this.storageMutation('DELETE',
+      `/bff/admin/device-storage-pools/pools/${encodeURIComponent(poolId)}`);
+  }
+
+  /** Assign a service to a pool (capacity-aware; over-subscription / exclusivity → 422). */
+  async assignService(poolId: string, body: AssignServiceBody): Promise<ServiceAssignment> {
+    return this.storageMutation('POST',
+      `/bff/admin/device-storage-pools/pools/${encodeURIComponent(poolId)}/assignments`, body);
+  }
+
+  /** Revoke an assignment (CAS state flip, never deleted = audit). */
+  async revokeAssignment(assignmentId: string): Promise<{ revoked: number }> {
+    return this.storageMutation('DELETE',
+      `/bff/admin/device-storage-pools/assignments/${encodeURIComponent(assignmentId)}`);
+  }
+
+  private async storageMutation<T>(method: string, path: string, body?: unknown): Promise<T> {
+    const t = this.session.session()?.bffToken;
+    const init: RequestInit = { method, headers: { authorization: `Bearer ${t}` } };
+    if (body !== undefined) {
+      (init.headers as Record<string, string>)['content-type'] = 'application/json';
+      init.body = JSON.stringify(body);
+    }
+    const r = await fetch(`${CFG.bff}${path}`, init);
+    if (r.ok) return r.json() as Promise<T>;
+    throw new Error(await this.errorOf(r));
+  }
+
+  // ── Games app-store (games-services control plane) ──────────────────────────
+  // The operator UI reads the offered catalog + lists/creates/run-stops instances.
+  // Authz is enforced at the BFF (the games-services derived roles + DomainScope);
+  // this console additionally greys-out create for a runner (the BFF is the real gate).
+  //   GET  /bff/games-services/catalog            → [GameOffer]      (offered + enabled for the domain)
+  //   GET  /bff/games-services/instances          → [GameInstance]   (own brand)
+  //   POST /bff/games-services/instances          → GameInstance     (201; 403 on the creation gate)
+  //   POST /bff/games-services/instances/{id}/{suspend|resume|terminate} → GameInstance
+
+  /** The catalog servers offered + enabled for the caller's domain. */
+  async gamesOfferedCatalog(): Promise<GameOffer[]> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/games-services/catalog`, { headers: { authorization: `Bearer ${t}` } });
+    return r.ok ? r.json() : [];
+  }
+
+  /** The caller's own-brand instances. */
+  async gamesInstances(): Promise<GameInstance[]> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/games-services/instances`, { headers: { authorization: `Bearer ${t}` } });
+    return r.ok ? r.json() : [];
+  }
+
+  /** Request a new instance. Returns the persisted row, or throws the BFF {error}
+   *  (the creation gate → 403; a duplicate name → 409). */
+  async createGameInstance(req: CreateGameInstanceRequest): Promise<GameInstance> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/games-services/instances`, {
+      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      body: JSON.stringify(req),
+    });
+    if (r.ok) return r.json();
+    throw new Error(await this.errorOf(r));
+  }
+
+  /** Run/stop transition (suspend | resume | terminate). Returns the updated row. */
+  async gameInstanceAction(id: string, action: 'suspend' | 'resume' | 'terminate'): Promise<GameInstance> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(
+      `${CFG.bff}/bff/games-services/instances/${encodeURIComponent(id)}/${action}`,
+      { method: 'POST', headers: { authorization: `Bearer ${t}` } });
+    if (r.ok) return r.json();
+    throw new Error(await this.errorOf(r));
   }
 
   // ── Anubis bot-challenge sidecar (SUPERADMIN only) ────────────────────────
@@ -961,6 +1149,136 @@ export interface DeviceRegistration {
 /** One row from oidc_provider_default_roles: a provider name → set of role names
  *  that new users receive when they first register via that identity provider. */
 export interface OidcProviderMapping { provider: string; roles: string[]; }
+
+// ── Node-storage DTOs (mirror the admin-bff storage package shapes, camelCase records) ──
+/** A registered additional-storage pool PINNED to one node. reservedBytes is the operator's
+ *  capacity claim (the node-agent df is authoritative); propagationState surfaces the
+ *  reconcile/patch ACK; a node-pinned PV = NO HA (data loss on disk loss → scope to
+ *  replaceable data). */
+export interface StoragePool {
+  id: string;
+  deviceId: string;
+  diskSerial: string;
+  poolPath: string;
+  reservedBytes: number;
+  isExclusive: boolean;
+  filesystem?: string | null;
+  state: 'active' | 'detached';
+  domain: string;
+  propagationState: 'pending' | 'applied' | 'failed' | 'degraded';
+  generation: number;
+  createdBy: string;
+  createdAt?: string | null;
+}
+/** A (pool × service) placement row. An active row pins the service to the pool's node. */
+export interface ServiceAssignment {
+  id: string;
+  poolId: string;
+  serviceName: string;
+  pvcName: string;
+  requestedBytes: number;
+  state: 'active' | 'revoked';
+  assignedBy: string;
+  assignedAt?: string | null;
+  domain: string;
+  propagationState: 'pending' | 'applied' | 'failed' | 'degraded';
+  generation: number;
+}
+/** Body for POST .../{deviceId}/pools (attach). exclusive defaults true for video on the
+ *  UI; reservedBytes must be > 0. */
+export interface AttachPoolBody {
+  diskSerial: string;
+  poolPath: string;
+  reservedBytes: number;
+  exclusive: boolean;
+  filesystem?: string | null;
+}
+/** Body for POST .../pools/{poolId}/assignments (assign). requestedBytes must be > 0 and
+ *  not over-subscribe the pool's reservedBytes. */
+export interface AssignServiceBody {
+  serviceName: string;
+  pvcName: string;
+  requestedBytes: number;
+}
+
+// ── Egress-VPN DTOs (mirror the admin-bff egressvpn package shapes) ────────────
+/** One imported provider VPN config (vpn_config). Carries a secret_ref + metadata
+ *  ONLY — never the .conf bytes / private key. */
+export interface VpnConfigRow {
+  id: string;
+  domain: string;
+  name: string;
+  kind: 'wireguard' | 'openvpn';
+  provider?: string | null;
+  endpoint?: string | null;
+  secretRef?: string | null;
+  state: 'active' | 'revoked';
+  createdBy?: string | null;
+  createdAt?: string | null;
+  propagationState?: string | null;
+  generation?: number;
+}
+/** One (config × NODE|DOMAIN) assignment (vpn_node_assignment) — which public pods
+ *  egress via the VPN; optional per-service serviceSlug. */
+export interface VpnNodeAssignmentRow {
+  id: string;
+  configId: string;
+  scopeType: 'DEVICE' | 'DOMAIN';
+  targetNodeId?: string | null;
+  targetDomain?: string | null;
+  serviceSlug?: string | null;
+  state: 'active' | 'revoked';
+  assignedBy?: string | null;
+  domain: string;
+  propagationState?: string | null;
+}
+/** Body for POST /bff/admin/egress-vpn/configs — import a provider VPN config. The
+ *  raw .conf/.ovpn text is sent for parse-validation; the BFF stores only a
+ *  secret_ref + parsed metadata (never the private key). */
+export interface ImportVpnConfigRequest {
+  domain: string;
+  name: string;
+  provider?: string;
+  config: string;
+  secretRef?: string;
+}
+
+// ── Games app-store DTOs ──────────────────────────────────────────────────────
+
+/** An offered + enabled catalog server for the caller's domain (admin-bff
+ *  GameCatalogEntryResponse, surfaced via the offer). */
+export interface GameOffer {
+  slug: string;
+  displayName: string;
+  licenseSpdx: string;
+  protocol: string;
+  maxInstances: number;
+  summary?: string | null;
+}
+
+/** Body for POST /bff/games-services/instances. domain + owner come from the JWT. */
+export interface CreateGameInstanceRequest {
+  slug: string;
+  name: string;
+  ttlSeconds?: number | null;
+}
+
+/** One game_instance row (admin-bff GameInstanceResponse). */
+export interface GameInstance {
+  id: string;
+  domain: string;
+  slug: string;
+  name: string;
+  state: 'pending' | 'active' | 'suspended' | 'terminated';
+  propagationState: string;
+  ownerSubject: string;
+  createdAt: string;
+  endingAt?: string | null;
+  namespace?: string | null;
+  nodePort?: number | null;
+  consolePath?: string | null;
+  updatedAt: string;
+}
 
 // ── Anubis bot-challenge sidecar DTOs ────────────────────────────────────────
 /** Status + configured settings from GET /bff/admin/anubis/status. Settings come from

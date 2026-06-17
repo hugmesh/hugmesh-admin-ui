@@ -1,0 +1,71 @@
+@use '../styles/tokens' as t;
+
+:host {
+  display: block;
+}
+
+.snap-egress-vpn {
+  display: block;
+  padding: 1rem;
+
+  .ev-intro {
+    color: var(--sd-text-soft, var(--sd-text));
+    max-width: 70ch;
+  }
+
+  form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-block: 0.75rem;
+  }
+
+  label {
+    font-weight: 600;
+    color: var(--sd-text);
+  }
+
+  input,
+  select,
+  textarea {
+    background: var(--sd-bg-1);
+    color: var(--sd-text);
+    border: 1px solid var(--sd-border);
+    border-radius: t.$radius-sm;
+    padding: 0.5rem 0.75rem;
+
+    &[aria-invalid='true'] {
+      border-color: var(--sd-error);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  textarea {
+    flex-basis: 100%;
+    font-family: monospace;
+    resize: vertical;
+  }
+
+  button {
+    background: var(--sd-accent);
+    color: var(--sd-text);
+    border: 1px solid var(--sd-accent-soft);
+    border-radius: t.$radius-sm;
+    padding: 0.4rem 0.8rem;
+    cursor: pointer;
+  }
+
+  ul {
+    list-style: none;
+    padding-left: 0;
+
+    > li {
+      margin-block: 0.5rem;
+    }
+  }
+}
