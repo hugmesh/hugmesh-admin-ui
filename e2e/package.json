@@ -1,0 +1,15 @@
+{
+  "name": "snapdragon-admin-ui-e2e",
+  "private": true,
+  "description": "Playwright + playwright-bdd e2e harness for the snapdragon-admin-ui federated remote. Copied from the proven snapdragon.games/e2e pattern. Ships dark (wave 2b-1) — all cluster-dependent scenarios are @skip-tagged so the suite compiles and discovers offline without a live stack.",
+  "scripts": {
+    "test": "playwright test",
+    "bdd:gen": "bddgen",
+    "bdd": "bddgen && playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.55.1",
+    "@types/node": "^20.0.0",
+    "playwright-bdd": "^8.5.0"
+  }
+}

@@ -13,7 +13,7 @@ include:
     ref: main
     file: '/tests/pentest/ci/pentest-stage.gitlab-ci.yml'
 
-stages: [test, build, pentest]
+stages: [test, e2e, build, pentest]
 
 test:
   stage: test
@@ -33,6 +33,47 @@ test:
     paths:
       - reports/
       - test-results/
+    expire_in: 7 days
+
+# -----------------------------------------------------------------------------
+# e2e:bdd — Playwright + playwright-bdd Gherkin harness for the admin-ui remote
+# (e2e/). WAVE 2b-1 SHIPS DARK: every scenario that needs a live stack is tagged
+# `@cluster` and the default playwright config filters them out
+# (`tags: 'not @cluster'`), so this job runs WITHOUT a cluster. It only proves
+# the harness installs, the .feature files COMPILE (bddgen), and the scenarios
+# are DISCOVERABLE (`playwright test --list` via a no-filter override) — the
+# offline gates the PR validates. `allow_failure: true` keeps it NON-BLOCKING
+# (no app-code/karma coupling) while the env-test-build wiring for the live run
+# lands in a later wave; un-skip by dropping a feature's `@cluster` tag then.
+# -----------------------------------------------------------------------------
+e2e:bdd:
+  stage: e2e
+  needs: []
+  tags: [snapdragon-x86, privileged]
+  allow_failure: true
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  script:
+    # node:24 (not -alpine) — Playwright's CLI prefers glibc; we never launch a
+    # browser here (compile + list only), so no browser download is needed.
+    - >-
+      docker run --rm -v "${CI_PROJECT_DIR}/e2e:/e2e" -w /e2e node:24 sh -c '
+        npm ci &&
+        npx bddgen &&
+        printf "%s\n" \
+          "import { defineConfig, devices } from \"@playwright/test\";" \
+          "import { defineBddConfig } from \"playwright-bdd\";" \
+          "const d = defineBddConfig({ features: \"features/**/*.feature\", steps: [\"features/steps/**/*.ts\", \"features/support/**/*.ts\"] });" \
+          "export default defineConfig({ reporter: [[\"list\"]], use: { ignoreHTTPSErrors: true, screenshot: \"on\", video: \"on\" }, projects: [{ name: \"bdd\", testDir: d, use: { ...devices[\"Desktop Chrome\"] } }] });" \
+          > pw-validate.config.ts &&
+        npx bddgen -c pw-validate.config.ts &&
+        npx playwright test --list -c pw-validate.config.ts
+      '
+  artifacts:
+    when: always
+    paths:
+      - e2e/results/
     expire_in: 7 days
 
 build:image:
