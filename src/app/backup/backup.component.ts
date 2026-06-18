@@ -2,6 +2,8 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BackupStore } from './backup-store.service';
+import { CapabilityGateComponent } from '../platform/capability-gate.component';
+import { PlatformCapabilitiesService } from '../platform/platform-capabilities.service';
 
 /**
  * Admin "Backup" view (ROLE_ADMIN only, route-guarded). Choose WHAT to back up
@@ -18,12 +20,20 @@ import { BackupStore } from './backup-store.service';
 @Component({
   selector: 'snap-backup',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, CapabilityGateComponent],
   templateUrl: './backup.component.html',
   styleUrl: './backup.component.scss',
 })
 export class BackupComponent implements OnInit {
   readonly store = inject(BackupStore);
+  private readonly platform = inject(PlatformCapabilitiesService);
+
+  /** Whether Velero (the backup operator) is present on this deployment. When absent the backup
+   *  form + actions are suppressed and the capability-gate notice is shown — graceful degradation,
+   *  never an error. The BFF stays the authoritative gate on the start-backup action. */
+  readonly veleroPresent = this.platform.veleroPresent;
+  /** True once the capability probe has resolved (avoids flashing the notice while loading). */
+  readonly capabilitiesReady = this.platform.ready;
 
   /** Selected scope wire-values. */
   readonly selected = signal<Set<string>>(new Set(['etcd']));
@@ -41,7 +51,11 @@ export class BackupComponent implements OnInit {
   readonly strength = computed(() => scorePassword(this.password));
 
   async ngOnInit(): Promise<void> {
-    await Promise.all([this.store.refreshHistory(), this.store.refreshUsbDevices()]);
+    await this.platform.load();
+    // When Velero is absent, degrade: show the notice, do not fetch backup history / devices.
+    if (this.veleroPresent()) {
+      await Promise.all([this.store.refreshHistory(), this.store.refreshUsbDevices()]);
+    }
   }
 
   toggleScope(value: string): void {
@@ -59,6 +73,9 @@ export class BackupComponent implements OnInit {
   /** Validate then trigger the backup. Field errors are surfaced in a live region. */
   async start(): Promise<void> {
     this.error.set('');
+    // Defence-in-depth: never start a backup when Velero is absent (the form is not rendered
+    // then; the BFF is the authoritative gate regardless).
+    if (!this.veleroPresent()) return;
     const scope = [...this.selected()];
     if (scope.length === 0) { this.error.set('Select at least one thing to back up.'); return; }
     if (this.target() === 'USB' && !this.usbDeviceId()) {

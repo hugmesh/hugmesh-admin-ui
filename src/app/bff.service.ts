@@ -244,6 +244,27 @@ export class BffService {
     return r.ok ? (await r.json()).isos : [];
   }
 
+  // ── Platform-capability detection (graceful degradation of infra consoles) ──
+  // The BFF reports which FOUNDATIONAL infra is present on this deployment so the
+  // admin UI can show a "not possible without that" notice + suppress actions on
+  // infra-dependent consoles instead of erroring. The BFF probes READ-ONLY and
+  // FAILS SAFE (a capability is `false` + a warning when it cannot be detected);
+  // the BFF stays the authoritative gate on every action (this only changes what
+  // the UI shows). On a non-OK / network failure here we ALSO fail safe — every
+  // capability absent + a warning — so a transient BFF outage degrades, not errors.
+  async platformCapabilities(): Promise<PlatformCapabilities> {
+    const t = this.session.session()?.bffToken;
+    try {
+      const r = await fetch(`${CFG.bff}/bff/admin/platform-capabilities`, {
+        headers: { authorization: `Bearer ${t}` },
+      });
+      if (r.ok) return (await r.json()) as PlatformCapabilities;
+    } catch {
+      // fall through to the fail-safe absent envelope
+    }
+    return PLATFORM_CAPABILITIES_ABSENT;
+  }
+
   // ── ArgoCD dashboard (role-secured proxy in the admin BFF) ───────────
   // The BFF is the single contract; ArgoCD's own URL/token never leave the
   // cluster. Reads reflect LIVE ArgoCD state. The one mutating call (sync) needs
@@ -1643,6 +1664,41 @@ export interface GameInstance {
   consolePath?: string | null;
   updatedAt: string;
 }
+
+// ── Platform-capability detection DTO (GET /bff/admin/platform-capabilities) ──
+/** Which FOUNDATIONAL infra is present on this deployment, so the UI can degrade its
+ *  infra-dependent consoles gracefully. The four `*Present`/`imagesGenerated` fields are
+ *  read-only, fail-safe RUNTIME probes (false when absent OR not detectable); the
+ *  `*Enabled` fields mirror BFF config switches; `warnings` explains anything that could
+ *  not be detected. The BFF is the authoritative action gate — these flags only change
+ *  what the UI SHOWS. */
+export interface PlatformCapabilities {
+  argocdPresent: boolean;
+  veleroPresent: boolean;
+  buildNodePresent: boolean;
+  imagesGenerated: boolean;
+  anubisEnabled: boolean;
+  forumEnabled: boolean;
+  testLaunchEnabled: boolean;
+  casdoorAdminEnabled: boolean;
+  homeserverAdminEnabled: boolean;
+  warnings: string[];
+}
+/** The fail-safe envelope used when the capability endpoint is unreachable / non-OK:
+ *  every capability ABSENT with a warning, so the UI degrades rather than errors. */
+export const PLATFORM_CAPABILITIES_ABSENT: PlatformCapabilities = {
+  argocdPresent: false,
+  veleroPresent: false,
+  buildNodePresent: false,
+  imagesGenerated: false,
+  anubisEnabled: false,
+  forumEnabled: false,
+  testLaunchEnabled: false,
+  casdoorAdminEnabled: false,
+  homeserverAdminEnabled: false,
+  warnings: ['Platform capabilities could not be read from the admin BFF; '
+    + 'infra-dependent features are shown as unavailable.'],
+};
 
 // ── Anubis bot-challenge sidecar DTOs ────────────────────────────────────────
 /** Status + configured settings from GET /bff/admin/anubis/status. Settings come from

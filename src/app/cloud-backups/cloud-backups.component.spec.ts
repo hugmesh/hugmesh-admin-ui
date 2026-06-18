@@ -3,12 +3,13 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { CloudBackupsComponent } from './cloud-backups.component';
 import { CloudBackupsService } from './cloud-backups.service';
 import { SessionService } from '../session.service';
+import { BffService, PLATFORM_CAPABILITIES_ABSENT } from '../bff.service';
 
 /**
- * Shell specs — the tab strip + the SUPERADMIN-only TOTAL tab gating. The bff is
- * authoritative (the /bff/superadmin/** endpoint is SUPERADMIN-only); these prove
- * the UI degrades correctly: the TOTAL tab is HIDDEN for an admin and SHOWN for a
- * superadmin, and selecting it is refused for a non-superadmin.
+ * Shell specs — the tab strip + the SUPERADMIN-only TOTAL tab gating, PLUS the Velero
+ * capability gate. The bff is authoritative; these prove the UI degrades correctly: the
+ * TOTAL tab is HIDDEN for an admin and SHOWN for a superadmin, and when Velero is ABSENT the
+ * whole console shows the capability-gate notice with no tabs (graceful degradation).
  */
 describe('CloudBackupsComponent (shell)', () => {
   // A no-op service stub (the panels load lazily; the shell itself makes no calls).
@@ -18,7 +19,14 @@ describe('CloudBackupsComponent (shell)', () => {
     getDestination: () => Promise.resolve(undefined),
   } as unknown as CloudBackupsService;
 
-  async function mount(isSuperadmin: boolean): Promise<{
+  function bffStub(veleroPresent: boolean) {
+    return {
+      platformCapabilities: () =>
+        Promise.resolve({ ...PLATFORM_CAPABILITIES_ABSENT, veleroPresent }),
+    } as unknown as BffService;
+  }
+
+  async function mount(isSuperadmin: boolean, veleroPresent = true): Promise<{
     fixture: ComponentFixture<CloudBackupsComponent>;
     component: CloudBackupsComponent;
     el: HTMLElement;
@@ -31,10 +39,13 @@ describe('CloudBackupsComponent (shell)', () => {
         providers: [
           { provide: CloudBackupsService, useValue: apiStub },
           { provide: SessionService, useValue: { isSuperadmin: () => isSuperadmin } },
+          { provide: BffService, useValue: bffStub(veleroPresent) },
         ],
       })
       .compileComponents();
     const fixture = TestBed.createComponent(CloudBackupsComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
     fixture.detectChanges();
     return { fixture, component: fixture.componentInstance, el: fixture.nativeElement as HTMLElement };
   }
@@ -84,5 +95,33 @@ describe('CloudBackupsComponent (shell)', () => {
     for (const t of tabs) {
       expect((t.getAttribute('aria-label') ?? '').trim().length).toBeGreaterThan(0);
     }
+  });
+
+  describe('capability gate (Velero absent → graceful degradation)', () => {
+    it('shows the capability-gate notice and hides the tabs when Velero is absent', async () => {
+      const { el } = await mount(true, /* veleroPresent */ false);
+      const gate = el.querySelector('[data-testid="capability-gate"]')!;
+      expect(gate).withContext('gate notice present').not.toBeNull();
+      expect(gate.getAttribute('data-capability')).toBe('velero');
+      expect(gate.classList).toContain('notice--warn');
+      // actions suppressed: no tabs, no panels.
+      expect(el.querySelector('[role="tablist"]')).toBeNull();
+      expect(el.querySelector('[data-testid="cloud-backups-tab-sets"]')).toBeNull();
+    });
+
+    it('renders the tabs (no gate) when Velero is present', async () => {
+      const { el } = await mount(true, /* veleroPresent */ true);
+      expect(el.querySelector('[data-testid="capability-gate"]')).toBeNull();
+      expect(el.querySelector('[role="tablist"]')).not.toBeNull();
+      expect(el.querySelector('[data-testid="cloud-backups-tab-sets"]')).not.toBeNull();
+    });
+
+    it('gives the gate notice an accessible name naming the backup unavailability', async () => {
+      const { el } = await mount(false, false);
+      const gate = el.querySelector('[data-testid="capability-gate"]')!;
+      const name = gate.getAttribute('aria-label') ?? '';
+      expect(name.trim().length).toBeGreaterThan(0);
+      expect(name.toLowerCase()).toContain('backup');
+    });
   });
 });

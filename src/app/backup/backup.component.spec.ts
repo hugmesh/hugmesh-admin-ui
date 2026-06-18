@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { BackupComponent, scorePassword } from './backup.component';
 import { BackupStore } from './backup-store.service';
-import { BffService, UsbDevice } from '../bff.service';
+import { BffService, UsbDevice, PLATFORM_CAPABILITIES_ABSENT } from '../bff.service';
 
 describe('BackupComponent', () => {
   let fixture: ComponentFixture<BackupComponent>;
@@ -15,13 +15,16 @@ describe('BackupComponent', () => {
 
   beforeEach(async () => {
     bff = jasmine.createSpyObj<BffService>('BffService',
-      ['backupHistory', 'usbDevices', 'startBackup', 'startRestore', 'streamJobEvents']);
+      ['backupHistory', 'usbDevices', 'startBackup', 'startRestore', 'streamJobEvents',
+        'platformCapabilities']);
     bff.backupHistory.and.resolveTo([]);
     bff.usbDevices.and.resolveTo([usb]);
     bff.startBackup.and.resolveTo({ id: 'job-1', status: 'QUEUED' });
     bff.streamJobEvents.and.callFake(async (_id, onEvent) => {
       onEvent({ jobId: 'job-1', phase: 'complete', percent: 100, message: 'done', done: true });
     });
+    // Default: Velero present, so the existing behaviour specs see the live backup form.
+    bff.platformCapabilities.and.resolveTo({ ...PLATFORM_CAPABILITIES_ABSENT, veleroPresent: true });
 
     await TestBed.configureTestingModule({
       imports: [BackupComponent],
@@ -33,6 +36,8 @@ describe('BackupComponent', () => {
 
   async function init() {
     fixture.detectChanges();
+    // ngOnInit now chains platform.load() -> store refresh (two async hops); flush BOTH.
+    await fixture.whenStable();
     await fixture.whenStable();
     fixture.detectChanges();
   }
@@ -131,6 +136,55 @@ describe('BackupComponent', () => {
       expect(scorePassword('').label).toBe('');
       expect(scorePassword('short').level).toBe(0);
       expect(scorePassword('Abcdef1!longenough').level).toBeGreaterThanOrEqual(4);
+    });
+  });
+
+  describe('capability gate (Velero absent → graceful degradation)', () => {
+    async function mountVelero(present: boolean): Promise<HTMLElement> {
+      bff.platformCapabilities.and.resolveTo({ ...PLATFORM_CAPABILITIES_ABSENT, veleroPresent: present });
+      await TestBed.resetTestingModule()
+        .configureTestingModule({
+          imports: [BackupComponent],
+          providers: [BackupStore, { provide: BffService, useValue: bff }],
+        })
+        .compileComponents();
+      fixture = TestBed.createComponent(BackupComponent);
+      component = fixture.componentInstance;
+      await init();
+      return fixture.nativeElement as HTMLElement;
+    }
+
+    it('shows the capability-gate notice and hides the form + start action when Velero is absent', async () => {
+      const el = await mountVelero(false);
+      const gate = el.querySelector('[data-testid="capability-gate"]')!;
+      expect(gate).withContext('gate notice present').not.toBeNull();
+      expect(gate.getAttribute('data-capability')).toBe('velero');
+      expect(gate.classList).toContain('notice--warn');
+      // actions suppressed: no form, no start button.
+      expect(el.querySelector('form')).toBeNull();
+      expect(el.querySelector('[data-testid="backup-start"]')).toBeNull();
+      // and we never fetched history / devices.
+      expect(bff.usbDevices).not.toHaveBeenCalled();
+    });
+
+    it('renders the backup form (no gate) when Velero is present', async () => {
+      const el = await mountVelero(true);
+      expect(el.querySelector('[data-testid="capability-gate"]')).toBeNull();
+      expect(el.querySelector('[data-testid="backup-start"]')).not.toBeNull();
+      expect(bff.usbDevices).toHaveBeenCalled();
+    });
+
+    it('start() is a no-op (never calls the BFF) when Velero is absent', async () => {
+      await mountVelero(false);
+      bff.startBackup.calls.reset();
+      await component.start();
+      expect(bff.startBackup).not.toHaveBeenCalled();
+    });
+
+    it('gives the gate notice an accessible name', async () => {
+      const el = await mountVelero(false);
+      const name = el.querySelector('[data-testid="capability-gate"]')!.getAttribute('aria-label') ?? '';
+      expect(name.trim().length).toBeGreaterThan(0);
     });
   });
 });

@@ -6,6 +6,13 @@
     the configured destination; restore is privileged and requires a step-up.
   </p>
 
+  <!-- Capability gate: Velero (the backup operator) is absent on this deployment. Show the
+       graceful-degradation notice INSTEAD of the tabs + panels, never an error. -->
+  @if (capabilitiesReady() && !veleroPresent()) {
+    <snap-capability-gate capability="velero" />
+  }
+
+  @if (veleroPresent()) {
   <nav class="cb-tabs" role="tablist" aria-label="Cloud backups sections">
     <button
       *ngFor="let t of tabs()"
@@ -40,4 +47,5 @@
       }
     }
   </div>
+  }
 </section>

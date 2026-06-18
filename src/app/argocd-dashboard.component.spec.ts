@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ArgocdDashboardComponent } from './argocd-dashboard.component';
-import { BffService, ArgoApp, ArgoAppDetail } from './bff.service';
+import { BffService, ArgoApp, ArgoAppDetail, PLATFORM_CAPABILITIES_ABSENT } from './bff.service';
 
 describe('ArgocdDashboardComponent', () => {
   let fixture: ComponentFixture<ArgocdDashboardComponent>;
@@ -22,8 +22,10 @@ describe('ArgocdDashboardComponent', () => {
 
   beforeEach(async () => {
     bff = jasmine.createSpyObj<BffService>('BffService',
-      ['argoApplications', 'argoApplication', 'argoSync']);
+      ['argoApplications', 'argoApplication', 'argoSync', 'platformCapabilities']);
     bff.argoApplications.and.resolveTo({ items: [games], unavailable: false });
+    // Default: ArgoCD present, so the existing behaviour specs see the live dashboard.
+    bff.platformCapabilities.and.resolveTo({ ...PLATFORM_CAPABILITIES_ABSENT, argocdPresent: true });
     await TestBed.configureTestingModule({
       imports: [ArgocdDashboardComponent],
       providers: [{ provide: BffService, useValue: bff }],
@@ -34,6 +36,9 @@ describe('ArgocdDashboardComponent', () => {
 
   async function init() {
     fixture.detectChanges();
+    // ngOnInit now chains platform.load() -> refresh() (two async hops); flush BOTH before
+    // asserting by settling twice, then re-render.
+    await fixture.whenStable();
     await fixture.whenStable();
     fixture.detectChanges();
   }
@@ -162,6 +167,51 @@ describe('ArgocdDashboardComponent', () => {
       expect(sync.getAttribute('aria-describedby')).toBe('argocd-help');
       // The Sync button has visible "Sync" text plus an explicit app-scoped name.
       expect(sync.getAttribute('aria-label')).toBe('Sync games');
+    });
+  });
+
+  describe('capability gate (ArgoCD absent → graceful degradation)', () => {
+    async function mountWithArgocd(present: boolean) {
+      bff.platformCapabilities.and.resolveTo({ ...PLATFORM_CAPABILITIES_ABSENT, argocdPresent: present });
+      // rebuild so ngOnInit re-reads (the PlatformCapabilitiesService caches per app).
+      await TestBed.resetTestingModule()
+        .configureTestingModule({
+          imports: [ArgocdDashboardComponent],
+          providers: [{ provide: BffService, useValue: bff }],
+        })
+        .compileComponents();
+      fixture = TestBed.createComponent(ArgocdDashboardComponent);
+      component = fixture.componentInstance;
+      await init();
+      return fixture.nativeElement as HTMLElement;
+    }
+
+    it('shows the capability-gate notice and hides the app grid + actions when ArgoCD is absent', async () => {
+      const el = await mountWithArgocd(false);
+      const gate = el.querySelector('[data-testid="capability-gate"]')!;
+      expect(gate).withContext('gate notice present').not.toBeNull();
+      expect(gate.getAttribute('data-capability')).toBe('argocd');
+      expect(gate.classList).toContain('notice--warn');
+      // actions are suppressed: no app grid, no sync buttons.
+      expect(el.querySelector('[data-testid="argocd-app-grid"]')).toBeNull();
+      expect(el.querySelector('[data-sync="games"]')).toBeNull();
+      // and the dashboard never even dialled ArgoCD.
+      expect(bff.argoApplications).not.toHaveBeenCalled();
+    });
+
+    it('renders the live dashboard (no gate) when ArgoCD is present', async () => {
+      const el = await mountWithArgocd(true);
+      expect(el.querySelector('[data-testid="capability-gate"]')).toBeNull();
+      expect(el.querySelector('[data-testid="argocd-app-grid"]')).not.toBeNull();
+      expect(bff.argoApplications).toHaveBeenCalled();
+    });
+
+    it('gives the gate notice an accessible name naming the missing capability', async () => {
+      const el = await mountWithArgocd(false);
+      const gate = el.querySelector('[data-testid="capability-gate"]')!;
+      const name = gate.getAttribute('aria-label') ?? '';
+      expect(name).withContext('non-empty accessible name').not.toBe('');
+      expect(name.toLowerCase()).toContain('argocd');
     });
   });
 });
