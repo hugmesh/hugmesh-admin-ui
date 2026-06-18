@@ -28,6 +28,7 @@ import { WorkloadConsoleComponent } from './workload-console/workload-console.co
 import { WorkloadLogsComponent } from './workload-console/workload-logs.component';
 import { WorkloadTerminalComponent } from './workload-console/workload-terminal.component';
 import { CloudBackupsComponent } from './cloud-backups/cloud-backups.component';
+import { ImageGenComponent } from './image-gen/image-gen.component';
 import { superadminGuard } from './superadmin.guard';
 import { gamesServicesGuard } from './games-services.guard';
 import { workloadConsoleGuard } from './workload-console.guard';
@@ -87,6 +88,11 @@ export const ADMIN_ROUTES: Routes = [
   { path: 'cloud-backups', component: CloudBackupsComponent },
   { path: 'announcements', component: AnnouncementListComponent },
   { path: 'test-reports', component: TestReportsComponent },
+  // Image-generation console (ADMIN/SUPERADMIN) over the bff `imagegen` surfaces
+  // (/bff/admin/image-builds). Trigger a build, stream SSE progress, download the
+  // image and (only when ssh_keys_allowed + step-up) the non-secret keys bundle.
+  // Capability-gated on the x86 build node + ships dark when the generator is disabled.
+  { path: 'image-gen', component: ImageGenComponent },
   { path: 'forum', component: ForumAdminComponent },
   { path: 'appeals', component: AppealsComponent },
   { path: 'device-licenses', component: DeviceLicensesComponent, canActivate: [superadminGuard] },

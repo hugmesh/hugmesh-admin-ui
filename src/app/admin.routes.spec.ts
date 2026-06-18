@@ -13,6 +13,7 @@ import { BackupHistoryComponent } from './backup/backup-history.component';
 import { AnnouncementListComponent } from './announcements/announcement-list.component';
 import { DelegationComponent } from './delegation/delegation.component';
 import { TestReportsComponent } from './test-reports/test-reports.component';
+import { ImageGenComponent } from './image-gen/image-gen.component';
 import { ForumAdminComponent } from './forum-admin/forum-admin.component';
 import { AppealsComponent } from './appeals/appeals.component';
 import { DeviceLicensesComponent } from './device-licenses.component';
@@ -60,6 +61,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('backups')!.component).toBe(BackupHistoryComponent);
     expect(byPath('announcements')!.component).toBe(AnnouncementListComponent);
     expect(byPath('test-reports')!.component).toBe(TestReportsComponent);
+    expect(byPath('image-gen')!.component).toBe(ImageGenComponent);
     expect(byPath('forum')!.component).toBe(ForumAdminComponent);
     expect(byPath('appeals')!.component).toBe(AppealsComponent);
     expect(byPath('device-licenses')!.component).toBe(DeviceLicensesComponent);
@@ -73,7 +75,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('superadmin/anubis')!.component).toBe(AnubisAdminComponent);
   });
 
-  it('exposes exactly the twenty-nine admin views the host expects (incl. delegation + appeals + device-licenses + device-pending + node-storage + desktop governance + egress-vpn + superadmin/domains + oidc-providers + games-services + superadmin/anubis + cloud-backups + the HIDDEN-tier workloads console + its logs/terminal sub-views)', () => {
+  it('exposes exactly the thirty admin views the host expects (incl. delegation + appeals + device-licenses + device-pending + node-storage + desktop governance + egress-vpn + superadmin/domains + oidc-providers + games-services + superadmin/anubis + cloud-backups + image-gen + the HIDDEN-tier workloads console + its logs/terminal sub-views)', () => {
     expect(ADMIN_ROUTES.map((r) => r.path)).toEqual([
       '',
       'usage',
@@ -90,6 +92,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
       'cloud-backups',
       'announcements',
       'test-reports',
+      'image-gen',
       'forum',
       'appeals',
       'device-licenses',

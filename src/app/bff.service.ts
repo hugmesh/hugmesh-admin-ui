@@ -453,6 +453,136 @@ export class BffService {
     }
   }
 
+  // ── Image-generation console (ADMIN/SUPERADMIN, BFF /bff/admin/image-builds) ──
+  // Trigger an image build for a target user, stream SSE progress, download the
+  // built image, and (only when ssh_keys_allowed + step-up) download the NON-SECRET
+  // keys bundle. Endpoints (admin-bff ImageBuildController):
+  //   GET    /bff/admin/image-builds              → { builds:[ImageBuild], launchReal }
+  //   GET    /bff/admin/image-builds/{id}         → ImageBuild
+  //   POST   /bff/admin/image-builds              → { id, status, imageType, domain, sshKeysAllowed }
+  //   GET    /bff/admin/image-builds/{id}/events  → SSE Flux<ImageBuildEvent>
+  //   GET    /bff/admin/image-builds/{id}/image   → application/octet-stream .img
+  //   GET    /bff/admin/image-builds/{id}/keys    → application/gzip .tar.gz (X-ImageGen-StepUp)
+  // The trigger + keys download additionally require the X-ImageGen-StepUp header
+  // (the platform step-up token). Gating is defence-in-depth (gateway + filter +
+  // @PreAuthorize + own-domain wall); the admin-bff is the source of truth.
+
+  /** Newest-first build history + whether the generator launcher really runs (false =
+   *  ships dark: a build is recorded QUEUED but no real cluster Job runs). */
+  async listImageBuilds(): Promise<ImageBuildList> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/image-builds`, { headers: { authorization: `Bearer ${t}` } });
+    return r.ok ? r.json() : { builds: [], launchReal: false };
+  }
+
+  /** One build's detail row (own-domain scoped). */
+  async imageBuildDetail(id: string): Promise<ImageBuild | null> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/image-builds/${encodeURIComponent(id)}`, {
+      headers: { authorization: `Bearer ${t}` },
+    });
+    return r.ok ? r.json() : null;
+  }
+
+  /**
+   * Trigger a build for a target user. The optional step-up token is sent in the
+   * X-ImageGen-StepUp header (the BFF requires it for the privileged trigger). Returns
+   * the new build's projection, or throws the BFF {error} (e.g. 403 "requires step-up",
+   * 503 when the feature ships dark / disabled).
+   */
+  async triggerImageBuild(req: TriggerImageBuildRequest, stepUpToken?: string): Promise<ImageBuildTriggerResult> {
+    const t = this.session.session()?.bffToken;
+    const headers: Record<string, string> = {
+      'content-type': 'application/json', authorization: `Bearer ${t}`,
+    };
+    if (stepUpToken) headers['X-ImageGen-StepUp'] = stepUpToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/image-builds`, {
+      method: 'POST', headers, body: JSON.stringify(req),
+    });
+    if (r.ok) return r.json();
+    const err = (await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`;
+    throw new Error(err);
+  }
+
+  /**
+   * Subscribe to the SSE progress stream for a build id. Like {@link streamTestRunEvents}
+   * this uses a bearer fetch + ReadableStream reader (NOT raw EventSource, which cannot send
+   * the Casdoor Bearer). Parses each SSE `data:` line as an ImageBuildEvent and invokes
+   * `onEvent`; resolves when the stream completes. `signal` lets the caller abort on teardown.
+   */
+  async imageBuildEvents(buildId: string, onEvent: (e: ImageBuildEvent) => void,
+                         signal?: AbortSignal): Promise<void> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/image-builds/${encodeURIComponent(buildId)}/events`, {
+      headers: { authorization: `Bearer ${t}`, accept: 'text/event-stream' }, signal,
+    });
+    if (!r.ok || !r.body) throw new Error(`HTTP ${r.status}`);
+    const reader = r.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let sep: number;
+      while ((sep = buffer.indexOf('\n\n')) >= 0) {
+        const frame = buffer.slice(0, sep);
+        buffer = buffer.slice(sep + 2);
+        for (const line of frame.split('\n')) {
+          if (line.startsWith('data:')) {
+            try { onEvent(JSON.parse(line.slice(5).trim()) as ImageBuildEvent); } catch { /* skip keep-alive */ }
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Download a build's image (.img). Bearer fetch → Blob → synthetic object-URL anchor
+   * (NOT a plain <a href>, so the Casdoor token is sent). Returns false (no throw) when the
+   * image is not available / the request is denied, so the caller can surface an honest note.
+   */
+  async downloadImage(id: string): Promise<boolean> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/image-builds/${encodeURIComponent(id)}/image`, {
+      headers: { authorization: `Bearer ${t}`, accept: 'application/octet-stream' },
+    });
+    if (!r.ok) return false;
+    return this.saveBlob(await r.blob(), `snapdragon-image-${id.replace(/[^A-Za-z0-9._-]/g, '_')}.img`);
+  }
+
+  /**
+   * Download a build's NON-SECRET SSH-keys bundle (.tar.gz). Only meaningful when the build's
+   * sshKeysAllowed is true; the BFF additionally requires the X-ImageGen-StepUp header (a fresh
+   * step-up). The bundle is guaranteed non-secret by the backend (keysRef is a build-artifacts
+   * pointer, never a private dial key) — the UI just triggers the download and NEVER displays or
+   * persists any key. Returns false (no throw) when denied / unavailable.
+   */
+  async downloadImageKeys(id: string, stepUpToken?: string): Promise<boolean> {
+    const t = this.session.session()?.bffToken;
+    const headers: Record<string, string> = { authorization: `Bearer ${t}`, accept: 'application/gzip' };
+    if (stepUpToken) headers['X-ImageGen-StepUp'] = stepUpToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/image-builds/${encodeURIComponent(id)}/keys`, { headers });
+    if (!r.ok) return false;
+    return this.saveBlob(await r.blob(), `snapdragon-keys-${id.replace(/[^A-Za-z0-9._-]/g, '_')}.tar.gz`);
+  }
+
+  /** Hand a Blob to a synthetic, object-URL-backed anchor so the browser saves the file. */
+  private saveBlob(blob: Blob, filename: string): boolean {
+    const url = URL.createObjectURL(blob);
+    try {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+    return true;
+  }
+
   // ── Forum admin console (ADMIN-only, BFF /bff/admin/forum/**) ───────────
   // PROXIES the full phpBB ACP capability through admin-bff ForumAdminController.
   // Every response is the ForumOutcome envelope: the returned payload merged with a
@@ -1699,6 +1829,68 @@ export const PLATFORM_CAPABILITIES_ABSENT: PlatformCapabilities = {
   warnings: ['Platform capabilities could not be read from the admin BFF; '
     + 'infra-dependent features are shown as unavailable.'],
 };
+
+// ── Image-generation console DTOs (admin-bff imagegen/ImageBuildController) ──
+/** The closed image-type vocabulary (matches device_registry.image_type / the
+ *  ImageBuild record + TriggerImageBuildRequest @Pattern). */
+export type ImageType = 'primary' | 'mesh-extension' | 'client';
+/** The 070 lifecycle status vocabulary an ImageBuild row reports. */
+export type ImageBuildStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'ERROR';
+
+/** Body for POST /bff/admin/image-builds. There is intentionally NO domain field:
+ *  the BFF stamps domain from the validated issuer (a client cannot pick a tenant). */
+export interface TriggerImageBuildRequest {
+  targetUser: string;
+  imageType: ImageType;
+  hardwareClass?: string | null;
+  sshKeysAllowed?: boolean | null;
+}
+
+/** One image_build row (admin-bff ImageBuild record, field names verbatim). */
+export interface ImageBuild {
+  id: string;
+  createdAt: string;
+  requestedBy: string;
+  targetUser: string;
+  domain: string;
+  imageType: ImageType;
+  hardwareClass: string | null;
+  deviceId: string | null;
+  status: ImageBuildStatus;
+  sshKeysAllowed: boolean;
+  jobName: string | null;
+  imageRef: string | null;
+  keysRef: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  error: string | null;
+}
+
+/** GET /bff/admin/image-builds → { builds:[ImageBuild], launchReal }. launchReal is
+ *  false when imagegen.launch.enabled=false (ships dark — a request is recorded QUEUED
+ *  but no real generator Job runs). */
+export interface ImageBuildList { builds: ImageBuild[]; launchReal: boolean; }
+
+/** The POST trigger result (the controller's projected map). */
+export interface ImageBuildTriggerResult {
+  id: string;
+  status: ImageBuildStatus;
+  imageType: ImageType;
+  domain: string;
+  sshKeysAllowed: boolean;
+}
+
+/** One SSE progress event for a running image build (admin-bff ImageBuildEvent record). */
+export interface ImageBuildEvent {
+  buildId: string;
+  phase: string;
+  percent: number;
+  message: string | null;
+  imageRef: string | null;
+  keysRef: string | null;
+  done: boolean;
+  error: string | null;
+}
 
 // ── Anubis bot-challenge sidecar DTOs ────────────────────────────────────────
 /** Status + configured settings from GET /bff/admin/anubis/status. Settings come from

@@ -51,6 +51,7 @@ export class AdminComponent implements OnInit {
     { path: 'cloud-backups', label: 'Cloud backups' },
     { path: 'announcements', label: 'Announcements' },
     { path: 'test-reports', label: 'Test reports' },
+    { path: 'image-gen', label: 'Image generation' },
     { path: 'forum', label: 'Forum admin' },
     { path: 'appeals', label: 'Appeals' },
     { path: 'device-licenses', label: 'Device licenses', superadminOnly: true },
