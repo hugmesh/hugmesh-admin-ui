@@ -1,12 +1,15 @@
-import { Component, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DesktopCatalogComponent } from './desktop-catalog.component';
 import { DesktopSudoComponent } from './desktop-sudo.component';
 import { DesktopInstallRequestsComponent } from './desktop-install-requests.component';
 import { DesktopSshTerminalComponent } from './desktop-ssh-terminal.component';
+import { DesktopDialsComponent } from './desktop-dials.component';
+import { BffService } from '../bff.service';
+import { SessionService } from '../session.service';
 
 /** The desktop-governance sub-tabs. */
-type DesktopTab = 'catalog' | 'sudo' | 'requests' | 'terminal';
+type DesktopTab = 'catalog' | 'sudo' | 'requests' | 'terminal' | 'dials';
 
 /**
  * The DESKTOP GOVERNANCE console (own repo: snapdragon-admin-ui). The single native-federation
@@ -36,16 +39,37 @@ type DesktopTab = 'catalog' | 'sudo' | 'requests' | 'terminal';
     DesktopSudoComponent,
     DesktopInstallRequestsComponent,
     DesktopSshTerminalComponent,
+    DesktopDialsComponent,
   ],
   templateUrl: './desktop-governance.component.html',
   styleUrl: './desktop-governance.component.scss',
 })
-export class DesktopGovernanceComponent {
+export class DesktopGovernanceComponent implements OnInit {
+  private readonly bff = inject(BffService);
+  private readonly session = inject(SessionService);
+
   /** The active sub-tab as a signal so the tab nav + the lazily-rendered child stay reactive
    *  under any change-detection strategy. */
   readonly tab = signal<DesktopTab>('catalog');
 
+  /** SUPERADMIN-only DIAL tab visibility (HIDDEN-tier). Shown only when the session is a
+   *  superadmin AND the dial-leg capability probe reports it enabled (mirrors the workload-console
+   *  capability gate). The parent {@code /admin/desktop} route stays ADMIN-visible; the BFF
+   *  re-enforces {@code hasRole('SUPERADMIN')} on the dial endpoints regardless. */
+  readonly isSuperadmin = computed(() => this.session.isSuperadmin());
+  readonly dialCapable = signal(false);
+  readonly dialTabVisible = computed(() => this.isSuperadmin() && this.dialCapable());
+
+  async ngOnInit(): Promise<void> {
+    // Only probe the SUPERADMIN-only dial leg for a superadmin (a plain ADMIN never sees the tab).
+    if (this.isSuperadmin()) {
+      this.dialCapable.set(await this.bff.desktopDialCapability());
+    }
+  }
+
   select(tab: DesktopTab): void {
+    // Never select the dial tab when it is not visible (defence-in-depth against a stale nav).
+    if (tab === 'dials' && !this.dialTabVisible()) return;
     this.tab.set(tab);
   }
 }

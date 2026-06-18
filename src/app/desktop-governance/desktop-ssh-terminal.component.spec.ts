@@ -26,8 +26,9 @@ describe('DesktopSshTerminalComponent (in-UI SSH, ships dark)', () => {
   let session: jasmine.SpyObj<SessionService>;
 
   function setup(opts: { me: string; devices: DeviceRegistration[] }) {
-    bff = jasmine.createSpyObj<BffService>('BffService', ['devices', 'desktopOpenSshSession']);
+    bff = jasmine.createSpyObj<BffService>('BffService', ['devices', 'desktopOpenSshSession', 'desktopStepUp']);
     bff.devices.and.resolveTo(opts.devices);
+    bff.desktopStepUp.and.resolveTo({ stepUpToken: 'STEPUP-TOK', ttlMinutes: 5 });
 
     session = jasmine.createSpyObj<SessionService>('SessionService', ['isSuperadmin']);
     (session as unknown as { session: () => unknown }).session = () => ({ id: opts.me, bffToken: 'tok', roles: [] });
@@ -78,6 +79,77 @@ describe('DesktopSshTerminalComponent (in-UI SSH, ships dark)', () => {
       bff.desktopOpenSshSession.and.resolveTo({ deviceId: 'dev-1', dark: true, note: null });
       await component.open();
       expect(component.darkNote().length).toBeGreaterThan(0);
+    });
+
+    it('opens NO step-up + NO socket while the descriptor is dark', async () => {
+      setup({ me: 'admin@brand-a', devices: [device({ id: 'dev-1' }, 'admin@brand-a')] });
+      await init();
+      bff.desktopOpenSshSession.and.resolveTo({ deviceId: 'dev-1', dark: true, note: null });
+      await component.open();
+      expect(bff.desktopStepUp).not.toHaveBeenCalled();
+      expect(component.lastSocketArgs).toBeNull();
+    });
+  });
+
+  // ── UI-TERMINAL: the corrected live handshake (testable while held-until-live) ──
+  describe('live descriptor (contract fix; held-until-live round-trip)', () => {
+    function fakeSocket() {
+      // A stub the component records into lastSocketArgs but never actually dials.
+      return { onopen: null, onmessage: null, onerror: null, onclose: null,
+        send: () => undefined, close: () => undefined } as unknown as WebSocket;
+    }
+
+    it('mints a step-up FIRST, then opens the WS to /bff/admin/device-terminal/<id> (deviceId in PATH, NO access_token query) with the step-up subprotocol', async () => {
+      setup({ me: 'Admin@Brand-A', devices: [device({ id: 'dev-1' }, 'admin@brand-a')] });
+      await init();
+      bff.desktopOpenSshSession.and.resolveTo({
+        deviceId: 'dev-1', dark: false, stepUpRequired: true,
+        wsPath: '/bff/admin/device-terminal/dev-1',
+      });
+      // Don't dial a real socket in headless Karma.
+      spyOn(component as unknown as { createSocket: (u: string, p: string[]) => WebSocket }, 'createSocket')
+        .and.callFake((url: string, protocols: string[]) => {
+          (component as unknown as { lastSocketArgs: unknown }).lastSocketArgs = { url, protocols };
+          return fakeSocket();
+        });
+
+      await component.open();
+
+      // operator passed to the mint is the lowercased session id.
+      expect(bff.desktopStepUp).toHaveBeenCalledWith('admin@brand-a');
+      const args = component.lastSocketArgs!;
+      expect(args).not.toBeNull();
+      expect(args.url).toContain('/bff/admin/device-terminal/dev-1');
+      expect(args.url).not.toContain('access_token');
+      expect(args.url).not.toContain('stepUp=');
+      // step-up rides the subprotocol, never the URL.
+      expect(args.protocols).toContain('snapdragon.device-terminal');
+      expect(args.protocols).toContain('snapdragon.device-terminal.stepup.STEPUP-TOK');
+    });
+
+    it('falls back to the canonical device-terminal path when the descriptor omits wsPath', async () => {
+      setup({ me: 'admin@brand-a', devices: [device({ id: 'dev-9' }, 'admin@brand-a')] });
+      await init();
+      component.deviceId = 'dev-9';
+      bff.desktopOpenSshSession.and.resolveTo({ deviceId: 'dev-9', dark: false, stepUpRequired: true, wsPath: null });
+      spyOn(component as unknown as { createSocket: (u: string, p: string[]) => WebSocket }, 'createSocket')
+        .and.callFake((url: string, protocols: string[]) => {
+          (component as unknown as { lastSocketArgs: unknown }).lastSocketArgs = { url, protocols };
+          return fakeSocket();
+        });
+      await component.open();
+      expect(component.lastSocketArgs!.url).toContain('/bff/admin/device-terminal/dev-9');
+    });
+
+    it('surfaces a step-up mint failure WITHOUT opening a socket', async () => {
+      setup({ me: 'admin@brand-a', devices: [device({ id: 'dev-1' }, 'admin@brand-a')] });
+      await init();
+      bff.desktopOpenSshSession.and.resolveTo({ deviceId: 'dev-1', dark: false, wsPath: '/bff/admin/device-terminal/dev-1' });
+      bff.desktopStepUp.and.rejectWith(new Error('no active ssh-license'));
+      const spy = spyOn(component as unknown as { createSocket: () => WebSocket }, 'createSocket');
+      await component.open();
+      expect(spy).not.toHaveBeenCalled();
+      expect(component.error()).toContain('Step-up required');
     });
   });
 

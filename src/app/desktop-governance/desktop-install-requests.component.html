@@ -35,20 +35,22 @@
         <button
           type="button"
           [attr.data-remote-install]="r.id"
-          [disabled]="!canRemoteInstall(r)"
-          [attr.aria-describedby]="!canRemoteInstall(r) ? 'dir-ri-help-' + r.id : null"
+          [disabled]="!canRemoteInstall(r) || isInstalling(r)"
+          [attr.aria-disabled]="!canRemoteInstall(r) || isInstalling(r)"
+          [attr.aria-busy]="isInstalling(r)"
+          [attr.aria-describedby]="(!canRemoteInstall(r) || isInstalling(r)) ? 'dir-ri-help-' + r.id : null"
           [attr.aria-label]="'Remote-install ' + requestLabel(r)"
           (click)="remoteInstall(r)"
-        >remote-install now</button>
+        >{{ isInstalling(r) ? 'minting step-up…' : 'remote-install now' }}</button>
 
         <span
-          *ngIf="!canRemoteInstall(r)"
+          *ngIf="!canRemoteInstall(r) || isInstalling(r)"
           [id]="'dir-ri-help-' + r.id"
           class="dg-helptext"
           [attr.data-ri-help]="r.id"
           role="status"
           aria-live="polite"
-        >{{ remoteInstallGate(r) }}</span>
+        >{{ isInstalling(r) ? 'Minting a single-use step-up token, then installing…' : remoteInstallGate(r) }}</span>
       </div>
 
       <!-- Approve panel: optional add-to-catalog + remote install in one action. -->
@@ -148,10 +150,12 @@
             *ngIf="r.status === 'approved' || r.status === 'installed'"
             type="button"
             [attr.data-reinstall]="r.id"
-            [disabled]="!canRemoteInstall(r)"
+            [disabled]="!canRemoteInstall(r) || isInstalling(r)"
+            [attr.aria-disabled]="!canRemoteInstall(r) || isInstalling(r)"
+            [attr.aria-busy]="isInstalling(r)"
             [attr.aria-label]="'Remote-install ' + requestLabel(r)"
             (click)="remoteInstall(r)"
-          >remote-install</button>
+          >{{ isInstalling(r) ? 'minting step-up…' : 'remote-install' }}</button>
         </td>
       </tr>
       <tr *ngIf="loaded() && decided().length === 0">

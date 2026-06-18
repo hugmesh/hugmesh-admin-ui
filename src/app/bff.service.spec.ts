@@ -284,6 +284,104 @@ describe('BffService', () => {
         .toBeRejectedWithError("domain 'brand-a.example.com' is already registered");
     });
   });
+
+  // ── DESKTOP APP GOVERNANCE (step-up / remote-install header / dials) ──
+  describe('desktop governance', () => {
+    function textResponse(body: string, init?: { ok?: boolean; status?: number }): Response {
+      return {
+        ok: init?.ok ?? true,
+        status: init?.status ?? 200,
+        text: async () => body,
+        json: async () => ({}),
+      } as unknown as Response;
+    }
+    function header(name: string): string | undefined {
+      return (lastInit().headers as Record<string, string>)?.[name];
+    }
+
+    it('desktopStepUp POSTs /bff/admin/desktop/step-up (ADMIN-reachable, NOT the superadmin mint) and returns the token', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ stepUpToken: 'TK', ttlMinutes: 5 }));
+      const r = await service.desktopStepUp();
+      expect(r).toEqual({ stepUpToken: 'TK', ttlMinutes: 5 });
+      expect(lastUrl()).toContain('/bff/admin/desktop/step-up');
+      expect(lastUrl()).not.toContain('/superadmin/');
+      expect(lastInit().method).toBe('POST');
+      // operator defaults to the lowercased session id.
+      expect(lastUrl()).toContain('operatorId=google%3Aadmin%40gmail.com');
+    });
+
+    it('desktopStepUp surfaces a 403 (no active license) via errorOf', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ error: 'no active ssh-license' }, { ok: false, status: 403 }));
+      await expectAsync(service.desktopStepUp()).toBeRejectedWithError('no active ssh-license');
+    });
+
+    it('desktopRemoteInstall sends the step-up via X-Device-Terminal-StepUp when a token is given', async () => {
+      fetchSpy.and.resolveTo(textResponse('queued'));
+      const out = await service.desktopRemoteInstall('dev-1', 'org.x.App', 'STEPUP-TOK');
+      expect(out).toBe('queued');
+      expect(lastUrl()).toContain('/bff/admin/desktop/remote-install');
+      expect(header('X-Device-Terminal-StepUp')).toBe('STEPUP-TOK');
+      expect(JSON.parse(String(lastInit().body))).toEqual({ deviceId: 'dev-1', appRef: 'org.x.App' });
+    });
+
+    it('desktopRemoteInstall omits the step-up header when no token is given (BFF then 403s)', async () => {
+      fetchSpy.and.resolveTo(textResponse('queued'));
+      await service.desktopRemoteInstall('dev-1', 'org.x.App');
+      expect(header('X-Device-Terminal-StepUp')).toBeUndefined();
+    });
+
+    it('desktopRemoteInstall surfaces a 403 (missing step-up) verbatim', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ error: 'step-up required' }, { ok: false, status: 403 }));
+      await expectAsync(service.desktopRemoteInstall('dev-1', 'org.x.App'))
+        .toBeRejectedWithError('step-up required');
+    });
+
+    it('desktopDialCapability returns true ONLY on a 200 (403/404/503/network → false, no leak)', async () => {
+      fetchSpy.and.resolveTo(jsonResponse([]));
+      await expectAsync(service.desktopDialCapability()).toBeResolvedTo(true);
+      fetchSpy.and.resolveTo(jsonResponse(null, { ok: false, status: 503 }));
+      await expectAsync(service.desktopDialCapability()).toBeResolvedTo(false);
+      fetchSpy.and.rejectWith(new Error('down'));
+      await expectAsync(service.desktopDialCapability()).toBeResolvedTo(false);
+    });
+
+    it('desktopDials swallows 403/404 to [] (no existence leak)', async () => {
+      fetchSpy.and.resolveTo(jsonResponse(null, { ok: false, status: 403 }));
+      await expectAsync(service.desktopDials()).toBeResolvedTo([]);
+    });
+
+    it('desktopDialActivate POSTs the activate path carrying the step-up header', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ deviceId: 'dev-1', dialUser: 'u', status: 'ACTIVE', generation: 2 }));
+      const d = await service.desktopDialActivate('dev-1', 'STEPUP-TOK');
+      expect(d.status).toBe('ACTIVE');
+      expect(lastUrl()).toContain('/bff/superadmin/desktop/dials/dev-1/activate');
+      expect(header('X-Device-Terminal-StepUp')).toBe('STEPUP-TOK');
+    });
+
+    it('desktopDialActivate surfaces a 422 (unpinned) verbatim', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ error: 'dial has no host-key pin' }, { ok: false, status: 422 }));
+      await expectAsync(service.desktopDialActivate('dev-1', 'TK'))
+        .toBeRejectedWithError('dial has no host-key pin');
+    });
+
+    it('desktopDialRevoke POSTs the revoke path carrying the step-up header', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ deviceId: 'dev-1', dialUser: 'u', status: 'REVOKED', generation: 3 }));
+      const d = await service.desktopDialRevoke('dev-1', 'STEPUP-TOK');
+      expect(d.status).toBe('REVOKED');
+      expect(lastUrl()).toContain('/bff/superadmin/desktop/dials/dev-1/revoke');
+      expect(header('X-Device-Terminal-StepUp')).toBe('STEPUP-TOK');
+    });
+
+    it('desktopOpenSshSession returns the descriptor (wsPath + stepUpRequired + dark)', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({
+        deviceId: 'dev-1', dark: true, stepUpRequired: true, wsPath: '/bff/admin/device-terminal/dev-1',
+      }));
+      const s = await service.desktopOpenSshSession('dev-1');
+      expect(s.wsPath).toBe('/bff/admin/device-terminal/dev-1');
+      expect(s.stepUpRequired).toBeTrue();
+      expect(lastUrl()).toContain('/bff/admin/desktop/ssh-terminal/sessions?deviceId=dev-1');
+    });
+  });
 });
 
 /** A minimal ReadableStream whose single chunk is the given SSE text. */

@@ -1235,12 +1235,17 @@ export class BffService {
   //     GET    /bff/admin/desktop/install-requests        → [DesktopInstallRequest]
   //     POST   /bff/admin/desktop/install-requests/{id}/decide?status=approved|denied|installed
   //                                                       → { decided, status }
-  //   REMOTE-INSTALL trigger (rides ssh-license; own-domain; NOT superadmin-owned node):
+  //   STEP-UP mint (ADMIN+SUPERADMIN; license-gated, single-use, leader-pinned):
+  //     POST   /bff/admin/desktop/step-up → DesktopStepUp {stepUpToken, ttlMinutes}
+  //   REMOTE-INSTALL trigger (rides ssh-license; own-domain; NOT superadmin-owned node;
+  //   REQUIRES the shared X-Device-Terminal-StepUp header — missing/blank = 403):
   //     POST   /bff/admin/desktop/remote-install  {deviceId,appRef} → string (403 on deny)
-  //   SSH-TERMINAL session open (SCAFFOLD — admin-bff ships dark; authorization is REAL,
-  //   returns a {dark:true} descriptor; the live xterm.js WS reuses the workload-console
-  //   TTY infra in a follow-on increment):
+  //   SSH-TERMINAL session open — the WS PRE-HANDSHAKE DESCRIPTOR (authorization is REAL,
+  //   carries the real wsPath '/bff/admin/device-terminal/{deviceId}' + stepUpRequired +
+  //   dark:<app.device-terminal.enabled flag>; the live xterm.js WS opens to that path with the
+  //   step-up token carried via the Sec-WebSocket-Protocol subprotocol, NOT a query token):
   //     POST   /bff/admin/desktop/ssh-terminal/sessions?deviceId=... → DesktopSshSession (403 on deny)
+  //   DIAL management (SUPERADMIN-only; see the dedicated block below).
 
   /** The acting admin's Discover catalog (own brand; SUPERADMIN all brands). A dark/denied
    *  surface yields [] (no existence leak) via the shared workloadGet helper. */
@@ -1302,15 +1307,36 @@ export class BffService {
       `/bff/admin/desktop/install-requests/${encodeURIComponent(id)}/decide?status=${encodeURIComponent(status)}`);
   }
 
+  /** Mint a short-TTL, single-use desktop step-up token (POST /bff/admin/desktop/step-up). Unlike
+   *  the SUPERADMIN-only {@link workloadStepUp}, this mint is reachable by ADMIN+SUPERADMIN, gated
+   *  at the BFF by an ACTIVE own-domain device-OR-domain SSH-license precondition. The minted token
+   *  is carried in the shared X-Device-Terminal-StepUp header on BOTH the remote-install call and
+   *  the live SSH-terminal WS handshake. {@code operatorId} defaults at the BFF to the JWT subject;
+   *  the UI passes the lowercased session id for parity with the other step-up idioms. Throws the
+   *  BFF {error} (403 = no active license / role) via errorOf. */
+  async desktopStepUp(operatorId?: string): Promise<DesktopStepUp> {
+    const op = (operatorId ?? this.session.session()?.id ?? '').toLowerCase();
+    const q = op ? `?operatorId=${encodeURIComponent(op)}` : '';
+    return this.workloadMutate<DesktopStepUp>('POST', `/bff/admin/desktop/step-up${q}`);
+  }
+
   /** Trigger a one-click remote install of {@code appRef} onto {@code deviceId}, riding the
    *  acting admin's device-ssh-license. The operator is the caller's JWT subject (never sent).
-   *  Throws the BFF {error} (403) when not permitted: no active own-domain ssh-license, the ref
-   *  is not in the domain's ENABLED allowlist, or the device is cross-domain / superadmin-owned. */
-  async desktopRemoteInstall(deviceId: string, appRef: string): Promise<string> {
+   *  REQUIRES a fresh step-up token (mint via {@link desktopStepUp}) carried in the shared
+   *  X-Device-Terminal-StepUp header — the BFF returns 403 on a missing/blank token even for an
+   *  otherwise-authorized admin (fail-closed tightening). Throws the BFF {error} (403) when not
+   *  permitted: missing step-up, no active own-domain ssh-license, the ref is not in the domain's
+   *  ENABLED allowlist, or the device is cross-domain / superadmin-owned. While the BFF ships dark
+   *  (app.desktop.remote-install.enabled=false) it returns a {"dark":true,...} result descriptor. */
+  async desktopRemoteInstall(deviceId: string, appRef: string, stepUpToken?: string): Promise<string> {
     const t = this.session.session()?.bffToken;
+    const headers: Record<string, string> = {
+      'content-type': 'application/json', authorization: `Bearer ${t}`,
+    };
+    if (stepUpToken) headers['X-Device-Terminal-StepUp'] = stepUpToken;
     const r = await fetch(`${CFG.bff}/bff/admin/desktop/remote-install`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      headers,
       body: JSON.stringify({ deviceId, appRef }),
     });
     if (r.ok) return r.text();
@@ -1328,6 +1354,63 @@ export class BffService {
     const r = await fetch(
       `${CFG.bff}/bff/admin/desktop/ssh-terminal/sessions?deviceId=${encodeURIComponent(deviceId)}`,
       { method: 'POST', headers: { authorization: `Bearer ${t}` } });
+    if (r.ok) return r.json();
+    throw new Error(await this.errorOf(r));
+  }
+
+  // ── SSH DIAL management (SUPERADMIN-only, /bff/superadmin/desktop/dials) ──
+  // The per-device BFF->device SSH dial trust (device_ssh_dial). The terminal/remote-install
+  // cannot go live for a device until its dial is ACTIVE. Lists status (PENDING/ACTIVE/
+  // REVOKED); activate is a deliberate SUPERADMIN action (PENDING->ACTIVE, refused 422 when
+  // the row has no host_key_fp pin); revoke is a CAS. Activate/revoke REQUIRE the same shared
+  // X-Device-Terminal-StepUp step-up token. Ships dark behind app.device-terminal.dial.enabled:
+  // the leg returns 503 while the flag is off, and the capability probe reports it.
+  //   GET    /bff/superadmin/desktop/dials                  → [DeviceSshDial]
+  //   GET    /bff/superadmin/desktop/dials/{deviceId}        → DeviceSshDial (404 generic if absent)
+  //   POST   /bff/superadmin/desktop/dials/{deviceId}/activate → DeviceSshDial (422 unpinned | 503 dark)
+  //   POST   /bff/superadmin/desktop/dials/{deviceId}/revoke   → DeviceSshDial
+
+  /** The dial-leg capability probe — true iff app.device-terminal.dial.enabled is on AND the
+   *  caller may list dials (a non-empty list, or an explicit 200 on the list, signals enabled).
+   *  Mirrors the HIDDEN-tier workloadCapability idiom: any non-200 / network error → false (no
+   *  existence leak, surface stays hidden). A 403/404 means "not for you" → hidden. */
+  async desktopDialCapability(): Promise<boolean> {
+    const t = this.session.session()?.bffToken;
+    try {
+      const r = await fetch(`${CFG.bff}/bff/superadmin/desktop/dials`, {
+        headers: { authorization: `Bearer ${t}` },
+      });
+      return r.ok; // 200 = leg enabled + caller is SUPERADMIN; 403/404/503 → hidden
+    } catch {
+      return false;
+    }
+  }
+
+  /** All per-device dials (SUPERADMIN). A dark/denied surface yields [] (no existence leak). */
+  async desktopDials(): Promise<DeviceSshDial[]> {
+    return this.workloadGet<DeviceSshDial[]>('/bff/superadmin/desktop/dials', []);
+  }
+
+  /** Activate a device's dial (PENDING->ACTIVE, generation bumped). REQUIRES a fresh step-up
+   *  token (X-Device-Terminal-StepUp). Throws the BFF {error}: 422 = the row carries no
+   *  host-key pin; 503 = the dial leg is dark; 404 = no such dial; 403 = missing step-up. */
+  async desktopDialActivate(deviceId: string, stepUpToken: string): Promise<DeviceSshDial> {
+    return this.desktopDialMutate(`/bff/superadmin/desktop/dials/${encodeURIComponent(deviceId)}/activate`, stepUpToken);
+  }
+
+  /** Revoke a device's dial (CAS -> REVOKED). REQUIRES a fresh step-up token. */
+  async desktopDialRevoke(deviceId: string, stepUpToken: string): Promise<DeviceSshDial> {
+    return this.desktopDialMutate(`/bff/superadmin/desktop/dials/${encodeURIComponent(deviceId)}/revoke`, stepUpToken);
+  }
+
+  /** Shared dial activate/revoke POST — carries the bearer + the step-up header; throws the BFF
+   *  {error} on any non-2xx (so a 422/503/404/403 surfaces verbatim to the operator). */
+  private async desktopDialMutate(path: string, stepUpToken: string): Promise<DeviceSshDial> {
+    const t = this.session.session()?.bffToken;
+    const r = await fetch(`${CFG.bff}${path}`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${t}`, 'X-Device-Terminal-StepUp': stepUpToken },
+    });
     if (r.ok) return r.json();
     throw new Error(await this.errorOf(r));
   }
@@ -2023,5 +2106,31 @@ export interface DesktopInstallRequest {
 export interface DesktopSshSession {
   deviceId: string;
   dark: boolean;
+  /** The live WS handshake path the component opens once {@code dark} is false:
+   *  {@code /bff/admin/device-terminal/{deviceId}} (deviceId in the PATH — no query token). */
+  wsPath?: string | null;
+  /** Always true for this surface — the live WS REQUIRES a step-up token (carried via the
+   *  Sec-WebSocket-Protocol subprotocol, never a query param). */
+  stepUpRequired?: boolean;
   note?: string | null;
+}
+
+/** A short-TTL, single-use desktop step-up token minted by POST /bff/admin/desktop/step-up.
+ *  Shape mirrors {@link WorkloadStepUp}; carried in the shared X-Device-Terminal-StepUp header
+ *  (remote-install) or the WS subprotocol (live terminal). */
+export interface DesktopStepUp { stepUpToken: string; ttlMinutes: number; }
+
+/** One {@code device_ssh_dial} row — the per-device BFF->device SSH trust. Only NON-SECRET
+ *  fields are projected: fingerprints + refs, never the dial private key. {@code status} is
+ *  PENDING (created, awaiting a deliberate SUPERADMIN activate), ACTIVE, or REVOKED. A row with
+ *  no {@code hostKeyFp} pin cannot be activated (the BFF returns 422). */
+export interface DeviceSshDial {
+  deviceId: string;
+  dialUser: string;
+  hostKeyFp?: string | null;
+  dialPubFp?: string | null;
+  vaultRef?: string | null;
+  k8sSecretName?: string | null;
+  status: string;
+  generation: number;
 }

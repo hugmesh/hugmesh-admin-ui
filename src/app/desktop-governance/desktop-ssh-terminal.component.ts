@@ -2,29 +2,32 @@ import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, inj
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Terminal } from '@xterm/xterm';
-import { BffService, DeviceRegistration } from '../bff.service';
+import { BffService, DeviceRegistration, DesktopSshSession } from '../bff.service';
 import { SessionService } from '../session.service';
 
 declare const __SNAP_BFF_URL__: string | undefined;
 
 /**
  * The in-UI SSH TERMINAL (own repo: snapdragon-admin-ui). The admin front-end for the
- * desktop-governance SSH-terminal surface (admin-bff {@code DesktopSshTerminalController} at
- * {@code /bff/admin/desktop/ssh-terminal/sessions}). REUSES the workload-console
- * ({@code WorkloadTerminalComponent}) xterm.js bridge pattern exactly: the bearer + (when the
- * live WS lands) the session token ride query params on the WS handshake (a browser
- * {@code WebSocket} cannot set an Authorization header), output is written to the terminal, and
- * keystrokes/resizes are sent as {@code {"type":"stdin"|"resize",...}} frames.
+ * desktop-governance SSH-terminal surface. The PRE-HANDSHAKE descriptor is fetched from
+ * {@code POST /bff/admin/desktop/ssh-terminal/sessions?deviceId=...}; the live TTY then opens to
+ * the descriptor's {@code wsPath} ({@code /bff/admin/device-terminal/{deviceId}} — deviceId in the
+ * PATH). REUSES the workload-console ({@code WorkloadTerminalComponent}) xterm.js bridge pattern,
+ * with one deliberate difference dictated by the device-terminal WS handler contract: the step-up
+ * token is carried via the {@code Sec-WebSocket-Protocol} subprotocol
+ * ({@code snapdragon.device-terminal.stepup.<TOKEN>}) rather than a {@code ?stepUp=} query, and
+ * there is NO {@code ?access_token=} query — the bearer rides the gateway-gated {@code /bff/admin/**}
+ * path. Output is written to the terminal; keystrokes/resizes are {@code {"type":"stdin"|"resize"}}
+ * frames.
  *
- * <h3>SHIPS DARK (admin-bff scaffold)</h3>
- * The admin-bff endpoint is currently a SCAFFOLD: it performs the REAL authorization (the same
- * own-domain device-ssh-license check as remote-install — a 403 on deny) but returns a
- * {@code {dark:true}} session descriptor rather than opening a live TTY (the live xterm.js WS
- * bridge reuses the workload-console TTY/SSE infra and lands in a follow-on increment). So
- * "Open terminal" here AUTHORIZES the session and, while the descriptor is dark, renders the
- * terminal pane greyed with helptext explaining the dark state. The instant the descriptor flips
- * {@code dark:false} (carrying WS handshake params), this component opens the live xterm.js
- * session — no further UI change needed.
+ * <h3>SHIPS DARK (app.device-terminal.enabled, default false)</h3>
+ * The admin-bff performs the REAL authorization (the same own-domain device-ssh-license check as
+ * remote-install — a generic 403 on deny) but, while the flag is off, the descriptor reports
+ * {@code dark:true} and NO socket is opened: "Open terminal" AUTHORIZES the session and renders
+ * the terminal pane greyed with a {@code role=status} dark note. The instant the descriptor flips
+ * {@code dark:false}, this component mints a desktop step-up and opens the live xterm.js session
+ * to {@code wsPath} — no further UI change needed. The corrected path/step-up handshake is testable
+ * while dark against a fake live descriptor; the real round-trip is held-until-live.
  *
  * <h3>Gating (defence-in-depth — the BFF is authoritative)</h3>
  * The Open button is disabled + carries helptext when the selected device is superadmin-owned or
@@ -111,11 +114,12 @@ export class DesktopSshTerminalComponent implements OnInit, AfterViewInit, OnDes
       this.error.set(this.gateReason());
       return;
     }
-    let descriptor: { deviceId: string; dark: boolean; note?: string | null };
+    let descriptor: DesktopSshSession;
     try {
       descriptor = await this.bff.desktopOpenSshSession(this.deviceId);
     } catch (e) {
-      // 403 on a license / own-domain / superadmin-owned denial.
+      // A device-targeting denial (license / own-domain / superadmin-owned / unresolvable) is
+      // collapsed to ONE generic message by the BFF — surfaced verbatim.
       this.error.set('SSH terminal denied: ' + (e as Error).message);
       return;
     }
@@ -123,29 +127,44 @@ export class DesktopSshTerminalComponent implements OnInit, AfterViewInit, OnDes
       this.dark.set(true);
       this.darkNote.set(descriptor.note
         ?? 'The interactive SSH-via-UI session is authorized but ships dark — the live terminal '
-          + 'bridge is a follow-on increment.');
+          + 'bridge stays dormant until app.device-terminal.enabled is on.');
       this.statusMsg.set('Session authorized (ships dark — no live terminal yet).');
-      return;
+      return; // ships dark: open NO socket.
     }
-    this.openLiveTerminal(descriptor.deviceId);
+    // LIVE: the descriptor carries the real WS path; mint a step-up then open the bridge.
+    await this.openLiveTerminal(descriptor);
   }
 
   /**
-   * Open the live xterm.js session over the WS bridge — REUSES the workload-console terminal
-   * handshake (bearer rides a query param; output → terminal; keystrokes/resizes → frames). This
-   * path is dormant until the admin-bff descriptor flips {@code dark:false}.
+   * Open the live xterm.js session over the WS bridge. The handshake targets the descriptor's
+   * {@code wsPath} ({@code /bff/admin/device-terminal/{deviceId}} — deviceId in the PATH, NOT a
+   * query). A browser {@code WebSocket} cannot set headers, so:
+   *  - the bearer rides the gateway-gated {@code /bff/admin/**} path (no access_token query);
+   *  - the step-up token is smuggled via the {@code Sec-WebSocket-Protocol} subprotocol as
+   *    {@code snapdragon.device-terminal.stepup.<TOKEN>} alongside the selector subprotocol
+   *    {@code snapdragon.device-terminal} (NOT a {@code ?stepUp=} query — token-in-URL leak).
+   * Dormant until the descriptor flips {@code dark:false}.
    */
-  private openLiveTerminal(deviceId: string): void {
+  private async openLiveTerminal(descriptor: DesktopSshSession): Promise<void> {
+    let stepUp: string;
+    try {
+      stepUp = (await this.bff.desktopStepUp(this.operator)).stepUpToken;
+    } catch (e) {
+      this.error.set('Step-up required: ' + (e as Error).message);
+      return;
+    }
+
     const bffBase = (typeof __SNAP_BFF_URL__ !== 'undefined' && __SNAP_BFF_URL__) ? __SNAP_BFF_URL__ : '';
     const wsBase = this.toWsBase(bffBase);
-    const token = this.session.session()?.bffToken ?? '';
-    const q = new URLSearchParams({ access_token: token, deviceId });
-    const url = `${wsBase}/bff/admin/desktop/ssh-terminal/ws?${q}`;
+    const path = descriptor.wsPath || `/bff/admin/device-terminal/${encodeURIComponent(descriptor.deviceId)}`;
+    const q = new URLSearchParams({ cols: '80', rows: '24' });
+    const url = `${wsBase}${path}?${q}`;
+    const subprotocols = ['snapdragon.device-terminal', `snapdragon.device-terminal.stepup.${stepUp}`];
 
     this.term = new Terminal({ convertEol: true, cursorBlink: true });
     if (this.termRef) this.term.open(this.termRef.nativeElement);
 
-    const ws = new WebSocket(url);
+    const ws = this.createSocket(url, subprotocols);
     this.ws = ws;
     ws.onopen = () => {
       this.connected.set(true);
@@ -174,6 +193,18 @@ export class DesktopSshTerminalComponent implements OnInit, AfterViewInit, OnDes
       return loc ? `${proto}//${loc.host}` : 'ws://localhost';
     }
     return httpBase.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+  }
+
+  /** The {@code (url, subprotocols)} of the LAST WS the component opened — a test seam so specs
+   *  can assert the corrected handshake shape (deviceId in PATH, step-up via subprotocol, NO
+   *  access_token query) without standing up a real socket server. */
+  lastSocketArgs: { url: string; protocols: string[] } | null = null;
+
+  /** Construct the WebSocket. Isolated so tests can record/stub the handshake shape (the live
+   *  round-trip is held-until-live behind app.device-terminal.enabled + a reachable device). */
+  protected createSocket(url: string, protocols: string[]): WebSocket {
+    this.lastSocketArgs = { url, protocols };
+    return new WebSocket(url, protocols);
   }
 
   deviceLabel(d: DeviceRegistration): string {

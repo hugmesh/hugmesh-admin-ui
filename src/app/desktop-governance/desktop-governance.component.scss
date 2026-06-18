@@ -195,6 +195,13 @@
     font-style: italic;
   }
 
+  // SSH-dial fingerprint cells — monospace + soft, never wider than the column.
+  .dg-fp {
+    font-size: 0.82em;
+    color: var(--sd-text-soft, var(--sd-text));
+    word-break: break-all;
+  }
+
   .dg-status {
     color: var(--sd-text-soft, var(--sd-text));
   }

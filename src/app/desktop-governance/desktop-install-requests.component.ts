@@ -56,6 +56,10 @@ export class DesktopInstallRequestsComponent implements OnInit {
   /** Per-row inline notes (busy result / error). */
   readonly notes = signal<RowNote[]>([]);
 
+  /** The id of the row whose remote-install is currently minting a step-up / running (so the UI
+   *  can disable the button + show busy helptext). */
+  readonly installing = signal<string | null>(null);
+
   /** The pending inbox (the headline list) + the already-decided rows (kept for audit/history). */
   readonly pending = computed(() => this.requests().filter((r) => r.status === 'pending'));
   readonly decided = computed(() => this.requests().filter((r) => r.status !== 'pending'));
@@ -167,19 +171,42 @@ export class DesktopInstallRequestsComponent implements OnInit {
     }
   }
 
-  /** Trigger a remote install for a request's app onto its device. Pre-gated for presentation;
-   *  the BFF re-enforces (403). */
+  /** Whether a remote install is currently minting/running for this row (busy = disable + helptext). */
+  isInstalling(r: DesktopInstallRequest): boolean {
+    return this.installing() === r.id;
+  }
+
+  /**
+   * Trigger a one-click remote install for a request's app onto its device. Remote-install now
+   * REQUIRES a step-up token (BFF fail-closed tightening): mint a fresh desktop step-up
+   * IMMEDIATELY before the install call and carry it in the X-Device-Terminal-StepUp header.
+   * Pre-gated for presentation; the BFF re-enforces and a 403 (missing step-up / no license /
+   * cross-domain / ref-not-enabled — all collapsed to one generic message) is surfaced verbatim.
+   * While the BFF ships dark, the not-ready result descriptor is surfaced as a note.
+   */
   async remoteInstall(r: DesktopInstallRequest): Promise<void> {
     if (!this.canRemoteInstall(r)) {
       this.setNote(r.id, 'err', this.remoteInstallGate(r));
       return;
     }
+    if (this.installing()) return; // a mint/install is already in flight
+    this.installing.set(r.id);
     try {
-      const msg = await this.bff.desktopRemoteInstall(r.deviceId, r.appRef);
+      // Mint a fresh single-use step-up, then immediately spend it on the install.
+      let stepUp: string;
+      try {
+        stepUp = (await this.bff.desktopStepUp()).stepUpToken;
+      } catch (e) {
+        this.setNote(r.id, 'err', 'Remote install requires step-up: ' + (e as Error).message);
+        return;
+      }
+      const msg = await this.bff.desktopRemoteInstall(r.deviceId, r.appRef, stepUp);
       this.setNote(r.id, 'ok', 'Remote install triggered: ' + (msg || 'queued'));
       await this.reload();
     } catch (e) {
       this.setNote(r.id, 'err', 'Remote install denied: ' + (e as Error).message);
+    } finally {
+      this.installing.set(null);
     }
   }
 

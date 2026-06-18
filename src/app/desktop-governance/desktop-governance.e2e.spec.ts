@@ -81,9 +81,14 @@ function fakeBff(server: FakeDesktopServer): BffService {
     },
     desktopInstallRequests: () => Promise.resolve([...server.requests]),
     desktopDecideRequest: (id, status) => Promise.resolve({ decided: server.decide(id, status), status }),
-    desktopRemoteInstall: (deviceId, appRef) => {
+    // The license-gated step-up mint (ADMIN-reachable). The install below requires the minted
+    // token (the BFF fail-closed tightening).
+    desktopStepUp: () => Promise.resolve({ stepUpToken: 'STEPUP-TOK', ttlMinutes: 5 }),
+    desktopRemoteInstall: (deviceId, appRef, stepUpToken) => {
       const d = server.devices.find((x) => x.id === deviceId);
-      // Mirror the BFF: 403 unless licensed + own-domain + ref in the ENABLED allowlist.
+      // Mirror the BFF: 403 unless a step-up token is presented AND licensed + own-domain + ref
+      // in the ENABLED allowlist.
+      if (!stepUpToken) return Promise.reject(new Error('step-up required'));
       const licensed = !!d && d.owner_type !== 'SUPERADMIN'
         && d.licenses.some((l) => l.state === 'active');
       const enabled = server.servedByDiscover().includes(appRef);

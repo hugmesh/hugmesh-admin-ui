@@ -42,10 +42,11 @@ describe('DesktopInstallRequestsComponent (inbox + remote-install)', () => {
   }) {
     bff = jasmine.createSpyObj<BffService>('BffService', [
       'desktopInstallRequests', 'desktopDecideRequest', 'desktopRemoteInstall',
-      'desktopCatalogAdd', 'desktopCatalogEnable', 'devices',
+      'desktopCatalogAdd', 'desktopCatalogEnable', 'devices', 'desktopStepUp',
     ]);
     bff.desktopInstallRequests.and.resolveTo(opts.requests);
     bff.devices.and.resolveTo(opts.devices);
+    bff.desktopStepUp.and.resolveTo({ stepUpToken: 'STEPUP-TOK', ttlMinutes: 5 });
 
     session = jasmine.createSpyObj<SessionService>('SessionService', ['isSuperadmin']);
     (session as unknown as { session: () => unknown }).session = () => ({ id: opts.me, roles: [] });
@@ -141,7 +142,9 @@ describe('DesktopInstallRequestsComponent (inbox + remote-install)', () => {
       await component.approve(req());
 
       expect(bff.desktopDecideRequest).toHaveBeenCalledWith('r-1', 'approved');
-      expect(bff.desktopRemoteInstall).toHaveBeenCalledWith('dev-1', 'org.inkscape.Inkscape');
+      // The install now rides a freshly-minted step-up token.
+      expect(bff.desktopStepUp).toHaveBeenCalled();
+      expect(bff.desktopRemoteInstall).toHaveBeenCalledWith('dev-1', 'org.inkscape.Inkscape', 'STEPUP-TOK');
       expect(component.noteFor('r-1')?.kind).toBe('ok');
     });
 
@@ -163,7 +166,28 @@ describe('DesktopInstallRequestsComponent (inbox + remote-install)', () => {
       bff.desktopRemoteInstall.and.resolveTo('queued');
       expect(component.canRemoteInstall(req())).toBeTrue();
       await component.remoteInstall(req());
-      expect(bff.desktopRemoteInstall).toHaveBeenCalledWith('dev-1', 'org.inkscape.Inkscape');
+      // Mint-then-install: a fresh step-up is minted and carried as the 3rd arg.
+      expect(bff.desktopStepUp).toHaveBeenCalled();
+      expect(bff.desktopRemoteInstall).toHaveBeenCalledWith('dev-1', 'org.inkscape.Inkscape', 'STEPUP-TOK');
+    });
+
+    it('STEP-UP: a mint failure surfaces "requires step-up" and the install is NOT attempted', async () => {
+      setup({ me: 'admin@brand-a', requests: [req()], devices: [device({ id: 'dev-1' }, 'admin@brand-a')] });
+      await init();
+      bff.desktopStepUp.and.rejectWith(new Error('no active ssh-license'));
+      await component.remoteInstall(req());
+      expect(bff.desktopRemoteInstall).not.toHaveBeenCalled();
+      expect(component.noteFor('r-1')?.kind).toBe('err');
+      expect(component.noteFor('r-1')?.text).toContain('requires step-up');
+    });
+
+    it('STEP-UP 403: a server 403 (e.g. missing/blank step-up) surfaces verbatim', async () => {
+      setup({ me: 'admin@brand-a', requests: [req()], devices: [device({ id: 'dev-1' }, 'admin@brand-a')] });
+      await init();
+      bff.desktopRemoteInstall.and.rejectWith(new Error('step-up required'));
+      await component.remoteInstall(req());
+      expect(component.noteFor('r-1')?.kind).toBe('err');
+      expect(component.noteFor('r-1')?.text).toContain('step-up required');
     });
 
     it('DENY: unlicensed device → gated, NO BFF call, helptext rendered + button disabled', async () => {

@@ -39,10 +39,20 @@
       [class.dg-tab-active]="tab() === 'terminal'"
       (click)="select('terminal')"
     >SSH terminal</button>
+    <button
+      *ngIf="dialTabVisible()"
+      type="button"
+      role="tab"
+      data-testid="dg-tab-dials"
+      [attr.aria-selected]="tab() === 'dials'"
+      [class.dg-tab-active]="tab() === 'dials'"
+      (click)="select('dials')"
+    >SSH dials</button>
   </nav>
 
   <snap-desktop-catalog *ngIf="tab() === 'catalog'" />
   <snap-desktop-sudo *ngIf="tab() === 'sudo'" />
   <snap-desktop-install-requests *ngIf="tab() === 'requests'" />
   <snap-desktop-ssh-terminal *ngIf="tab() === 'terminal'" />
+  <snap-desktop-dials *ngIf="tab() === 'dials' && dialTabVisible()" />
 </section>

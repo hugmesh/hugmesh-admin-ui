@@ -1,0 +1,79 @@
+<section class="snap-desktop-gov" data-testid="desktop-dials-view" aria-labelledby="dd-heading">
+  <h2 id="dd-heading">SSH dial management</h2>
+  <p class="dg-intro">
+    Each device's BFF&rarr;device SSH <strong>dial</strong> must be <strong>active</strong> before
+    the in-UI terminal or one-click remote install can go live on it. The BFF authenticates as the
+    dial user with a Vault-mounted dial key (never shown). <strong>Ships dark</strong>: while
+    <code>app.device-terminal.dial.enabled</code> is off the verifying test-connect is held; this
+    tab is superadmin-only and every action is re-enforced server-side. Activate and revoke each
+    require a fresh single-use step-up token (minted automatically).
+  </p>
+
+  <table data-testid="dd-table" aria-labelledby="dd-heading">
+    <thead>
+      <tr>
+        <th scope="col">Device</th>
+        <th scope="col">Dial user</th>
+        <th scope="col">Host-key pin</th>
+        <th scope="col">Dial pub</th>
+        <th scope="col">Status</th>
+        <th scope="col">Gen</th>
+        <th scope="col">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let d of dials()" [attr.data-dial-id]="d.deviceId" [attr.data-status]="d.status">
+        <td><code>{{ d.deviceId }}</code></td>
+        <td>{{ d.dialUser }}</td>
+        <td><code class="dg-fp">{{ d.hostKeyFp || '— (unpinned)' }}</code></td>
+        <td><code class="dg-fp">{{ d.dialPubFp || '—' }}</code></td>
+        <td><span class="dg-badge" [attr.data-dial-status]="d.status">{{ d.status }}</span></td>
+        <td>{{ d.generation }}</td>
+        <td>
+          <button
+            type="button"
+            [attr.data-dial-activate]="d.deviceId"
+            [disabled]="!canActivate(d)"
+            [attr.aria-disabled]="!canActivate(d)"
+            [attr.aria-busy]="isBusy(d)"
+            [attr.aria-describedby]="!canActivate(d) ? 'dd-act-help-' + d.deviceId : null"
+            [attr.aria-label]="'Activate ' + statusLabel(d)"
+            (click)="activate(d)"
+          >{{ isBusy(d) ? 'working…' : 'activate' }}</button>
+
+          <button
+            type="button"
+            [attr.data-dial-revoke]="d.deviceId"
+            [disabled]="!canRevoke(d)"
+            [attr.aria-disabled]="!canRevoke(d)"
+            [attr.aria-label]="'Revoke ' + statusLabel(d)"
+            (click)="revoke(d)"
+          >revoke</button>
+
+          <span
+            *ngIf="activateGate(d) as gate"
+            [id]="'dd-act-help-' + d.deviceId"
+            class="dg-helptext"
+            [attr.data-dial-act-help]="d.deviceId"
+            role="status"
+            aria-live="polite"
+          >{{ gate }}</span>
+
+          <p
+            *ngIf="noteFor(d.deviceId) as n"
+            class="dg-note"
+            [class.dg-note-err]="n.kind === 'err'"
+            [attr.data-dial-note]="d.deviceId"
+            [attr.role]="n.kind === 'err' ? 'alert' : 'status'"
+            aria-live="polite"
+          >{{ n.text }}</p>
+        </td>
+      </tr>
+      <tr *ngIf="loaded() && dials().length === 0">
+        <td colspan="7" class="dg-empty" data-testid="dd-empty">
+          No device dials are visible (the dial leg may be dark, or no devices have a provisioned dial).
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</section>

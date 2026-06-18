@@ -11,18 +11,22 @@ describe('DesktopGovernanceComponent (module shell)', () => {
   let fixture: ComponentFixture<DesktopGovernanceComponent>;
   let component: DesktopGovernanceComponent;
 
-  beforeEach(async () => {
+  async function build(opts: { superadmin?: boolean; dialCapable?: boolean } = {}): Promise<void> {
+    TestBed.resetTestingModule();
     const bff = jasmine.createSpyObj<BffService>('BffService', [
       'desktopCatalog', 'desktopSudoGrants', 'desktopInstallRequests', 'devices',
+      'desktopDialCapability', 'desktopDials',
     ]);
     bff.desktopCatalog.and.resolveTo([]);
     bff.desktopSudoGrants.and.resolveTo([]);
     bff.desktopInstallRequests.and.resolveTo([]);
     bff.devices.and.resolveTo([]);
+    bff.desktopDialCapability.and.resolveTo(opts.dialCapable ?? false);
+    bff.desktopDials.and.resolveTo([]);
 
     const session = jasmine.createSpyObj<SessionService>('SessionService', ['isSuperadmin']);
     (session as unknown as { session: () => unknown }).session = () => ({ id: 'admin@brand-a', roles: [] });
-    (session as unknown as { isSuperadmin: () => boolean }).isSuperadmin = () => false;
+    (session as unknown as { isSuperadmin: () => boolean }).isSuperadmin = () => !!opts.superadmin;
 
     await TestBed.configureTestingModule({
       imports: [DesktopGovernanceComponent],
@@ -33,6 +37,10 @@ describe('DesktopGovernanceComponent (module shell)', () => {
     }).compileComponents();
     fixture = TestBed.createComponent(DesktopGovernanceComponent);
     component = fixture.componentInstance;
+  }
+
+  beforeEach(async () => {
+    await build();
   });
 
   it('defaults to the Discover curation tab', async () => {
@@ -83,6 +91,53 @@ describe('DesktopGovernanceComponent (module shell)', () => {
     component.select('sudo');
     fixture.detectChanges();
     expect(el.querySelector('[data-testid="dg-tab-sudo"]')!.getAttribute('aria-selected')).toBe('true');
+  });
+
+  // ── UI-DIAL: SUPERADMIN-only dial tab visibility (HIDDEN-tier capability probe) ──
+  describe('SSH-dials sub-tab visibility', () => {
+    it('HIDES the dials tab for a plain ADMIN (not superadmin) regardless of capability', async () => {
+      await build({ superadmin: false, dialCapable: true });
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(component.dialTabVisible()).toBeFalse();
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.querySelector('[data-testid="dg-tab-dials"]')).toBeNull();
+    });
+
+    it('HIDES the dials tab for a SUPERADMIN when the dial leg is dark (capability off)', async () => {
+      await build({ superadmin: true, dialCapable: false });
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(component.dialTabVisible()).toBeFalse();
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.querySelector('[data-testid="dg-tab-dials"]')).toBeNull();
+    });
+
+    it('SHOWS the dials tab for a SUPERADMIN when the capability probe reports it enabled', async () => {
+      await build({ superadmin: true, dialCapable: true });
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(component.dialTabVisible()).toBeTrue();
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.querySelector('[data-testid="dg-tab-dials"]')).not.toBeNull();
+
+      component.select('dials');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(el.querySelector('[data-testid="desktop-dials-view"]')).not.toBeNull();
+    });
+
+    it('select(dials) is a NO-OP when the tab is not visible (defence-in-depth)', async () => {
+      await build({ superadmin: false, dialCapable: true });
+      fixture.detectChanges();
+      await fixture.whenStable();
+      component.select('dials');
+      expect(component.tab()).toBe('catalog');
+    });
   });
 
   it('labels the shell + tab nav for a11y', async () => {
