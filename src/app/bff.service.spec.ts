@@ -139,6 +139,35 @@ describe('BffService', () => {
     expect(await service.isos()).toEqual([]);
   });
 
+  it('platformCapabilities returns the envelope and hits the admin endpoint with a bearer', async () => {
+    const env = {
+      argocdPresent: true, veleroPresent: false, buildNodePresent: true, imagesGenerated: false,
+      anubisEnabled: false, forumEnabled: false, testLaunchEnabled: false,
+      casdoorAdminEnabled: false, homeserverAdminEnabled: false, warnings: ['w'],
+    };
+    fetchSpy.and.resolveTo(jsonResponse(env));
+    expect(await service.platformCapabilities()).toEqual(env);
+    expect(lastUrl()).toContain('/bff/admin/platform-capabilities');
+    expect(authHeader()).toBe('Bearer bff-tok-1');
+  });
+
+  it('platformCapabilities FAILS SAFE (all absent + warning) on a non-OK response', async () => {
+    fetchSpy.and.resolveTo(jsonResponse(null, { ok: false, status: 503 }));
+    const caps = await service.platformCapabilities();
+    expect(caps.argocdPresent).toBeFalse();
+    expect(caps.veleroPresent).toBeFalse();
+    expect(caps.buildNodePresent).toBeFalse();
+    expect(caps.imagesGenerated).toBeFalse();
+    expect(caps.warnings.length).toBeGreaterThan(0);
+  });
+
+  it('platformCapabilities FAILS SAFE on a network error (fetch rejects)', async () => {
+    fetchSpy.and.rejectWith(new Error('network down'));
+    const caps = await service.platformCapabilities();
+    expect(caps.veleroPresent).toBeFalse();
+    expect(caps.warnings.length).toBeGreaterThan(0);
+  });
+
   it('unwraps the { namespaces } list for the signed-in user', async () => {
     fetchSpy.and.resolveTo(jsonResponse({ namespaces: ['team-a', 'team-b'] }));
     expect(await service.myNamespaces()).toEqual(['team-a', 'team-b']);

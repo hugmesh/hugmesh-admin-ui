@@ -2,6 +2,15 @@
   <h2 id="backup-heading">Backup</h2>
   <p class="intro">Choose what to back up, where to store it, and (optionally) encrypt it with a password.</p>
 
+  <!-- Capability gate: Velero (the backup operator) is absent on this deployment. Show the
+       graceful-degradation notice INSTEAD of the backup form + actions, never an error. -->
+  <snap-capability-gate
+    *ngIf="capabilitiesReady() && !veleroPresent()"
+    capability="velero"
+    [warning]="veleroWarning()"
+  />
+
+  <ng-container *ngIf="veleroPresent()">
   <form (ngSubmit)="start()" novalidate>
     <!-- ── Scope ──────────────────────────────────────────────── -->
     <fieldset class="group" data-testid="backup-scope">
@@ -139,4 +148,5 @@
       Backup complete.
     </p>
   </section>
+  </ng-container>
 </section>

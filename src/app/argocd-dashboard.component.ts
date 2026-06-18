@@ -1,7 +1,9 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BffService, ArgoApp, ArgoAppDetail } from './bff.service';
 import { FocusTrapDirective } from './a11y/focus-trap.directive';
+import { CapabilityGateComponent } from './platform/capability-gate.component';
+import { PlatformCapabilitiesService } from './platform/platform-capabilities.service';
 
 /**
  * Admin "ArgoCD" dashboard view (ROLE_ADMIN only, route-guarded). An ArgoCD-style
@@ -23,12 +25,13 @@ import { FocusTrapDirective } from './a11y/focus-trap.directive';
 @Component({
   selector: 'snap-argocd-dashboard',
   standalone: true,
-  imports: [CommonModule, FocusTrapDirective],
+  imports: [CommonModule, FocusTrapDirective, CapabilityGateComponent],
   templateUrl: './argocd-dashboard.component.html',
   styleUrl: './argocd-dashboard.component.scss',
 })
 export class ArgocdDashboardComponent implements OnInit {
   private readonly bff = inject(BffService);
+  private readonly platform = inject(PlatformCapabilitiesService);
   readonly apps = signal<ArgoApp[]>([]);
   readonly unavailable = signal(false);
   readonly loading = signal(true);
@@ -38,9 +41,29 @@ export class ArgocdDashboardComponent implements OnInit {
   /** Live-region status message (sync results / errors). */
   readonly status = signal('');
 
-  async ngOnInit(): Promise<void> { await this.refresh(); }
+  /** Whether ArgoCD (the GitOps reconciler) is present on this deployment. When absent the
+   *  whole dashboard is replaced by the capability-gate notice and no apps are fetched —
+   *  graceful degradation instead of a 503/error. The BFF stays the authoritative gate. */
+  readonly argocdPresent = this.platform.argocdPresent;
+  /** True once the capability probe has resolved, so we do not flash the notice while loading. */
+  readonly capabilitiesReady = this.platform.ready;
+  /** The warning (if any) explaining that ArgoCD presence could NOT be determined — drives the
+   *  gate's distinct "couldn't determine" copy vs the factual "not connected" copy. */
+  readonly argocdWarning = this.platform.warningFor('argocd');
+
+  async ngOnInit(): Promise<void> {
+    await this.platform.load();
+    if (this.argocdPresent()) {
+      await this.refresh();
+    } else {
+      // ArgoCD absent on this deployment — degrade: no fetch, no actions.
+      this.loading.set(false);
+    }
+  }
 
   async refresh(): Promise<void> {
+    // Defence-in-depth: never dial ArgoCD when the capability is absent.
+    if (!this.argocdPresent()) return;
     this.loading.set(true);
     const list = await this.bff.argoApplications();
     this.apps.set(list.items);
@@ -54,8 +77,12 @@ export class ArgocdDashboardComponent implements OnInit {
 
   closeDetail(): void { this.selected.set(null); }
 
-  /** Step 1 of the guarded sync: open the aria-modal confirm dialog. */
-  askSync(name: string): void { this.confirming.set(name); }
+  /** Step 1 of the guarded sync: open the aria-modal confirm dialog. Suppressed when ArgoCD
+   *  is absent (the action UI is not rendered then; this keeps the state honest too). */
+  askSync(name: string): void {
+    if (!this.argocdPresent()) return;
+    this.confirming.set(name);
+  }
   cancelSync(): void { this.confirming.set(null); }
 
   /** Step 2: confirmed — call the BFF (which itself re-validates the typed token). */

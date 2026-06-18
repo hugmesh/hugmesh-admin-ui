@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 import { SessionService } from '../session.service';
@@ -6,6 +6,8 @@ import { CloudBackupSetsComponent } from './cloud-backup-sets.component';
 import { CloudBackupCreateComponent } from './cloud-backup-create.component';
 import { CloudBackupDestinationComponent } from './cloud-backup-destination.component';
 import { CloudBackupTotalComponent } from './cloud-backup-total.component';
+import { CapabilityGateComponent } from '../platform/capability-gate.component';
+import { PlatformCapabilitiesService } from '../platform/platform-capabilities.service';
 
 /** One tab in the Cloud Backups console. A `superadminOnly` tab (TOTAL) is hidden
  *  from the tab strip unless the session carries the superadmin role — mirroring
@@ -52,16 +54,32 @@ interface BackupTab {
     CloudBackupCreateComponent,
     CloudBackupDestinationComponent,
     CloudBackupTotalComponent,
+    CapabilityGateComponent,
   ],
   templateUrl: './cloud-backups.component.html',
   styleUrl: './cloud-backups.scss',
 })
-export class CloudBackupsComponent {
+export class CloudBackupsComponent implements OnInit {
   private readonly session = inject(SessionService);
+  private readonly platform = inject(PlatformCapabilitiesService);
 
   /** Whether the current session is a superadmin — gates the TOTAL tab's visibility
    *  (the bff enforces it authoritatively). */
   readonly isSuperadmin = computed(() => this.session.isSuperadmin());
+
+  /** Whether Velero (the backup operator) is present on this deployment. When absent the whole
+   *  console is replaced by the capability-gate notice and the tabs/actions are suppressed —
+   *  graceful degradation, never an error. The BFF stays the authoritative gate on every action. */
+  readonly veleroPresent = this.platform.veleroPresent;
+  /** True once the capability probe has resolved (avoids flashing the notice while loading). */
+  readonly capabilitiesReady = this.platform.ready;
+  /** The warning (if any) explaining that Velero presence could NOT be determined — drives the
+   *  gate's distinct "couldn't determine" copy vs the factual "not present" copy. */
+  readonly veleroWarning = this.platform.warningFor('velero');
+
+  async ngOnInit(): Promise<void> {
+    await this.platform.load();
+  }
 
   private readonly allTabs: ReadonlyArray<BackupTab> = [
     { id: 'sets', label: 'Backup sets' },

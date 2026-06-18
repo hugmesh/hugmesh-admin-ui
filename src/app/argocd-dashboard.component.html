@@ -7,6 +7,15 @@
     desired state from Git to the cluster — a mutating action that asks for confirmation first.
   </p>
 
+  <!-- Capability gate: ArgoCD (the GitOps reconciler) is absent on this deployment. Show the
+       graceful-degradation notice INSTEAD of the dashboard + actions, never an error. -->
+  <snap-capability-gate
+    *ngIf="capabilitiesReady() && !argocdPresent()"
+    capability="argocd"
+    [warning]="argocdWarning()"
+  />
+
+  <ng-container *ngIf="argocdPresent()">
   <p
     *ngIf="status()"
     class="status-line"
@@ -110,4 +119,5 @@
       </div>
     </div>
   </div>
+  </ng-container>
 </section>
