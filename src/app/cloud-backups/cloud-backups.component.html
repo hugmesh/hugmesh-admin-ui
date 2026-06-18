@@ -9,7 +9,7 @@
   <!-- Capability gate: Velero (the backup operator) is absent on this deployment. Show the
        graceful-degradation notice INSTEAD of the tabs + panels, never an error. -->
   @if (capabilitiesReady() && !veleroPresent()) {
-    <snap-capability-gate capability="velero" />
+    <snap-capability-gate capability="velero" [warning]="veleroWarning()" />
   }
 
   @if (veleroPresent()) {

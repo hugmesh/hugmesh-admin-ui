@@ -140,8 +140,9 @@ describe('BackupComponent', () => {
   });
 
   describe('capability gate (Velero absent → graceful degradation)', () => {
-    async function mountVelero(present: boolean): Promise<HTMLElement> {
-      bff.platformCapabilities.and.resolveTo({ ...PLATFORM_CAPABILITIES_ABSENT, veleroPresent: present });
+    async function mountVelero(present: boolean, warnings: string[] = []): Promise<HTMLElement> {
+      bff.platformCapabilities.and.resolveTo(
+        { ...PLATFORM_CAPABILITIES_ABSENT, veleroPresent: present, warnings });
       await TestBed.resetTestingModule()
         .configureTestingModule({
           imports: [BackupComponent],
@@ -154,17 +155,41 @@ describe('BackupComponent', () => {
       return fixture.nativeElement as HTMLElement;
     }
 
-    it('shows the capability-gate notice and hides the form + start action when Velero is absent', async () => {
+    it('probed-absent (no warning): factual "not present" notice + hides form + start action', async () => {
       const el = await mountVelero(false);
       const gate = el.querySelector('[data-testid="capability-gate"]')!;
       expect(gate).withContext('gate notice present').not.toBeNull();
       expect(gate.getAttribute('data-capability')).toBe('velero');
+      expect(gate.getAttribute('data-state')).toBe('absent');
       expect(gate.classList).toContain('notice--warn');
+      // factual absence copy, NOT the "couldn't determine" copy.
+      expect(gate.textContent!.toLowerCase()).not.toContain("couldn't determine");
       // actions suppressed: no form, no start button.
       expect(el.querySelector('form')).toBeNull();
       expect(el.querySelector('[data-testid="backup-start"]')).toBeNull();
       // and we never fetched history / devices.
       expect(bff.usbDevices).not.toHaveBeenCalled();
+    });
+
+    it('undetectable (warning present): DISTINCT "couldn\'t determine" copy + actions still suppressed', async () => {
+      const probeWarning =
+        'Platform-capability k8s probe is not enabled on this deployment '
+        + '(app.platform-capabilities.k8s.enabled=false); ArgoCD / Velero / build-node presence '
+        + 'cannot be detected and are reported absent.';
+      const el = await mountVelero(false, [probeWarning]);
+      const gate = el.querySelector('[data-testid="capability-gate"]')!;
+      expect(gate.getAttribute('data-state')).toBe('undetectable');
+      // distinct copy, does NOT assert factual absence.
+      expect(gate.textContent!.toLowerCase()).toContain("couldn't determine");
+      // the underlying warning is surfaced.
+      expect(gate.querySelector('[data-testid="capability-gate-warning"]')!.textContent)
+        .toContain('not enabled on this deployment');
+      // actions STILL suppressed so nothing errors.
+      expect(el.querySelector('form')).toBeNull();
+      expect(el.querySelector('[data-testid="backup-start"]')).toBeNull();
+      bff.startBackup.calls.reset();
+      await component.start();
+      expect(bff.startBackup).not.toHaveBeenCalled();
     });
 
     it('renders the backup form (no gate) when Velero is present', async () => {

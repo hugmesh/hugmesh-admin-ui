@@ -58,4 +58,39 @@ describe('PlatformCapabilitiesService', () => {
     expect(svc.veleroPresent()).toBeFalse();
     expect(svc.argocdPresent()).toBeFalse();
   });
+
+  // ── warningFor(capability): ties a warning to a capability (undetectable vs probed-absent) ──
+
+  it('warningFor() returns null when there is no matching warning (genuinely probed-absent)', async () => {
+    const svc = setup(caps({ warnings: [] }));
+    await svc.load();
+    expect(svc.warningFor('argocd')()).toBeNull();
+    expect(svc.warningFor('velero')()).toBeNull();
+    expect(svc.warningFor('buildNode')()).toBeNull();
+    expect(svc.warningFor('images')()).toBeNull();
+  });
+
+  it('warningFor() matches the cluster-wide NOT_WIRED notice for argocd/velero/buildNode but NOT images', async () => {
+    const notWired =
+      'Platform-capability k8s probe is not enabled on this deployment '
+      + '(app.platform-capabilities.k8s.enabled=false); ArgoCD / Velero / build-node presence '
+      + 'cannot be detected and are reported absent.';
+    const svc = setup(caps({ warnings: [notWired] }));
+    await svc.load();
+    expect(svc.warningFor('argocd')()).toBe(notWired);
+    expect(svc.warningFor('velero')()).toBe(notWired);
+    expect(svc.warningFor('buildNode')()).toBe(notWired);
+    // images is a DB probe, independent of the k8s probe — the k8s notice must NOT flag it.
+    expect(svc.warningFor('images')()).toBeNull();
+  });
+
+  it('warningFor() matches the per-probe warnings to the right capability', async () => {
+    const argocdW = 'ArgoCD presence could not be detected (Kubernetes read failed or was denied); reported absent.';
+    const imagesW = 'Generated-images presence could not be read from the images table (database unreachable); reported absent.';
+    const svc = setup(caps({ warnings: [argocdW, imagesW] }));
+    await svc.load();
+    expect(svc.warningFor('argocd')()).toBe(argocdW);
+    expect(svc.warningFor('images')()).toBe(imagesW);
+    expect(svc.warningFor('velero')()).toBeNull();
+  });
 });

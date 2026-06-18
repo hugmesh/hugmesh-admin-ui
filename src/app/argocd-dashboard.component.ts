@@ -47,6 +47,9 @@ export class ArgocdDashboardComponent implements OnInit {
   readonly argocdPresent = this.platform.argocdPresent;
   /** True once the capability probe has resolved, so we do not flash the notice while loading. */
   readonly capabilitiesReady = this.platform.ready;
+  /** The warning (if any) explaining that ArgoCD presence could NOT be determined — drives the
+   *  gate's distinct "couldn't determine" copy vs the factual "not connected" copy. */
+  readonly argocdWarning = this.platform.warningFor('argocd');
 
   async ngOnInit(): Promise<void> {
     await this.platform.load();

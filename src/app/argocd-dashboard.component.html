@@ -12,6 +12,7 @@
   <snap-capability-gate
     *ngIf="capabilitiesReady() && !argocdPresent()"
     capability="argocd"
+    [warning]="argocdWarning()"
   />
 
   <ng-container *ngIf="argocdPresent()">

@@ -7,6 +7,7 @@
   <snap-capability-gate
     *ngIf="capabilitiesReady() && !veleroPresent()"
     capability="velero"
+    [warning]="veleroWarning()"
   />
 
   <ng-container *ngIf="veleroPresent()">

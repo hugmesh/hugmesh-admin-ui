@@ -34,6 +34,9 @@ export class BackupComponent implements OnInit {
   readonly veleroPresent = this.platform.veleroPresent;
   /** True once the capability probe has resolved (avoids flashing the notice while loading). */
   readonly capabilitiesReady = this.platform.ready;
+  /** The warning (if any) explaining that Velero presence could NOT be determined — drives the
+   *  gate's distinct "couldn't determine" copy vs the factual "not present" copy. */
+  readonly veleroWarning = this.platform.warningFor('velero');
 
   /** Selected scope wire-values. */
   readonly selected = signal<Set<string>>(new Set(['etcd']));
