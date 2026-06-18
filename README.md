@@ -334,8 +334,8 @@ them is shipped here today; do not read the routes/BFF tables above as covering 
   superadmin grant-issuance / master-config control plane (`/bff/superadmin/workloads/grants`,
   `.../config`) continues to harden alongside the admin-bff 110-band changelog.
 
-The **Superadmin app-store** UI is **not** part of this remote — it lives in its own
-federated remote (`snapdragon-superadmin-appstore-ui`); its data layer is on the
+The **Superadmin Service Catalog** UI is **not** part of this remote — it lives in its own
+federated remote (`snapdragon-superadmin-service-catalog-ui`); its data layer is on the
 admin-bff `main` and its infra legs (AddService effector, ArgoCD create/delete,
 Kaniko builder, tailnet superadmin-gateway + federation registration) are 🚧 in-flight.
 Readers should not expect those screens here.

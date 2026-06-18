@@ -136,7 +136,7 @@ describe('FEATURE: Admin cloud-backup + step-up restore (e2e)', () => {
     const fixture = TestBed.createComponent(CloudBackupCreateComponent);
     const component = fixture.componentInstance;
     // Initialise the view bindings, then drive ngOnInit explicitly + await it so the
-    // real (raw-promise) fetch resolves before we render (mirrors the appstore e2e's
+    // real (raw-promise) fetch resolves before we render (mirrors the service-catalog e2e's
     // explicit-await approach).
     fixture.detectChanges();
     await component.ngOnInit();

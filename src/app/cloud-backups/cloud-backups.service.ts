@@ -11,7 +11,7 @@ export const CLOUD_BACKUPS_BASE_URL = new InjectionToken<string>('CLOUD_BACKUPS_
 // ---------------------------------------------------------------------------
 // Contract — HAND-WRITTEN to mirror the snapdragon-admin-bff-api `cloudbackup`
 // package (PR #74 "backups foundation"). The bff's /v3/api-docs was unreachable
-// for the superadmin-appstore-ui too, so this follows that precedent: a typed
+// for the superadmin-service-catalog-ui too, so this follows that precedent: a typed
 // hand-written client over the EXACT bff paths/DTOs. The Jackson records serialise
 // camelCase (no @JsonProperty / no global SNAKE_CASE config in the bff), so these
 // interfaces use the record field names verbatim. ng-openapi-gen stays wired
