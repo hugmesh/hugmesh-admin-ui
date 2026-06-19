@@ -1,9 +1,8 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { SessionService } from '../session.service';
-
-const CFG = {
-  bff: (globalThis as any).__SNAP_BFF_URL__ ?? '',
-};
+import { Observable, firstValueFrom } from 'rxjs';
+import { AnnouncementAdminControllerService } from '../api/services/announcement-admin-controller.service';
+import { Announcement as GenAnnouncement } from '../api/models/announcement';
+import { AnnouncementRequest as GenAnnouncementRequest } from '../api/models/announcement-request';
 
 /** Render format of an announcement body. */
 export type AnnouncementFormat = 'html' | 'wysiwyg';
@@ -74,14 +73,20 @@ export interface AnnouncementInput {
  * shared by the List + Editor views so they observe one consistent view of the
  * announcements collection.
  *
- * <p>This is the hand-written equivalent of the repo's ng-openapi-gen typed
- * client: this remote has no openapi codegen wired (no ng-openapi-gen in
- * package.json), so — per the contract's offline fallback — it is a minimal
- * typed service written DIRECTLY against the SHARED API CONTRACT
- * (/bff/admin/announcements, ROLE_ADMIN), using the same fetch + bearer-token
- * convention as {@link ../bff.service.ts BffService}. When codegen is later wired
- * the surface here (Announcement / AnnouncementInput + the CRUD methods) is the
- * shape the generated client must satisfy.
+ * <p><b>ng-openapi-gen migration (pilot):</b> this service now DELEGATES every
+ * call to the generated, typed {@link AnnouncementAdminControllerService} (under
+ * {@code src/app/api}, generated from the admin-bff-api OpenAPI spec) instead of
+ * hand-rolling {@code fetch} + bearer-token URLs. The generated client calls the
+ * SAME same-origin {@code /bff/admin/announcements} paths (its {@code rootUrl}
+ * defaults to ''), and the {@code authInterceptor} attaches the SAME session
+ * {@code bffToken} as a Bearer header — so the wire calls (URL/method/body/auth)
+ * are unchanged. This store keeps its OWN public {@link Announcement} /
+ * {@link AnnouncementInput} types so the List + Editor components consuming it
+ * need NO change; the generated model is bridged at the delegation boundary
+ * (the list response is a {@code Map<String,Object>}, narrowed via
+ * {@code as unknown as}). It maps to the admin-bff AnnouncementAdminController
+ * (ROLE_ADMIN). When other admin features migrate, the surface here is the shape
+ * the generated client satisfies.
  *
  * <p>SECURITY: `body_html` is sanitised server-side by the BFF on create/update
  * (the authority). The store never trusts/echoes raw HTML into the DOM — the
@@ -89,7 +94,7 @@ export interface AnnouncementInput {
  */
 @Injectable({ providedIn: 'root' })
 export class AnnouncementsStore {
-  private readonly session = inject(SessionService);
+  private readonly api = inject(AnnouncementAdminControllerService);
 
   /** The full announcements collection (admin view: all states). */
   readonly announcements = signal<Announcement[]>([]);
@@ -111,60 +116,71 @@ export class AnnouncementsStore {
     ),
   );
 
-  private headers(json = false): Record<string, string> {
-    const t = this.session.session()?.bffToken;
-    const h: Record<string, string> = { authorization: `Bearer ${t}` };
-    if (json) h['content-type'] = 'application/json';
-    return h;
-  }
-
-  /** GET /bff/admin/announcements — the full admin list (all states). */
+  /** GET /bff/admin/announcements — the full admin list (all states).
+   *  Delegates to the generated client; the BFF returns a Map
+   *  ({@code { announcements: [...] }}), so the body is narrowed via
+   *  {@code as unknown as}. Falls back to [] (never throws) on error. */
   async refresh(): Promise<Announcement[]> {
     this.loading.set(true);
     try {
-      const r = await fetch(`${CFG.bff}/bff/admin/announcements`, { headers: this.headers() });
-      const list = r.ok ? ((await r.json()).announcements ?? []) : [];
+      const body = await firstValueFrom(this.api.announcementAdminList());
+      const list = ((body as unknown as { announcements?: Announcement[] }).announcements ?? []) as Announcement[];
       this.announcements.set(list);
       return list;
+    } catch {
+      this.announcements.set([]);
+      return [];
     } finally {
       this.loading.set(false);
     }
   }
 
-  /** GET /bff/admin/announcements/{id}. */
+  /** GET /bff/admin/announcements/{id}. Returns null when the row is absent/errors. */
   async get(id: string): Promise<Announcement | null> {
-    const r = await fetch(`${CFG.bff}/bff/admin/announcements/${encodeURIComponent(id)}`, {
-      headers: this.headers(),
-    });
-    return r.ok ? r.json() : null;
+    try {
+      const saved = await firstValueFrom(this.api.announcementAdminGet({ id }));
+      return (saved as unknown as Announcement) ?? null;
+    } catch {
+      return null;
+    }
   }
 
   /** POST /bff/admin/announcements — create. Returns the server's stored row (sanitised). */
   async create(input: AnnouncementInput): Promise<Announcement> {
-    return this.write('POST', '/bff/admin/announcements', input);
+    const saved = await this.write(
+      this.api.announcementAdminCreate({ body: input as unknown as GenAnnouncementRequest }),
+    );
+    return this.merge(saved);
   }
 
   /** PUT /bff/admin/announcements/{id} — update. */
   async update(id: string, input: AnnouncementInput): Promise<Announcement> {
-    return this.write('PUT', `/bff/admin/announcements/${encodeURIComponent(id)}`, input);
+    const saved = await this.write(
+      this.api.announcementAdminUpdate({ id, body: input as unknown as GenAnnouncementRequest }),
+    );
+    return this.merge(saved);
   }
 
   /** DELETE /bff/admin/announcements/{id}. Removes any propagated akkoma copy server-side. */
   async remove(id: string): Promise<void> {
-    const r = await fetch(`${CFG.bff}/bff/admin/announcements/${encodeURIComponent(id)}`, {
-      method: 'DELETE', headers: this.headers(),
-    });
-    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`);
+    await this.write(this.api.announcementAdminDelete({ id }));
     this.announcements.update((cur) => cur.filter((a) => a.id !== id));
   }
 
-  private async write(method: 'POST' | 'PUT', path: string, input: AnnouncementInput): Promise<Announcement> {
-    const r = await fetch(`${CFG.bff}${path}`, {
-      method, headers: this.headers(true), body: JSON.stringify(input),
-    });
-    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`);
-    const saved: Announcement = await r.json();
-    // Merge the server's stored (sanitised) row into the collection.
+  /** Await a generated-client call, surfacing the BFF {@code {error}} message
+   *  (preserved from the old fetch path) as the thrown {@link Error}. */
+  private async write<T>(call: Observable<T>): Promise<T> {
+    try {
+      return await firstValueFrom(call);
+    } catch (e: unknown) {
+      const err = e as { error?: { error?: string }; message?: string; status?: number };
+      throw new Error(err?.error?.error ?? (err?.status ? `HTTP ${err.status}` : err?.message) ?? 'request failed');
+    }
+  }
+
+  /** Merge the server's stored (sanitised) row into the collection. */
+  private merge(savedGen: GenAnnouncement): Announcement {
+    const saved = savedGen as unknown as Announcement;
     this.announcements.update((cur) => {
       const idx = cur.findIndex((a) => a.id === saved.id);
       if (idx === -1) return [...cur, saved];

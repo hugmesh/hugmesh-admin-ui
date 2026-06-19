@@ -1,16 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Announcement, AnnouncementInput, AnnouncementsStore } from './announcements.service';
+import { authInterceptor } from '../auth.interceptor';
 import { SessionService, SnapSession } from '../session.service';
-
-/** Minimal fetch Response stub. */
-function jsonResponse(body: unknown, init?: { ok?: boolean; status?: number }): Response {
-  return {
-    ok: init?.ok ?? true,
-    status: init?.status ?? 200,
-    json: async () => body,
-  } as unknown as Response;
-}
 
 function session(bffToken: string): SnapSession {
   return {
@@ -34,9 +28,16 @@ const input: AnnouncementInput = {
   priority: 5, starts_at: null, ends_at: null, timezone: 'UTC', dismissible: true,
 };
 
+/**
+ * The store now delegates to the generated AnnouncementAdminControllerService
+ * (ng-openapi-gen). The wire behaviour is identical, so these tests assert the
+ * same URL / method / body / Bearer-header contract — but via
+ * HttpTestingController (the generated clients use HttpClient) and the shared
+ * authInterceptor (which stamps the SAME session bffToken the fetch path did).
+ */
 describe('AnnouncementsStore', () => {
   let store: AnnouncementsStore;
-  let fetchSpy: jasmine.Spy;
+  let httpMock: HttpTestingController;
   const sessionSig = signal<SnapSession | null>(session('tok-1'));
 
   beforeEach(() => {
@@ -44,18 +45,16 @@ describe('AnnouncementsStore', () => {
     TestBed.configureTestingModule({
       providers: [
         AnnouncementsStore,
+        provideHttpClient(withInterceptors([authInterceptor])),
+        provideHttpClientTesting(),
         { provide: SessionService, useValue: { session: sessionSig } },
       ],
     });
     store = TestBed.inject(AnnouncementsStore);
-    fetchSpy = spyOn(globalThis, 'fetch');
+    httpMock = TestBed.inject(HttpTestingController);
   });
 
-  function lastUrl(): string { return String(fetchSpy.calls.mostRecent().args[0]); }
-  function lastInit(): RequestInit { return (fetchSpy.calls.mostRecent().args[1] ?? {}) as RequestInit; }
-  function authHeader(): string | undefined {
-    return (lastInit().headers as Record<string, string>)?.['authorization'];
-  }
+  afterEach(() => httpMock.verify());
 
   it('exposes the four user-facing surfaces in contract order', () => {
     expect(store.surfaces.map((s) => s.key)).toEqual([
@@ -64,50 +63,57 @@ describe('AnnouncementsStore', () => {
   });
 
   it('GETs /bff/admin/announcements with a Bearer token and unwraps { announcements }', async () => {
-    fetchSpy.and.resolveTo(jsonResponse({ announcements: [announcement()] }));
-    const list = await store.refresh();
-    expect(lastUrl()).toContain('/bff/admin/announcements');
-    expect(authHeader()).toBe('Bearer tok-1');
+    const p = store.refresh();
+    const req = httpMock.expectOne('/bff/admin/announcements');
+    expect(req.request.method).toBe('GET');
+    expect(req.request.headers.get('Authorization')).toBe('Bearer tok-1');
+    req.flush({ announcements: [announcement()] });
+    const list = await p;
     expect(list.length).toBe(1);
     expect(store.announcements().length).toBe(1);
   });
 
   it('falls back to [] (not throw) when the list GET fails', async () => {
-    fetchSpy.and.resolveTo(jsonResponse(null, { ok: false, status: 500 }));
-    expect(await store.refresh()).toEqual([]);
+    const p = store.refresh();
+    httpMock.expectOne('/bff/admin/announcements').flush(null, { status: 500, statusText: 'Server Error' });
+    expect(await p).toEqual([]);
   });
 
   it('POSTs the create body and merges the server row into the collection', async () => {
     const saved = announcement({ id: 'srv-1', state: 'published', target_home: true, priority: 5 });
-    fetchSpy.and.resolveTo(jsonResponse(saved));
-    const res = await store.create(input);
-    expect(lastInit().method).toBe('POST');
-    expect((lastInit().headers as Record<string, string>)['content-type']).toBe('application/json');
-    expect(JSON.parse(String(lastInit().body))).toEqual(input);
+    const p = store.create(input);
+    const req = httpMock.expectOne('/bff/admin/announcements');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(input);
+    req.flush(saved);
+    const res = await p;
     expect(res.id).toBe('srv-1');
     expect(store.announcements().map((a) => a.id)).toContain('srv-1');
   });
 
   it('PUTs the update to /{id} and replaces the existing row', async () => {
     store.announcements.set([announcement({ id: 'a-9', priority: 1 })]);
-    fetchSpy.and.resolveTo(jsonResponse(announcement({ id: 'a-9', priority: 9 })));
-    await store.update('a-9', { ...input, priority: 9 });
-    expect(lastInit().method).toBe('PUT');
-    expect(lastUrl()).toContain('/bff/admin/announcements/a-9');
+    const p = store.update('a-9', { ...input, priority: 9 });
+    const req = httpMock.expectOne('/bff/admin/announcements/a-9');
+    expect(req.request.method).toBe('PUT');
+    req.flush(announcement({ id: 'a-9', priority: 9 }));
+    await p;
     expect(store.announcements().find((a) => a.id === 'a-9')!.priority).toBe(9);
   });
 
   it('throws the BFF {error} message when a write fails', async () => {
-    fetchSpy.and.resolveTo(jsonResponse({ error: 'title required' }, { ok: false, status: 400 }));
-    await expectAsync(store.create(input)).toBeRejectedWithError('title required');
+    const p = store.create(input);
+    httpMock.expectOne('/bff/admin/announcements').flush({ error: 'title required' }, { status: 400, statusText: 'Bad Request' });
+    await expectAsync(p).toBeRejectedWithError('title required');
   });
 
   it('DELETEs by id and drops the row from the collection', async () => {
     store.announcements.set([announcement({ id: 'd-1' }), announcement({ id: 'd-2' })]);
-    fetchSpy.and.resolveTo(jsonResponse({ ok: true }));
-    await store.remove('d-1');
-    expect(lastInit().method).toBe('DELETE');
-    expect(lastUrl()).toContain('/bff/admin/announcements/d-1');
+    const p = store.remove('d-1');
+    const req = httpMock.expectOne('/bff/admin/announcements/d-1');
+    expect(req.request.method).toBe('DELETE');
+    req.flush({ ok: true });
+    await p;
     expect(store.announcements().map((a) => a.id)).toEqual(['d-2']);
   });
 
