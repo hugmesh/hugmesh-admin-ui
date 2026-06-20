@@ -25,7 +25,7 @@ flowchart LR
 
   subgraph remote["snapdragon-admin-ui (this repo) — federated REMOTE"]
     UI["ADMIN_ROUTES<br/>(AdminComponent + modules)"]
-    SS["SessionService<br/>(reads snap.session)"]
+    SS["SessionService<br/>(reads snap.session — opaque bff_ session)"]
     BS["BffService<br/>(hand-written fetch client)"]
   end
 
@@ -33,13 +33,13 @@ flowchart LR
     BFF["snapdragon-admin-bff-api (Spring)<br/>single cluster contract"]
   end
 
-  CAS["Casdoor (owns identity + roles)"]
+  CAS["Casdoor (owns identity + roles, SSO IdP)"]
   CLUSTER["in-cluster systems<br/>ArgoCD · ClickHouse · gateway route registries · k8s"]
 
   H -->|"lazy-load /admin"| UI
   UI --> SS
   UI --> BS
-  BS -->|"Bearer snap.session.bffToken"| BFF
+  BS -->|"opaque bff_ session (gateway swaps to internal custody JWT)"| BFF
   BFF -->|"via snapdragon-pki gateway"| CAS
   BFF -->|"role-secured proxy"| CLUSTER
 ```
@@ -71,6 +71,46 @@ never mints or evaluates authority on its own — it only reflects the
 > State convention used below: **✅ shipped** = merged to `main`;
 > **🚧 in-flight** = code on an open branch/PR; **🔭 planned** = design-complete, no
 > code in this repo. Unless marked otherwise, everything documented here is ✅ shipped.
+
+## Current State
+
+The whole route surface, role gate, and BFF contract documented in this README are
+**✅ shipped on `main`** (Angular 22 native-federation remote, exposed `./routes`).
+No auth-relevant work is sitting unmerged on a side branch — every prior
+auth/route/oidc/delegation branch has landed (or was a superseded draft fully
+absorbed into `main`).
+
+The one place this UI is **deliberately tracking a moving backend** is the auth /
+session bridge, recently unified across the platform:
+
+- **SSO is Casdoor (OIDC authorization-code + PKCE).** The `login-ui` remote runs
+  the Casdoor redirect; **`snapdragon-user-bff` does the server-side
+  code→token exchange and holds per-session JWT custody/refresh.** The browser
+  only ever holds an **opaque `bff_`-prefixed session** (the `snap.session`
+  payload). **The user never sees their own Casdoor JWT.**
+- **The gateway is a pure Casdoor-JWT OAuth2 resource server.** A pre-security
+  exchange filter swaps the opaque `bff_` session → the internal custody JWT, so
+  the gateway's JWT validation + role gate run unchanged. Authorization is
+  data-driven by the `gateway_route_access` Postgres table (source of truth) via
+  `GatewayRouteAccessFilter`; ADMIN/GAME-MASTER bypass within their own domain,
+  SUPERADMIN cross-domain. The SCG-5 route-namespace move
+  (`spring.cloud.gateway.routes` → `spring.cloud.gateway.server.webflux.routes`)
+  is already applied across the gateways + generator route templates. Cloudflare
+  fronts prod.
+- **Login / session / account logic is being RELOCATED from admin-bff to
+  user-bff**, with the shared account/session/MFA/Casdoor-admin infra extracted
+  into the new **`snapdragon-auth-core`** Maven artifact (2.0.0, consumed by
+  user-bff + admin-bff only). **Account / session DATA still lives in
+  admin-bff-db**; user-bff reaches it via admin-bff `/bff/internal` over
+  mTLS + `X-Internal-Token`.
+- Backend baseline (recently unified): **Spring Boot 4.0.2 / Spring Cloud
+  2025.1**, on `snapdragon-parent` (metapom 2.0.0) + `snapdragon-commons` (2.0.0).
+
+> Implication for this UI: `snap.session.bffToken` is the **opaque `bff_` session
+> handle**, not a raw Casdoor JWT — the gateway performs the `bff_`→JWT swap.
+> `BffService` continues to attach it on every call; the registration / login /
+> service-token broker flow lives in the **login remote** (now backed by user-bff),
+> not here.
 
 ## Routes (mounted by the host at `/admin`)
 
@@ -135,35 +175,40 @@ authority):
 
 `SessionService` (`src/app/session.service.ts`) reads the shared **`snap.session`**
 localStorage key written by the **login remote** (identity, `roles`, `bffToken`,
-`registrationComplete`, optional Matrix/Mastodon tokens). It exposes the role state
-as **computed signals** — `isAdmin`, `isSuperadmin`, plus the games-services derived
-roles `isGamesServicesAdmin` / `isGamesServicesRunner` (materialized in Casdoor and
-surfaced lowercased, `ROLE_`-prefix-stripped, in `session.roles`) — and
-`fullyRegistered` (the registration-complete gate). The host shell and each remote
-hold their own `SessionService` instance over the same key and re-read on a
-same-document broadcast (`snap-session-change`) and cross-tab `storage` events, so
-a session change (e.g. registration completing in the login remote) propagates
-without a reload.
+`registrationComplete`, optional Matrix/Mastodon tokens). **`bffToken` is the
+opaque `bff_`-prefixed session handle — not a raw Casdoor JWT;** the gateway swaps
+it for the internal custody JWT on the way in (the user never sees their JWT). The
+login/registration flow that writes this key is owned by the login remote (now
+backed by `snapdragon-user-bff`, which holds the per-session JWT custody). It
+exposes the role state as **computed signals** — `isAdmin`, `isSuperadmin`, plus
+the games-services derived roles `isGamesServicesAdmin` / `isGamesServicesRunner`
+(materialized in Casdoor and surfaced lowercased, `ROLE_`-prefix-stripped, in
+`session.roles`) — and `fullyRegistered` (the registration-complete gate). The
+host shell and each remote hold their own `SessionService` instance over the same
+key and re-read on a same-document broadcast (`snap-session-change`) and cross-tab
+`storage` events, so a session change (e.g. registration completing in the login
+remote) propagates without a reload.
 
 ## BFF contract
 
 `BffService` (`src/app/bff.service.ts`) is the hand-written typed client against
-**snapdragon-admin-bff-api**. Every call attaches the Casdoor bearer
-(`authorization: Bearer ${snap.session.bffToken}`) and targets the admin-scoped (and
+**snapdragon-admin-bff-api**. Every call attaches the opaque session handle
+(`authorization: Bearer ${snap.session.bffToken}` — a `bff_` session, swapped to
+the internal Casdoor custody JWT by the gateway) and targets the admin-scoped (and
 a few superadmin-scoped) endpoints — the registration/login/Matrix-Mastodon
-service-token broker flow lives in the login remote. The BFF URL + Uptrace URL are
-read from runtime globals (`__SNAP_BFF_URL__`, `__SNAP_UPTRACE_URL__`). SSE streams
-(backup/restore progress, test-run progress, live workload logs) are read with a
-bearer `fetch` + `ReadableStream` reader rather than raw `EventSource`, so the
-Casdoor token can be sent.
+service-token broker flow lives in the login remote (backed by user-bff). The BFF
+URL + Uptrace URL are read from runtime globals (`__SNAP_BFF_URL__`,
+`__SNAP_UPTRACE_URL__`). SSE streams (backup/restore progress, test-run progress,
+live workload logs) are read with a bearer `fetch` + `ReadableStream` reader rather
+than raw `EventSource`, so the session handle can be sent.
 
 | Module                  | Endpoint(s)                                                | Notes |
 | ----------------------- | ---------------------------------------------------------- | ----- |
 | Registration allowlist  | `GET/POST /bff/admin/allowlist`                            | Invite by Gmail address or Discord username; the BFF invites the identity in Casdoor via the pki gateway. |
 | Usage analytics         | `GET /bff/admin/usage` (+ Uptrace link)                    | Aggregated by the BFF from ClickHouse (events arrive via Kafka in prod). |
 | Namespace access        | `GET/POST/DELETE /bff/admin/namespace-access`, `GET /bff/me/namespaces` | Grant users access to cluster namespaces (maps to Casdoor groups + k8s RBAC server-side); scopes what each user sees in observability. |
-| Route **access**        | `GET/POST/DELETE /bff/admin/route-access`                 | Per-gateway role→URL allow/deny rules. Persisted in Postgres (`gateway_route_access`); each gateway Cassandra-caches them and denies external access unless the caller's Casdoor roles match. Role-based locking of known services only — no arbitrary URLs. |
-| Route **definitions**   | `GET/POST /bff/admin/routes`, `DELETE /bff/admin/routes/{pathPrefix}` | Admin-editable `url_registry` rows the gateway turns into live Spring Cloud Gateway routes (`path_prefix` → `downstream_uri`). Distinct from route-access. |
+| Route **access**        | `GET/POST/DELETE /bff/admin/route-access`                 | Per-gateway role→URL allow/deny rules. Persisted in Postgres (`gateway_route_access`, the gateway's source of truth via `GatewayRouteAccessFilter`); each gateway caches them and denies external access unless the caller's Casdoor roles match. Role-based locking of known services only — no arbitrary URLs. |
+| Route **definitions**   | `GET/POST /bff/admin/routes`, `DELETE /bff/admin/routes/{pathPrefix}` | Admin-editable `url_registry` rows the gateway turns into live Spring Cloud Gateway routes (`path_prefix` → `downstream_uri`, under the SCG-5 `spring.cloud.gateway.server.webflux.routes` namespace). Distinct from route-access. |
 | ISO downloads           | `GET /bff/admin/isos`                                      | Latest ISO artifacts from the GitLab/ArgoCD CI pipeline. Signed gateway-internal URLs; **KEYS material is never in these images**, so nothing secret is exposed. |
 | ArgoCD dashboard        | `GET /bff/admin/argocd/applications[/{name}]`, `POST .../sync` | Role-secured proxy in the BFF (ArgoCD's own URL/token never leave the cluster). Live state; the sync mutation requires a typed `{confirm: name}` token. When ArgoCD is not wired the BFF returns `503` → an honest "ArgoCD not connected" notice. |
 | Guided tasks            | `GET /bff/admin/tasks`, `POST .../steps/{stepId}/{validate\|preview\|apply}` | Data-driven step/task wizard over cluster-admin ops (gateway-route, RBAC/route-access, Casdoor user); a new server-side task appears with no UI change. Reuses the BFF's ReservedNames validation. |
@@ -298,7 +343,8 @@ chunks cross-origin) and an SPA fallback to `/index.html`; `GET /healthz` return
 `200`. Runs as its own pod in the **snapdragon-frontend** namespace, fronted by
 the **fe-gateway** at `/admin`.
 
-CI (`.gitlab-ci.yml`) runs **three stages** on push / mirror-sync:
+CI (`.gitlab-ci.yml`) runs **three stages** on push / mirror-sync (CI is **GitLab**
+across the platform — there are no GitHub Actions):
 
 1. `test` — `ng test` in a `node:24-alpine` + chromium container, emitting JUnit
    reports (`karma-junit-reporter`).
@@ -318,11 +364,18 @@ These are clearly-labelled **future** items — design-complete or in-flight els
 in the platform — that are expected to add surfaces to this admin remote. None of
 them is shipped here today; do not read the routes/BFF tables above as covering them.
 
+- **🚧 SSO end-to-end + e2e (in progress).** The Casdoor OIDC (PKCE) login → opaque
+  `bff_` session → gateway `bff_`→JWT swap path is being wired and proven end-to-end
+  (incl. e2e). The login/session/account relocation from admin-bff to user-bff and
+  the `snapdragon-auth-core` extraction land on the backend; this UI's contract is
+  unchanged (it keeps sending `snap.session.bffToken`), but the login remote it
+  depends on is moving to user-bff.
 - **🚧 Casdoor MFA step-up** (design done; admin-bff Liquibase 150-band). BFF-driven
-  WebAuthn / TOTP / recovery. This remote will need to render an MFA challenge /
-  step-up dialog for sensitive admin/superadmin ops (e.g. ArgoCD sync, route-access
-  edits, device-license grants). The enforcement is `gateway_route_access.mfa_required`
-  (fail-closed) + `amr/acr → MFA_SATISFIED` stamped into the opaque session.
+  WebAuthn / TOTP / recovery, per-role defaults. This remote will need to render an
+  MFA challenge / step-up dialog for sensitive admin/superadmin ops (e.g. ArgoCD
+  sync, route-access edits, device-license grants). Enforcement is
+  `gateway_route_access.mfa_required` (fail-closed) + `amr/acr → MFA_SATISFIED`
+  stamped into the opaque session.
 - **🔭 Desktop app governance** (design + queued). An admin-curated Plasma Discover
   store (default-NONE, domain-locked Flatpak/OCI) + user install-requests + admin
   remote-install (one-click + in-UI SSH terminal). Likely rides the existing
@@ -333,6 +386,10 @@ them is shipped here today; do not read the routes/BFF tables above as covering 
 - **🚧 Workload Console maturity.** The console is ✅ shipped (above); the
   superadmin grant-issuance / master-config control plane (`/bff/superadmin/workloads/grants`,
   `.../config`) continues to harden alongside the admin-bff 110-band changelog.
+- **🔭 Encrypted versioned backups (platform-wide).** Velero + kopia/restic AES
+  repos behind the already-shipped Backup/Recovery console.
+- **🔭 Per-node attached storage / egress VPN / device-license registry maturity** —
+  the consoles are shipped; the fleet-side effectors continue alongside the generator.
 
 The **Superadmin Service Catalog** UI is **not** part of this remote — it lives in its own
 federated remote (`snapdragon-superadmin-service-catalog-ui`); its data layer is on the
