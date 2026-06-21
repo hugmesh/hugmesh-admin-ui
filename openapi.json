@@ -6726,6 +6726,16 @@
           "updatedAt" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "caProvisioned" : {
+            "type" : "boolean"
+          },
+          "appsetRegistered" : {
+            "type" : "boolean"
+          },
+          "lastReconciledGeneration" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },

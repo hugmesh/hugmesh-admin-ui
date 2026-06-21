@@ -46,6 +46,18 @@ export class SuperadminDomainsComponent implements OnInit {
     this.domains.set(await this.bff.listDomains());
   }
 
+  /**
+   * Whether a domain is fully PROVISIONED — its CA is issued AND its ArgoCD
+   * ApplicationSet is registered (band-190 provisioning status, admin-bff #118).
+   * These fields DEFAULT false and only flip once the generator domain-reconcile
+   * effector runs, so at rest every freshly-registered domain reads false here and
+   * the console honestly shows the degraded "not yet provisioned" chip (the
+   * platform-capability-gating mandate). Pure presentational — no new BFF call.
+   */
+  isProvisioned(d: DomainResponse): boolean {
+    return !!(d.caProvisioned && d.appsetRegistered);
+  }
+
   async register(): Promise<void> {
     const clusterDomain = this.clusterDomain.trim().toLowerCase();
     if (!clusterDomain) {

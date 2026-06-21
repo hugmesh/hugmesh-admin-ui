@@ -84,6 +84,38 @@
     }
   }
 
+  // Provisioning-state chip — colour PLUS the visible status text (a11y: never colour
+  // alone). The degraded "not yet provisioned" variant is greyed/muted (the optional-
+  // service degrade pattern); the provisioned variant is a subtle mint. Pill shape +
+  // sizing mirror the argocd-dashboard .badge idiom.
+  .sd-provisioning {
+    display: inline-block;
+    margin-inline: 0.4rem;
+    border-radius: 999px;
+    padding: 0.1rem 0.5rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+
+    &.is-provisioned {
+      background: rgba(t.$pastel-mint, 0.2);
+      color: t.$pastel-mint;
+      border-color: t.$pastel-mint;
+    }
+
+    // Degraded / greyed — registered but not yet provisioned (the honest at-rest state).
+    &.is-degraded {
+      background: rgba(t.$muted, 0.18);
+      color: var(--sd-text-soft, var(--sd-muted));
+      border-color: var(--sd-border);
+    }
+  }
+
+  .sd-provisioning-help {
+    display: block;
+    margin-top: 0.15rem;
+  }
+
   .sd-empty {
     color: var(--sd-text-soft, var(--sd-text));
     font-style: italic;

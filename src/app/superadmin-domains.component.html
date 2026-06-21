@@ -68,9 +68,41 @@
 
   <h3 id="sd-list-heading">Registered domains</h3>
   <ul data-testid="sd-domains" aria-labelledby="sd-list-heading">
-    <li *ngFor="let d of domains()" [attr.data-cluster-domain]="d.clusterDomain">
+    <li *ngFor="let d of domains(); let i = index" [attr.data-cluster-domain]="d.clusterDomain">
       <strong>{{ d.clusterDomain }}</strong>
       <span class="sd-status" [class.is-disabled]="!d.enabled">{{ d.enabled ? 'enabled' : 'disabled' }}</span>
+
+      <!--
+        Provisioning-state chip (band-190 provisioning status, admin-bff #118). When the
+        domain is NOT yet provisioned (its CA isn't issued AND/OR its ArgoCD ApplicationSet
+        isn't registered) it shows a greyed/degraded chip + a helptext explaining that
+        registration alone changes nothing until the live effector runs (the platform-
+        capability-gating mandate + the optional-service degrade pattern). Colour is NEVER
+        the only signal: the chip carries visible text + an .sr prefix so the state is
+        announced, and aria-describedby ties it to the helptext (the disabled+helptext rule).
+      -->
+      <ng-container *ngIf="isProvisioned(d); else notProvisioned">
+        <span
+          class="sd-provisioning is-provisioned"
+          data-testid="sd-provisioning"
+          [attr.aria-label]="'Provisioning state for ' + d.clusterDomain + ': provisioned'"
+        ><span class="sr">Provisioning:</span> Provisioned</span>
+      </ng-container>
+      <ng-template #notProvisioned>
+        <span
+          class="sd-provisioning is-degraded"
+          data-testid="sd-provisioning"
+          [attr.aria-disabled]="true"
+          [attr.aria-label]="'Provisioning state for ' + d.clusterDomain + ': registered but not yet provisioned'"
+          [attr.aria-describedby]="'sd-prov-help-' + i"
+        ><span class="sr">Provisioning:</span> Registered — not yet provisioned</span>
+        <span [id]="'sd-prov-help-' + i" class="field-help sd-provisioning-help" data-testid="sd-provisioning-help">
+          Registered in the domain registry, but the cluster hasn’t provisioned it yet —
+          its CA is not issued and/or its ArgoCD ApplicationSet is not registered. Nothing
+          provisions until the domain-reconcile effector runs.
+        </span>
+      </ng-template>
+
       <span *ngIf="d.brand">· brand: {{ d.brand }}</span>
       <span *ngIf="d.org">· org: {{ d.org }}</span>
       <span *ngIf="d.meshTag">· mesh: {{ d.meshTag }}</span>

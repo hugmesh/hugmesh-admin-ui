@@ -2,7 +2,12 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { SuperadminDomainsComponent } from './superadmin-domains.component';
 import { BffService, DomainResponse } from './bff.service';
 
-/** A two-domain fixture: one enabled brand, one soft-disabled brand in another org. */
+/**
+ * A two-domain fixture: one enabled + FULLY PROVISIONED brand (caProvisioned &&
+ * appsetRegistered), one soft-disabled brand in another org that is registered but
+ * NOT yet provisioned (the band-190 defaults false/false/0 — the honest at-rest
+ * state until the domain-reconcile effector runs).
+ */
 const fixtureDomains = (): DomainResponse[] => [
   {
     id: 'dom-1',
@@ -17,6 +22,9 @@ const fixtureDomains = (): DomainResponse[] => [
     createdAt: '2026-06-01T00:00:00Z',
     createdBySubject: 'root',
     updatedAt: '2026-06-01T00:00:00Z',
+    caProvisioned: true,
+    appsetRegistered: true,
+    lastReconciledGeneration: 3,
   },
   {
     id: 'dom-2',
@@ -31,6 +39,9 @@ const fixtureDomains = (): DomainResponse[] => [
     createdAt: '2026-06-02T00:00:00Z',
     createdBySubject: 'root',
     updatedAt: '2026-06-02T00:00:00Z',
+    caProvisioned: false,
+    appsetRegistered: false,
+    lastReconciledGeneration: 0,
   },
 ];
 
@@ -66,6 +77,58 @@ describe('SuperadminDomainsComponent', () => {
     expect(disabled.textContent).toContain('disabled');
   });
 
+  describe('provisioning-state chip (band-190 / admin-bff #118)', () => {
+    it('shows the degraded "registered — not yet provisioned" chip + helptext for a not-yet-provisioned domain', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const el: HTMLElement = fixture.nativeElement;
+      // brand-b: caProvisioned=false / appsetRegistered=false → degraded chip.
+      const row = el.querySelector('[data-cluster-domain="brand-b.example.com"]')!;
+      const chip = row.querySelector<HTMLElement>('[data-testid="sd-provisioning"]')!;
+      expect(chip).withContext('provisioning chip rendered').not.toBeNull();
+      expect(chip.classList).toContain('is-degraded');
+      expect(chip.textContent).toContain('Registered');
+      expect(chip.textContent).toContain('not yet provisioned');
+
+      // a11y: greyed/disabled state is announced (not colour-only) + named + described.
+      expect(chip.getAttribute('aria-disabled')).toBe('true');
+      expect(chip.getAttribute('aria-label')).toContain('registered but not yet provisioned');
+      const describedBy = chip.getAttribute('aria-describedby');
+      expect(describedBy).withContext('aria-describedby set').toBeTruthy();
+      const help = row.querySelector<HTMLElement>('[data-testid="sd-provisioning-help"]')!;
+      expect(help).withContext('helptext rendered').not.toBeNull();
+      expect(help.id).toBe(describedBy!);
+      expect(help.textContent!.trim().length).toBeGreaterThan(0);
+    });
+
+    it('shows the subtle "Provisioned" state (no helptext) for a fully-provisioned domain', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const el: HTMLElement = fixture.nativeElement;
+      // brand-a: caProvisioned=true && appsetRegistered=true → provisioned.
+      const row = el.querySelector('[data-cluster-domain="brand-a.example.com"]')!;
+      const chip = row.querySelector<HTMLElement>('[data-testid="sd-provisioning"]')!;
+      expect(chip).withContext('provisioning chip rendered').not.toBeNull();
+      expect(chip.classList).toContain('is-provisioned');
+      expect(chip.textContent).toContain('Provisioned');
+      expect(chip.getAttribute('aria-label')).toContain(': provisioned');
+      // no degraded helptext for a provisioned domain
+      expect(row.querySelector('[data-testid="sd-provisioning-help"]')).toBeNull();
+    });
+
+    it('isProvisioned requires BOTH caProvisioned and appsetRegistered', () => {
+      const base = fixtureDomains()[0];
+      expect(component.isProvisioned({ ...base, caProvisioned: true, appsetRegistered: true })).toBe(true);
+      expect(component.isProvisioned({ ...base, caProvisioned: true, appsetRegistered: false })).toBe(false);
+      expect(component.isProvisioned({ ...base, caProvisioned: false, appsetRegistered: true })).toBe(false);
+      expect(component.isProvisioned({ ...base, caProvisioned: false, appsetRegistered: false })).toBe(false);
+    });
+  });
+
   it('registers a domain (trimmed/lowercased cluster_domain + brand descriptors) and prepends it', async () => {
     fixture.detectChanges();
     await fixture.whenStable();
@@ -82,6 +145,9 @@ describe('SuperadminDomainsComponent', () => {
       createdAt: '2026-06-13T00:00:00Z',
       createdBySubject: 'root',
       updatedAt: '2026-06-13T00:00:00Z',
+      caProvisioned: false,
+      appsetRegistered: false,
+      lastReconciledGeneration: 0,
     });
 
     component.clusterDomain = '  Brand-C.Example.com ';

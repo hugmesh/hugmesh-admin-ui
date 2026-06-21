@@ -1684,7 +1684,12 @@ export interface CreateDomainRequest {
 }
 /** One domain_registry row (admin-bff DomainResponse). A straight projection — no
  *  secrets (caRef is a reference, never key material). enabled is the desired-state
- *  on/off; a soft-disabled domain has enabled=false (there is no hard delete). */
+ *  on/off; a soft-disabled domain has enabled=false (there is no hard delete).
+ *
+ *  caProvisioned / appsetRegistered / lastReconciledGeneration are the band-190
+ *  provisioning-status fields (admin-bff #118). They DEFAULT false/false/0 and ship
+ *  dark — only the later generator domain-reconcile effector flips them — so this
+ *  console can render the "registered but not yet provisioned" chip off this read. */
 export interface DomainResponse {
   id: string;
   clusterDomain: string;
@@ -1698,6 +1703,9 @@ export interface DomainResponse {
   createdAt: string;
   createdBySubject: string;
   updatedAt: string;
+  caProvisioned: boolean;
+  appsetRegistered: boolean;
+  lastReconciledGeneration: number;
 }
 
 /** A registered mesh node with its physical owner, domain residency + active licenses. */
