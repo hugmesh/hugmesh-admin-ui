@@ -103,8 +103,9 @@ session bridge, recently unified across the platform:
   user-bff + admin-bff only). **Account / session DATA still lives in
   admin-bff-db**; user-bff reaches it via admin-bff `/bff/internal` over
   mTLS + `X-Internal-Token`.
-- Backend baseline (recently unified): **Spring Boot 4.0.2 / Spring Cloud
-  2025.1**, on `snapdragon-parent` (metapom 2.4.0) + `snapdragon-commons` (2.0.0).
+- Backend baseline (recently unified): **Spring Boot 4.0.7 / Spring Cloud
+  2025.1.2 / Java 25 LTS**, on `snapdragon-parent` (metapom 2.7.0) +
+  `snapdragon-commons` (2.0.0).
 
 > Implication for this UI: `snap.session.bffToken` is the **opaque `bff_` session
 > handle**, not a raw Casdoor JWT — the gateway performs the `bff_`→JWT swap.
