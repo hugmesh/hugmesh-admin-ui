@@ -1,5 +1,4 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { Observable, firstValueFrom } from 'rxjs';
 import { AnnouncementAdminControllerService } from '../api/services/announcement-admin-controller.service';
 import { Announcement as GenAnnouncement } from '../api/models/announcement';
 import { AnnouncementRequest as GenAnnouncementRequest } from '../api/models/announcement-request';
@@ -123,7 +122,7 @@ export class AnnouncementsStore {
   async refresh(): Promise<Announcement[]> {
     this.loading.set(true);
     try {
-      const body = await firstValueFrom(this.api.announcementAdminList());
+      const body = await this.api.announcementAdminList();
       const list = ((body as unknown as { announcements?: Announcement[] }).announcements ?? []) as Announcement[];
       this.announcements.set(list);
       return list;
@@ -138,7 +137,7 @@ export class AnnouncementsStore {
   /** GET /bff/admin/announcements/{id}. Returns null when the row is absent/errors. */
   async get(id: string): Promise<Announcement | null> {
     try {
-      const saved = await firstValueFrom(this.api.announcementAdminGet({ id }));
+      const saved = await this.api.announcementAdminGet({ id });
       return (saved as unknown as Announcement) ?? null;
     } catch {
       return null;
@@ -169,9 +168,9 @@ export class AnnouncementsStore {
 
   /** Await a generated-client call, surfacing the BFF {@code {error}} message
    *  (preserved from the old fetch path) as the thrown {@link Error}. */
-  private async write<T>(call: Observable<T>): Promise<T> {
+  private async write<T>(call: Promise<T>): Promise<T> {
     try {
-      return await firstValueFrom(call);
+      return await call;
     } catch (e: unknown) {
       const err = e as { error?: { error?: string }; message?: string; status?: number };
       throw new Error(err?.error?.error ?? (err?.status ? `HTTP ${err.status}` : err?.message) ?? 'request failed');
