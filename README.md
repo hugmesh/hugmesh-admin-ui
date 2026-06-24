@@ -99,12 +99,12 @@ session bridge, recently unified across the platform:
   fronts prod.
 - **Login / session / account logic is being RELOCATED from admin-bff to
   user-bff**, with the shared account/session/MFA/Casdoor-admin infra extracted
-  into the new **`snapdragon-auth-core`** Maven artifact (2.0.0, consumed by
+  into the new **`snapdragon-auth-core`** Maven artifact (2.3.0, consumed by
   user-bff + admin-bff only). **Account / session DATA still lives in
   admin-bff-db**; user-bff reaches it via admin-bff `/bff/internal` over
   mTLS + `X-Internal-Token`.
 - Backend baseline (recently unified): **Spring Boot 4.0.2 / Spring Cloud
-  2025.1**, on `snapdragon-parent` (metapom 2.0.0) + `snapdragon-commons` (2.0.0).
+  2025.1**, on `snapdragon-parent` (metapom 2.4.0) + `snapdragon-commons` (2.0.0).
 
 > Implication for this UI: `snap.session.bffToken` is the **opaque `bff_` session
 > handle**, not a raw Casdoor JWT — the gateway performs the `bff_`→JWT swap.
@@ -134,13 +134,16 @@ are ✅ shipped on `main`.
 | `/admin/backup`           | Start a cloud/USB backup                            | `BackupComponent`           | —                | yes  |
 | `/admin/recovery`         | Restore a backup                                    | `RecoveryComponent`         | —                | yes  |
 | `/admin/backups`          | Backup + restore history                            | `BackupHistoryComponent`    | —                | yes  |
+| `/admin/cloud-backups`    | Cloud backups (per-domain + superadmin TOTAL, versioned, step-up restore) | `CloudBackupsComponent` | —          | yes  |
 | `/admin/announcements`    | Announcements (create + schedule + target)          | `AnnouncementListComponent` | —                | yes  |
 | `/admin/test-reports`     | Test-architecture run history + on-demand run + download | `TestReportsComponent` | —                | yes  |
+| `/admin/image-gen`        | Image-generation console (trigger / SSE progress / download, capability-gated) | `ImageGenComponent` | —          | yes  |
 | `/admin/forum`            | Forum (phpBB ACP) admin proxy                       | `ForumAdminComponent`       | —                | yes  |
 | `/admin/appeals`          | Appeals-Decide console (decide-proxy, domain-scoped) | `AppealsComponent`         | —                | yes  |
 | `/admin/device-licenses`  | Device-ownership / SSH-operate-license registry      | `DeviceLicensesComponent`   | `superadminGuard` | superadmin-only |
 | `/admin/device-pending`   | Pending headscale-node pick-list (assign into registry) | `DevicePendingComponent` | `superadminGuard` | superadmin-only |
 | `/admin/node-storage`     | Attach + register additional node-pinned storage     | `StoragePoolsComponent`     | —                | yes  |
+| `/admin/desktop`          | Desktop governance (Discover curation, sudo toggle, install inbox, remote-install + SSH terminal) | `DesktopGovernanceComponent` | —    | yes  |
 | `/admin/egress-vpn`       | Import provider WireGuard/OpenVPN egress configs     | `EgressVpnComponent`        | `superadminGuard` | superadmin-only |
 | `/admin/superadmin/domains` | Domain-registry (brand list) console + per-row provisioning-state chip | `SuperadminDomainsComponent`| `superadminGuard` | superadmin-only |
 | `/admin/oidc-providers`   | Per-OIDC-provider default-role mappings              | `OidcProviderRolesComponent`| —                | no (route-only) |
@@ -247,11 +250,13 @@ so it is **sanitised server-side by the BFF** (the authority) and the editor
 **never uses raw `innerHTML`**: the live preview renders the sanitised body inside
 a **sandboxed null-origin `srcdoc` iframe** (`sandbox=""` — no `allow-scripts`, no
 `allow-same-origin`), mirroring the snapdragon-user-ui card-builder two-wall model.
-`AnnouncementsStore` is the signal-backed hand-written typed client. Note (✅):
-`ng-openapi-gen` **is** wired in this repo (see *OpenAPI client generation* below) —
-but the clients in use today (`BffService`, `AnnouncementsStore`) remain
-hand-written against the shared API contract; the generated client is not yet
-adopted/committed.
+`AnnouncementsStore` is the signal-backed typed client. Note (✅):
+`ng-openapi-gen` **is** wired AND the generated client **is committed** to
+`src/app/api/` (see *OpenAPI client generation* below). `AnnouncementsStore` is
+the **first module migrated onto the generated client** — it calls the generated
+`AnnouncementAdminControllerService` and reuses the generated `Announcement` /
+`AnnouncementRequest` models. The remaining catch-all client (`BffService`) is
+still hand-written against the shared API contract pending its own migration.
 
 ## Workload Console (HIDDEN tier) ✅
 
@@ -278,14 +283,17 @@ own-domain, grant-gated); superadmins reach `/bff/superadmin/workloads/**` for t
 mutating/dangerous surfaces. The live log stream is SSE (bearer `fetch`); the pod
 TTY uses `@xterm/xterm`.
 
-## OpenAPI client generation ✅ (wired) / 🔭 (not yet adopted)
+## OpenAPI client generation ✅ (wired + committed)
 
-`ng-openapi-gen` is a devDependency and **is wired**: `npm run gen:fetch` pulls the
-admin BFF OpenAPI spec (`http://localhost:8080/v3/api-docs` → `openapi.json`) and
-`npm run gen` regenerates a typed client into `src/app/api/` (config in
-`ng-openapi-gen.json`). Today the generated output is **not committed** and the live
-clients (`BffService`, `AnnouncementsStore`) remain hand-written against the shared
-API contract; adopting/committing the generated client is a 🔭 follow-up.
+`ng-openapi-gen` is a devDependency and **is wired**: `npm run gen:spec` copies the
+admin BFF's committed OpenAPI spec (`../snapdragon-admin-bff-api/.../openapi.json`,
+overridable via `ADMIN_BFF_SPEC`) to `openapi.json`, and `npm run gen` regenerates a
+typed client into `src/app/api/` (config in `ng-openapi-gen.json`). The generated
+output **is committed** to `src/app/api/` (per-controller services + models). The
+first consumer migrated onto it is `AnnouncementsStore`
+(`AnnouncementAdminControllerService` + generated models); the catch-all
+`BffService` remains hand-written against the shared API contract pending its own
+migration onto the generated client.
 
 ## Accessibility
 
@@ -340,8 +348,13 @@ emitting JUnit via `karma-junit-reporter`) and **gates** the image build — see
 `Dockerfile` builds the remote and serves `dist/admin/browser` via nginx with
 `Access-Control-Allow-Origin "*"` (so the host can fetch `remoteEntry.json` and
 chunks cross-origin) and an SPA fallback to `/index.html`; `GET /healthz` returns
-`200`. Runs as its own pod in the **snapdragon-frontend** namespace, fronted by
-the **fe-gateway** at `/admin`.
+`200`. The nginx config also emits the baseline security-header set on every
+response (`always`): `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+`Referrer-Policy: strict-origin-when-cross-origin`, and `Strict-Transport-Security`
+(HSTS, 1y + `includeSubDomains`). Stricter policies (CSP, COEP/CORP,
+Permissions-Policy) are deliberately deferred pending per-UI tuning + live-cluster
+browser validation. Runs as its own pod in the **snapdragon-frontend** namespace,
+fronted by the **fe-gateway** at `/admin`.
 
 CI (`.gitlab-ci.yml`) runs **three stages** on push / mirror-sync (CI is **GitLab**
 across the platform — there are no GitHub Actions):
