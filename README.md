@@ -105,7 +105,7 @@ session bridge, recently unified across the platform:
   mTLS + `X-Internal-Token`.
 - Backend baseline (recently unified): **Spring Boot 4.0.7 / Spring Cloud
   2025.1.2 / Java 25 LTS**, on `snapdragon-parent` (metapom 2.7.0) +
-  `snapdragon-commons` (2.0.0).
+  `snapdragon-commons` (2.7.0).
 
 > Implication for this UI: `snap.session.bffToken` is the **opaque `bff_` session
 > handle**, not a raw Casdoor JWT — the gateway performs the `bff_`→JWT swap.
@@ -390,10 +390,7 @@ them is shipped here today; do not read the routes/BFF tables above as covering 
   sync, route-access edits, device-license grants). Enforcement is
   `gateway_route_access.mfa_required` (fail-closed) + `amr/acr → MFA_SATISFIED`
   stamped into the opaque session.
-- **🔭 Desktop app governance** (design + queued). An admin-curated Plasma Discover
-  store (default-NONE, domain-locked Flatpak/OCI) + user install-requests + admin
-  remote-install (one-click + in-UI SSH terminal). Likely rides the existing
-  device-ssh-license registry already surfaced by the Device Licenses console.
+- **🚧 Desktop app governance maturity** — UI shipped (above); fleet-side backend effectors (Discover curation sync, remote-install via device-ssh-license, admin-bff effector wiring) continue alongside the generator.
 - **🚧 Notifications EXTERNAL channels** (in-flight). Matrix DM / Akkoma feed / phpBB /
   email adapters atop the shipped in-app notifications MVP. Any admin-side channel /
   preferences configuration UI will land as a future surface.
@@ -408,5 +405,5 @@ them is shipped here today; do not read the routes/BFF tables above as covering 
 The **Superadmin Service Catalog** UI is **not** part of this remote — it lives in its own
 federated remote (`snapdragon-superadmin-service-catalog-ui`); its data layer is on the
 admin-bff `main` and its infra legs (AddService effector, ArgoCD create/delete,
-Kaniko builder, tailnet superadmin-gateway + federation registration) are 🚧 in-flight.
+✅ Kaniko in-cluster builder (KanikoBuildLauncher — admin-bff PR #152), tailnet superadmin-gateway + federation registration) — all except Kaniko are 🚧 in-flight.
 Readers should not expect those screens here.
