@@ -137,8 +137,6 @@ export async function seedSession(page: Page, user: SeedUser): Promise<void> {
     provider: user.provider,
     roles: user.roles,
     registrationComplete: true,
-    matrix: null,
-    mastodon: null,
   };
   await page.addInitScript(
     ([key, value]) => {

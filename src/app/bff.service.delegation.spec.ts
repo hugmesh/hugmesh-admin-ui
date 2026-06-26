@@ -30,8 +30,6 @@ function adminSession(): SnapSession {
     provider: 'google',
     roles: ['admin'],
     registrationComplete: true,
-    matrix: null,
-    mastodon: null,
   };
 }
 

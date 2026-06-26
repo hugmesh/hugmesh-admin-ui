@@ -8,8 +8,6 @@ function makeSession(over: Partial<SnapSession> = {}): SnapSession {
     provider: 'google',
     roles: [],
     registrationComplete: false,
-    matrix: null,
-    mastodon: null,
     ...over,
   };
 }
