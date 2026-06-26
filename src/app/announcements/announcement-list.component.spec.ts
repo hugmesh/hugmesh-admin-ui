@@ -9,7 +9,7 @@ import { SessionService, SnapSession } from '../session.service';
 function session(): SnapSession {
   return {
     id: 'google:admin@gmail.com', label: 'admin@gmail.com', provider: 'google',
-    roles: ['admin'], bffToken: 'tok', registrationComplete: true, matrix: null, mastodon: null,
+    roles: ['admin'], registrationComplete: true, matrix: null, mastodon: null,
   };
 }
 

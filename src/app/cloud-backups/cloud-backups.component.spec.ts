@@ -32,7 +32,7 @@ describe('CloudBackupsComponent (shell)', () => {
     el: HTMLElement;
   }> {
     localStorage.clear();
-    localStorage.setItem('snap.session', JSON.stringify({ bffToken: 'tok' }));
+    localStorage.setItem('snap.session', JSON.stringify({ roles: [] }));
     await TestBed.resetTestingModule()
       .configureTestingModule({
         imports: [CloudBackupsComponent],

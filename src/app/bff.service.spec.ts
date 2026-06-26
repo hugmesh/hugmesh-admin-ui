@@ -12,14 +12,12 @@ function jsonResponse(body: unknown, init?: { ok?: boolean; status?: number }): 
   } as unknown as Response;
 }
 
-function sessionWith(bffToken: string | undefined): SnapSession | null {
-  if (bffToken === undefined) return null;
+function adminSession(): SnapSession {
   return {
     id: 'google:admin@gmail.com',
     label: 'admin@gmail.com',
     provider: 'google',
     roles: ['admin'],
-    bffToken,
     registrationComplete: true,
     matrix: null,
     mastodon: null,
@@ -32,7 +30,7 @@ describe('BffService', () => {
   const sessionSig = signal<SnapSession | null>(null);
 
   beforeEach(() => {
-    sessionSig.set(sessionWith('bff-tok-1'));
+    sessionSig.set(adminSession());
     TestBed.configureTestingModule({
       providers: [
         BffService,
@@ -53,18 +51,12 @@ describe('BffService', () => {
     return (lastInit().headers as Record<string, string>)?.['authorization'];
   }
 
-  it('sends the bffToken from the shared session as a Bearer Authorization header', async () => {
+  it('sends credentials (the HttpOnly bff_ cookie) and NO Authorization header', async () => {
     fetchSpy.and.resolveTo(jsonResponse({ emails: [], discord: [] }));
     await service.allowlist();
     expect(lastUrl()).toContain('/bff/admin/allowlist');
-    expect(authHeader()).toBe('Bearer bff-tok-1');
-  });
-
-  it('sends an empty Bearer token when there is no session', async () => {
-    sessionSig.set(null);
-    fetchSpy.and.resolveTo(jsonResponse({ emails: [], discord: [] }));
-    await service.allowlist();
-    expect(authHeader()).toBe('Bearer undefined');
+    expect(lastInit().credentials).toBe('include');
+    expect(authHeader()).toBeUndefined();
   });
 
   it('returns the empty fallback (not throw) when the allowlist GET fails', async () => {
@@ -139,7 +131,7 @@ describe('BffService', () => {
     expect(await service.isos()).toEqual([]);
   });
 
-  it('platformCapabilities returns the envelope and hits the admin endpoint with a bearer', async () => {
+  it('platformCapabilities returns the envelope and hits the admin endpoint with credentials', async () => {
     const env = {
       argocdPresent: true, veleroPresent: false, buildNodePresent: true, imagesGenerated: false,
       anubisEnabled: false, forumEnabled: false, testLaunchEnabled: false,
@@ -148,7 +140,7 @@ describe('BffService', () => {
     fetchSpy.and.resolveTo(jsonResponse(env));
     expect(await service.platformCapabilities()).toEqual(env);
     expect(lastUrl()).toContain('/bff/admin/platform-capabilities');
-    expect(authHeader()).toBe('Bearer bff-tok-1');
+    expect(lastInit().credentials).toBe('include');
   });
 
   it('platformCapabilities FAILS SAFE (all absent + warning) on a non-OK response', async () => {
@@ -229,7 +221,7 @@ describe('BffService', () => {
       expect(lastUrl()).toContain('/bff/admin/moderation/7/decide');
       expect(lastUrl()).toContain('approve=true');
       expect(lastInit().method).toBe('POST');
-      expect(authHeader()).toBe('Bearer bff-tok-1');
+      expect(lastInit().credentials).toBe('include');
       expect(row.status).toBe('approved');
     });
 
@@ -256,7 +248,7 @@ describe('BffService', () => {
       fetchSpy.and.resolveTo(jsonResponse([{ clusterDomain: 'brand-a.example.com', enabled: true }]));
       const domains = await service.listDomains();
       expect(lastUrl()).toContain('/bff/admin/domains');
-      expect(authHeader()).toBe('Bearer bff-tok-1');
+      expect(lastInit().credentials).toBe('include');
       expect(domains.length).toBe(1);
       expect(domains[0].clusterDomain).toBe('brand-a.example.com');
     });

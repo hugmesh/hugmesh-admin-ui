@@ -15,8 +15,8 @@ import { TestReportsStore } from './test-reports-store.service';
  * GET /bff/admin/test-reports (list), GET /{id} (detail), GET /{id}/download
  * (tar.gz), POST /run (trigger), GET /{id}/events (SSE). Admin gating is
  * defence-in-depth (gateway + resource-server filter + @PreAuthorize); this UI
- * mirrors it but the admin-bff is the source of truth. SSE uses the bearer-fetch
- * ReadableStream reader (NOT EventSource) so the Casdoor Bearer is sent.
+ * mirrors it but the admin-bff is the source of truth. SSE uses the credentialed-fetch
+ * ReadableStream reader (NOT EventSource) so the HttpOnly bff_ cookie rides the request.
  */
 @Component({
   selector: 'snap-test-reports',

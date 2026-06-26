@@ -17,7 +17,7 @@ const instance = (over: Partial<GameInstance> = {}): GameInstance => ({
 
 function session(roles: string[]): SnapSession {
   return {
-    id: 'google:alice', label: 'alice', provider: 'google', roles, bffToken: 'tok',
+    id: 'google:alice', label: 'alice', provider: 'google', roles,
     registrationComplete: true, matrix: null, mastodon: null,
   };
 }

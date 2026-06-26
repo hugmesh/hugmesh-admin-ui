@@ -12,30 +12,30 @@ const CFG = {
  * the Admin console only needs the admin-scoped endpoints (allowlist, usage,
  * namespace access); the registration / login / Matrix-Mastodon service-token
  * broker flow lives in the login remote, which writes the shared `snap.session`
- * (incl. roles + bffToken) that this remote reads via SessionService.
+ * (id/label/roles) that this remote reads via SessionService. Every call sends
+ * `credentials: 'include'` so the HttpOnly `bff_` cookie rides the request; the
+ * gateway's BffCookieToBearerWebFilter turns it into the bearer server-side (the
+ * browser never holds an admin bearer).
  */
 @Injectable({ providedIn: 'root' })
 export class BffService {
   private readonly session = inject(SessionService);
 
   async allowlist(): Promise<{ emails: string[]; discord: string[] }> {
-    const t = this.session.session()?.bffToken;
-    const r = await fetch(`${CFG.bff}/bff/admin/allowlist`, { headers: { authorization: `Bearer ${t}` } });
+    const r = await fetch(`${CFG.bff}/bff/admin/allowlist`, { credentials: 'include' });
     return r.ok ? r.json() : { emails: [], discord: [] };
   }
   async invite(kind: 'email' | 'discord', value: string): Promise<{ emails: string[]; discord: string[] }> {
-    const t = this.session.session()?.bffToken;
     const body = kind === 'email' ? { email: value } : { discord: value };
     const r = await fetch(`${CFG.bff}/bff/admin/allowlist`, {
-      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` }, body: JSON.stringify(body),
+      method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'include', body: JSON.stringify(body),
     });
     return r.ok ? r.json() : { emails: [], discord: [] };
   }
 
   /** Admin-only usage analytics aggregated by the BFF from ClickHouse. */
   async usage(): Promise<any> {
-    const t = this.session.session()?.bffToken;
-    const r = await fetch(`${CFG.bff}/bff/admin/usage`, { headers: { authorization: `Bearer ${t}` } });
+    const r = await fetch(`${CFG.bff}/bff/admin/usage`, { credentials: 'include' });
     return r.ok ? r.json() : { byModule: [], byAction: [], activeUsers: 0, totalEvents: 0 };
   }
 
@@ -44,16 +44,14 @@ export class BffService {
 
   /** Admin-only: list namespaces + which users are granted access to each. */
   async namespaceAccess(): Promise<{ namespaces: string[]; grants: { user: string; namespaces: string[] }[] }> {
-    const t = this.session.session()?.bffToken;
-    const r = await fetch(`${CFG.bff}/bff/admin/namespace-access`, { headers: { authorization: `Bearer ${t}` } });
+    const r = await fetch(`${CFG.bff}/bff/admin/namespace-access`, { credentials: 'include' });
     return r.ok ? r.json() : { namespaces: [], grants: [] };
   }
   async grantNamespace(user: string, namespace: string) { return this.nsAccess('POST', user, namespace); }
   async revokeNamespace(user: string, namespace: string) { return this.nsAccess('DELETE', user, namespace); }
   private async nsAccess(method: string, user: string, namespace: string) {
-    const t = this.session.session()?.bffToken;
     const r = await fetch(`${CFG.bff}/bff/admin/namespace-access`, {
-      method, headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      method, headers: { 'content-type': 'application/json' }, credentials: 'include',
       body: JSON.stringify({ user, namespace }),
     });
     return r.ok ? r.json() : { namespaces: [], grants: [] };
@@ -61,8 +59,7 @@ export class BffService {
 
   /** The signed-in user's own granted namespaces. */
   async myNamespaces(): Promise<string[]> {
-    const t = this.session.session()?.bffToken;
-    const r = await fetch(`${CFG.bff}/bff/me/namespaces`, { headers: { authorization: `Bearer ${t}` } });
+    const r = await fetch(`${CFG.bff}/bff/me/namespaces`, { credentials: 'include' });
     return r.ok ? (await r.json()).namespaces : [];
   }
 
@@ -90,8 +87,7 @@ export class BffService {
 
   /** All active access-role suspensions (the ban/suspend desired-state table). */
   async accessRoles(): Promise<AccessRolesView> {
-    const t = this.session.session()?.bffToken;
-    const r = await fetch(`${CFG.bff}/bff/admin/access-roles`, { headers: { authorization: `Bearer ${t}` } });
+    const r = await fetch(`${CFG.bff}/bff/admin/access-roles`, { credentials: 'include' });
     return r.ok ? r.json() : { suspensions: [] };
   }
   /** Suspend (ban) a user from a platform access role. ttlSeconds null/absent =
@@ -106,8 +102,7 @@ export class BffService {
   }
   private async accessRoleSend(method: 'POST' | 'DELETE', role: AccessRole, user: string,
                                body?: SuspensionBody): Promise<AccessRolesResult> {
-    const t = this.session.session()?.bffToken;
-    const init: RequestInit = { method, headers: { authorization: `Bearer ${t}` } };
+    const init: RequestInit = { method, headers: {}, credentials: 'include' };
     // Only POST carries an (optional) body. Omit an empty body so the endpoint's
     // optional-body branch applies (a permanent suspension needs no body at all).
     if (method === 'POST' && body && (body.ttlSeconds != null || body.reason)) {
@@ -122,8 +117,7 @@ export class BffService {
 
   /** All active domain-locks (force local-only markers). */
   async domainLocks(): Promise<DomainLocksView> {
-    const t = this.session.session()?.bffToken;
-    const r = await fetch(`${CFG.bff}/bff/admin/domain-lock`, { headers: { authorization: `Bearer ${t}` } });
+    const r = await fetch(`${CFG.bff}/bff/admin/domain-lock`, { credentials: 'include' });
     return r.ok ? r.json() : { domainLocks: [] };
   }
   /** Add a domain-lock (force local-only) marker for a user on a platform. */
@@ -136,8 +130,7 @@ export class BffService {
   }
   private async domainLockSend(method: 'POST' | 'DELETE', role: DomainLockRole, user: string,
                                reason?: string): Promise<DomainLockResult> {
-    const t = this.session.session()?.bffToken;
-    const init: RequestInit = { method, headers: { authorization: `Bearer ${t}` } };
+    const init: RequestInit = { method, headers: {}, credentials: 'include' };
     if (method === 'POST' && reason) {
       (init.headers as Record<string, string>)['content-type'] = 'application/json';
       init.body = JSON.stringify({ reason });
@@ -178,10 +171,9 @@ export class BffService {
    *  reject (non-numeric/non-positive id → 400; downstream unreachable → 502; a row in
    *  another domain → 404). */
   async decideModeration(id: number, approve: boolean): Promise<ModerationRequest> {
-    const t = this.session.session()?.bffToken;
     const r = await fetch(
       `${CFG.bff}/bff/admin/moderation/${encodeURIComponent(String(id))}/decide?approve=${approve}`,
-      { method: 'POST', headers: { authorization: `Bearer ${t}` } });
+      { method: 'POST', credentials: 'include' });
     if (r.ok) return r.json();
     throw new Error(await this.errorOf(r));
   }
@@ -191,22 +183,19 @@ export class BffService {
   // gateway caches them in Cassandra and denies external access unless the
   // caller's Casdoor roles match. Roles are owned by Casdoor.
   async routeAccess(): Promise<RouteRule[]> {
-    const t = this.session.session()?.bffToken;
-    const r = await fetch(`${CFG.bff}/bff/admin/route-access`, { headers: { authorization: `Bearer ${t}` } });
+    const r = await fetch(`${CFG.bff}/bff/admin/route-access`, { credentials: 'include' });
     return r.ok ? (await r.json()).rules : [];
   }
   async addRouteRule(rule: Omit<RouteRule, 'id'>): Promise<RouteRule[]> {
-    const t = this.session.session()?.bffToken;
     const r = await fetch(`${CFG.bff}/bff/admin/route-access`, {
-      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'include',
       body: JSON.stringify(rule),
     });
     return r.ok ? (await r.json()).rules : [];
   }
   async removeRouteRule(id: string): Promise<RouteRule[]> {
-    const t = this.session.session()?.bffToken;
     const r = await fetch(`${CFG.bff}/bff/admin/route-access`, {
-      method: 'DELETE', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      method: 'DELETE', headers: { 'content-type': 'application/json' }, credentials: 'include',
       body: JSON.stringify({ id }),
     });
     return r.ok ? (await r.json()).rules : [];
@@ -217,30 +206,26 @@ export class BffService {
   // from route-access above (which is role→URL allow/deny). The BFF wraps the list
   // as { routes: [...] }, same convention as route-access's { rules: [...] }.
   async routeDefinitions(): Promise<RouteDefinition[]> {
-    const t = this.session.session()?.bffToken;
-    const r = await fetch(`${CFG.bff}/bff/admin/routes`, { headers: { authorization: `Bearer ${t}` } });
+    const r = await fetch(`${CFG.bff}/bff/admin/routes`, { credentials: 'include' });
     return r.ok ? (await r.json()).routes : [];
   }
   async upsertRouteDefinition(def: RouteDefinition): Promise<RouteDefinition[]> {
-    const t = this.session.session()?.bffToken;
     const r = await fetch(`${CFG.bff}/bff/admin/routes`, {
-      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'include',
       body: JSON.stringify(def),
     });
     return r.ok ? (await r.json()).routes : [];
   }
   async removeRouteDefinition(pathPrefix: string): Promise<RouteDefinition[]> {
-    const t = this.session.session()?.bffToken;
     const r = await fetch(`${CFG.bff}/bff/admin/routes/${encodeURIComponent(pathPrefix)}`, {
-      method: 'DELETE', headers: { authorization: `Bearer ${t}` },
+      method: 'DELETE', credentials: 'include',
     });
     return r.ok ? (await r.json()).routes : [];
   }
 
   /** Latest delivered ISO download links (from the CI pipeline). */
   async isos(): Promise<{ name: string; url: string }[]> {
-    const t = this.session.session()?.bffToken;
-    const r = await fetch(`${CFG.bff}/bff/admin/isos`, { headers: { authorization: `Bearer ${t}` } });
+    const r = await fetch(`${CFG.bff}/bff/admin/isos`, { credentials: 'include' });
     return r.ok ? (await r.json()).isos : [];
   }
 
@@ -253,10 +238,9 @@ export class BffService {
   // the UI shows). On a non-OK / network failure here we ALSO fail safe — every
   // capability absent + a warning — so a transient BFF outage degrades, not errors.
   async platformCapabilities(): Promise<PlatformCapabilities> {
-    const t = this.session.session()?.bffToken;
     try {
       const r = await fetch(`${CFG.bff}/bff/admin/platform-capabilities`, {
-        headers: { authorization: `Bearer ${t}` },
+        credentials: 'include',
       });
       if (r.ok) return (await r.json()) as PlatformCapabilities;
     } catch {
@@ -272,23 +256,20 @@ export class BffService {
   // the BFF returns 503 — surfaced here as the {argocdEnabled:false} state so the
   // dashboard can show an honest "ArgoCD not connected" message.
   async argoApplications(): Promise<ArgoAppList> {
-    const t = this.session.session()?.bffToken;
-    const r = await fetch(`${CFG.bff}/bff/admin/argocd/applications`, { headers: { authorization: `Bearer ${t}` } });
+    const r = await fetch(`${CFG.bff}/bff/admin/argocd/applications`, { credentials: 'include' });
     if (r.status === 503) return { items: [], unavailable: true };
     return r.ok ? { items: (await r.json()).items ?? [], unavailable: false } : { items: [], unavailable: false };
   }
   async argoApplication(name: string): Promise<ArgoAppDetail | null> {
-    const t = this.session.session()?.bffToken;
     const r = await fetch(`${CFG.bff}/bff/admin/argocd/applications/${encodeURIComponent(name)}`, {
-      headers: { authorization: `Bearer ${t}` },
+      credentials: 'include',
     });
     return r.ok ? r.json() : null;
   }
   /** Trigger a sync — the BFF requires {confirm: name} (typed confirmation). */
   async argoSync(name: string): Promise<ArgoSyncResult | null> {
-    const t = this.session.session()?.bffToken;
     const r = await fetch(`${CFG.bff}/bff/admin/argocd/applications/${encodeURIComponent(name)}/sync`, {
-      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'include',
       body: JSON.stringify({ confirm: name }),
     });
     return r.ok ? r.json() : null;
@@ -296,8 +277,7 @@ export class BffService {
 
   // ── Unified admin-task wizard (validate → preview → apply per step) ──
   async adminTasks(): Promise<TaskDef[]> {
-    const t = this.session.session()?.bffToken;
-    const r = await fetch(`${CFG.bff}/bff/admin/tasks`, { headers: { authorization: `Bearer ${t}` } });
+    const r = await fetch(`${CFG.bff}/bff/admin/tasks`, { credentials: 'include' });
     return r.ok ? (await r.json()).tasks : [];
   }
   async validateStep(taskId: string, stepId: string, input: Record<string, unknown>): Promise<ValidationResult> {
@@ -314,9 +294,8 @@ export class BffService {
   }
   private async taskPhase<T>(taskId: string, stepId: string, phase: string,
                              input: Record<string, unknown>, fallback: T): Promise<T> {
-    const t = this.session.session()?.bffToken;
     const r = await fetch(`${CFG.bff}/bff/admin/tasks/${taskId}/steps/${stepId}/${phase}`, {
-      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'include',
       body: JSON.stringify(input),
     });
     return r.ok ? r.json() : fallback;
@@ -340,15 +319,13 @@ export class BffService {
 
   /** Backup + restore history (newest first). */
   async backupHistory(): Promise<BackupRecord[]> {
-    const t = this.session.session()?.bffToken;
-    const r = await fetch(`${CFG.bff}/bff/admin/backups`, { headers: { authorization: `Bearer ${t}` } });
+    const r = await fetch(`${CFG.bff}/bff/admin/backups`, { credentials: 'include' });
     return r.ok ? (await r.json()).backups : [];
   }
 
   /** Connected/mountable USB devices offered as targets/sources (+ backups on them). */
   async usbDevices(): Promise<UsbDevice[]> {
-    const t = this.session.session()?.bffToken;
-    const r = await fetch(`${CFG.bff}/bff/admin/usb-devices`, { headers: { authorization: `Bearer ${t}` } });
+    const r = await fetch(`${CFG.bff}/bff/admin/usb-devices`, { credentials: 'include' });
     return r.ok ? (await r.json()).devices : [];
   }
 
@@ -365,25 +342,22 @@ export class BffService {
 
   /** Newest-first run history + whether the launcher really applies k8s Jobs. */
   async testReports(): Promise<TestReportsList> {
-    const t = this.session.session()?.bffToken;
-    const r = await fetch(`${CFG.bff}/bff/admin/test-reports`, { headers: { authorization: `Bearer ${t}` } });
+    const r = await fetch(`${CFG.bff}/bff/admin/test-reports`, { credentials: 'include' });
     return r.ok ? r.json() : { runs: [], launchReal: false };
   }
 
   /** One run's summary + per-(suite,role) matrix (the detail view). */
   async testReportDetail(id: string): Promise<TestRunDetail | null> {
-    const t = this.session.session()?.bffToken;
     const r = await fetch(`${CFG.bff}/bff/admin/test-reports/${encodeURIComponent(id)}`, {
-      headers: { authorization: `Bearer ${t}` },
+      credentials: 'include',
     });
     return r.ok ? r.json() : null;
   }
 
   /** Trigger a run on-demand. Returns the new run id (or throws the BFF {error}). */
   async runTestReport(req: StartTestRunRequest): Promise<StartTestRunResult> {
-    const t = this.session.session()?.bffToken;
     const r = await fetch(`${CFG.bff}/bff/admin/test-reports/run`, {
-      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'include',
       body: JSON.stringify(req),
     });
     if (r.ok) return r.json();
@@ -392,16 +366,15 @@ export class BffService {
   }
 
   /**
-   * Download a run's stored report bundle (re-scrubbed tar.gz). Uses a bearer
-   * fetch (NOT a plain <a href>) so the Casdoor token is sent, then hands the
+   * Download a run's stored report bundle (re-scrubbed tar.gz). Uses a credentialed
+   * fetch (NOT a plain <a href>) so the HttpOnly bff_ cookie is sent, then hands the
    * Blob to a synthetic, object-URL-backed anchor so the browser saves the file.
    * Returns false (no throw) when the run has no bundle / the request is denied,
    * so the caller can surface an honest "no report available" message.
    */
   async downloadTestReport(id: string): Promise<boolean> {
-    const t = this.session.session()?.bffToken;
     const r = await fetch(`${CFG.bff}/bff/admin/test-reports/${encodeURIComponent(id)}/download`, {
-      headers: { authorization: `Bearer ${t}`, accept: 'application/gzip' },
+      headers: { accept: 'application/gzip' }, credentials: 'include',
     });
     if (!r.ok) return false;
     const blob = await r.blob();
@@ -421,16 +394,16 @@ export class BffService {
 
   /**
    * Subscribe to the SSE progress stream for a test run id. Like
-   * {@link streamJobEvents} this uses a bearer fetch + ReadableStream reader (NOT
-   * raw EventSource, which cannot send the Casdoor Bearer). Parses each SSE
-   * `data:` line as a TestRunEvent and invokes `onEvent`; resolves when the stream
-   * completes. `signal` lets the caller abort on component teardown.
+   * {@link streamJobEvents} this uses a credentialed fetch + ReadableStream reader
+   * (NOT raw EventSource, which cannot be aborted on teardown). The HttpOnly bff_
+   * cookie rides via credentials:'include'. Parses each SSE `data:` line as a
+   * TestRunEvent and invokes `onEvent`; resolves when the stream completes.
+   * `signal` lets the caller abort on component teardown.
    */
   async streamTestRunEvents(runId: string, onEvent: (e: TestRunEvent) => void,
                             signal?: AbortSignal): Promise<void> {
-    const t = this.session.session()?.bffToken;
     const r = await fetch(`${CFG.bff}/bff/admin/test-reports/${encodeURIComponent(runId)}/events`, {
-      headers: { authorization: `Bearer ${t}`, accept: 'text/event-stream' }, signal,
+      headers: { accept: 'text/event-stream' }, credentials: 'include', signal,
     });
     if (!r.ok || !r.body) throw new Error(`HTTP ${r.status}`);
     const reader = r.body.getReader();
@@ -470,16 +443,14 @@ export class BffService {
   /** Newest-first build history + whether the generator launcher really runs (false =
    *  ships dark: a build is recorded QUEUED but no real cluster Job runs). */
   async listImageBuilds(): Promise<ImageBuildList> {
-    const t = this.session.session()?.bffToken;
-    const r = await fetch(`${CFG.bff}/bff/admin/image-builds`, { headers: { authorization: `Bearer ${t}` } });
+    const r = await fetch(`${CFG.bff}/bff/admin/image-builds`, { credentials: 'include' });
     return r.ok ? r.json() : { builds: [], launchReal: false };
   }
 
   /** One build's detail row (own-domain scoped). */
   async imageBuildDetail(id: string): Promise<ImageBuild | null> {
-    const t = this.session.session()?.bffToken;
     const r = await fetch(`${CFG.bff}/bff/admin/image-builds/${encodeURIComponent(id)}`, {
-      headers: { authorization: `Bearer ${t}` },
+      credentials: 'include',
     });
     return r.ok ? r.json() : null;
   }
@@ -491,13 +462,10 @@ export class BffService {
    * 503 when the feature ships dark / disabled).
    */
   async triggerImageBuild(req: TriggerImageBuildRequest, stepUpToken?: string): Promise<ImageBuildTriggerResult> {
-    const t = this.session.session()?.bffToken;
-    const headers: Record<string, string> = {
-      'content-type': 'application/json', authorization: `Bearer ${t}`,
-    };
+    const headers: Record<string, string> = { 'content-type': 'application/json' };
     if (stepUpToken) headers['X-ImageGen-StepUp'] = stepUpToken;
     const r = await fetch(`${CFG.bff}/bff/admin/image-builds`, {
-      method: 'POST', headers, body: JSON.stringify(req),
+      method: 'POST', headers, credentials: 'include', body: JSON.stringify(req),
     });
     if (r.ok) return r.json();
     const err = (await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`;
@@ -506,15 +474,15 @@ export class BffService {
 
   /**
    * Subscribe to the SSE progress stream for a build id. Like {@link streamTestRunEvents}
-   * this uses a bearer fetch + ReadableStream reader (NOT raw EventSource, which cannot send
-   * the Casdoor Bearer). Parses each SSE `data:` line as an ImageBuildEvent and invokes
-   * `onEvent`; resolves when the stream completes. `signal` lets the caller abort on teardown.
+   * this uses a credentialed fetch + ReadableStream reader (NOT raw EventSource, which cannot
+   * be aborted on teardown); the HttpOnly bff_ cookie rides via credentials:'include'. Parses
+   * each SSE `data:` line as an ImageBuildEvent and invokes `onEvent`; resolves when the stream
+   * completes. `signal` lets the caller abort on teardown.
    */
   async imageBuildEvents(buildId: string, onEvent: (e: ImageBuildEvent) => void,
                          signal?: AbortSignal): Promise<void> {
-    const t = this.session.session()?.bffToken;
     const r = await fetch(`${CFG.bff}/bff/admin/image-builds/${encodeURIComponent(buildId)}/events`, {
-      headers: { authorization: `Bearer ${t}`, accept: 'text/event-stream' }, signal,
+      headers: { accept: 'text/event-stream' }, credentials: 'include', signal,
     });
     if (!r.ok || !r.body) throw new Error(`HTTP ${r.status}`);
     const reader = r.body.getReader();
@@ -538,14 +506,13 @@ export class BffService {
   }
 
   /**
-   * Download a build's image (.img). Bearer fetch → Blob → synthetic object-URL anchor
-   * (NOT a plain <a href>, so the Casdoor token is sent). Returns false (no throw) when the
-   * image is not available / the request is denied, so the caller can surface an honest note.
+   * Download a build's image (.img). Credentialed fetch → Blob → synthetic object-URL anchor
+   * (NOT a plain <a href>, so the HttpOnly bff_ cookie is sent). Returns false (no throw) when
+   * the image is not available / the request is denied, so the caller can surface an honest note.
    */
   async downloadImage(id: string): Promise<boolean> {
-    const t = this.session.session()?.bffToken;
     const r = await fetch(`${CFG.bff}/bff/admin/image-builds/${encodeURIComponent(id)}/image`, {
-      headers: { authorization: `Bearer ${t}`, accept: 'application/octet-stream' },
+      headers: { accept: 'application/octet-stream' }, credentials: 'include',
     });
     if (!r.ok) return false;
     return this.saveBlob(await r.blob(), `snapdragon-image-${id.replace(/[^A-Za-z0-9._-]/g, '_')}.img`);
@@ -559,10 +526,9 @@ export class BffService {
    * persists any key. Returns false (no throw) when denied / unavailable.
    */
   async downloadImageKeys(id: string, stepUpToken?: string): Promise<boolean> {
-    const t = this.session.session()?.bffToken;
-    const headers: Record<string, string> = { authorization: `Bearer ${t}`, accept: 'application/gzip' };
+    const headers: Record<string, string> = { accept: 'application/gzip' };
     if (stepUpToken) headers['X-ImageGen-StepUp'] = stepUpToken;
-    const r = await fetch(`${CFG.bff}/bff/admin/image-builds/${encodeURIComponent(id)}/keys`, { headers });
+    const r = await fetch(`${CFG.bff}/bff/admin/image-builds/${encodeURIComponent(id)}/keys`, { headers, credentials: 'include' });
     if (!r.ok) return false;
     return this.saveBlob(await r.blob(), `snapdragon-keys-${id.replace(/[^A-Za-z0-9._-]/g, '_')}.tar.gz`);
   }
@@ -625,13 +591,11 @@ export class BffService {
   }
 
   private async forumGet(path: string): Promise<ForumEnvelope> {
-    const t = this.session.session()?.bffToken;
-    const r = await fetch(`${CFG.bff}/bff/admin/forum${path}`, { headers: { authorization: `Bearer ${t}` } });
+    const r = await fetch(`${CFG.bff}/bff/admin/forum${path}`, { credentials: 'include' });
     return r.ok ? r.json() : { result: `degraded:HTTP ${r.status}` };
   }
   private async forumSend(method: string, path: string, body?: unknown): Promise<ForumEnvelope> {
-    const t = this.session.session()?.bffToken;
-    const init: RequestInit = { method, headers: { authorization: `Bearer ${t}` } };
+    const init: RequestInit = { method, headers: {}, credentials: 'include' };
     if (body !== undefined) {
       (init.headers as Record<string, string>)['content-type'] = 'application/json';
       init.body = JSON.stringify(body);
@@ -656,8 +620,7 @@ export class BffService {
 
   /** All registered devices with owner, domain residency + their active licenses. */
   async devices(): Promise<DeviceRegistration[]> {
-    const t = this.session.session()?.bffToken;
-    const r = await fetch(`${CFG.bff}/bff/admin/device-licenses`, { headers: { authorization: `Bearer ${t}` } });
+    const r = await fetch(`${CFG.bff}/bff/admin/device-licenses`, { credentials: 'include' });
     return r.ok ? (await r.json()).devices : [];
   }
 
@@ -682,8 +645,7 @@ export class BffService {
   }
 
   private async licenseMutation(method: string, path: string, body?: unknown): Promise<DeviceRegistration[]> {
-    const t = this.session.session()?.bffToken;
-    const init: RequestInit = { method, headers: { authorization: `Bearer ${t}` } };
+    const init: RequestInit = { method, headers: {}, credentials: 'include' };
     if (body !== undefined) {
       (init.headers as Record<string, string>)['content-type'] = 'application/json';
       init.body = JSON.stringify(body);
@@ -709,9 +671,8 @@ export class BffService {
    *  registry. ADMIN sees own-domain registered rows; SUPERADMIN also sees the
    *  unregistered (registered=false) candidates available to assign. */
   async pendingNodes(): Promise<PendingNode[]> {
-    const t = this.session.session()?.bffToken;
     const r = await fetch(`${CFG.bff}/bff/admin/device-licenses/pending`, {
-      headers: { authorization: `Bearer ${t}` },
+      credentials: 'include',
     });
     return r.ok ? (await r.json()).nodes ?? [] : [];
   }
@@ -720,10 +681,9 @@ export class BffService {
    *  is the OPAQUE token straight from the pending list — passed through verbatim (the BFF
    *  re-validates it against headscale). Returns the created/idempotent device row. */
   async registerFromPending(input: RegisterDeviceInput): Promise<DeviceRegistration> {
-    const t = this.session.session()?.bffToken;
     const r = await fetch(`${CFG.bff}/bff/admin/device-licenses/register`, {
       method: 'POST',
-      headers: { authorization: `Bearer ${t}`, 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json' }, credentials: 'include',
       body: JSON.stringify(input),
     });
     if (r.ok) return (await r.json()) as DeviceRegistration;
@@ -749,8 +709,7 @@ export class BffService {
   /** Every imported VPN config + every active assignment (own-domain for an ADMIN,
    *  all brands for a SUPERADMIN — the BFF scopes the read). */
   async egressVpn(): Promise<{ configs: VpnConfigRow[]; assignments: VpnNodeAssignmentRow[] }> {
-    const t = this.session.session()?.bffToken;
-    const r = await fetch(`${CFG.bff}/bff/admin/egress-vpn`, { headers: { authorization: `Bearer ${t}` } });
+    const r = await fetch(`${CFG.bff}/bff/admin/egress-vpn`, { credentials: 'include' });
     if (!r.ok) return { configs: [], assignments: [] };
     const body = await r.json();
     return { configs: body.configs ?? [], assignments: body.assignments ?? [] };
@@ -759,9 +718,8 @@ export class BffService {
   /** Import a provider VPN config. The .conf/.ovpn text is parse-validated by the BFF
    *  (a malformed config → 422 {error}); only a secret_ref + metadata are persisted. */
   async importVpnConfig(req: ImportVpnConfigRequest): Promise<VpnConfigRow> {
-    const t = this.session.session()?.bffToken;
     const r = await fetch(`${CFG.bff}/bff/admin/egress-vpn/configs`, {
-      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'include',
       body: JSON.stringify(req),
     });
     if (r.ok) return r.json();
@@ -795,10 +753,9 @@ export class BffService {
   }
 
   private async vpnAssign(path: string, serviceSlug?: string): Promise<VpnNodeAssignmentRow> {
-    const t = this.session.session()?.bffToken;
     const body = serviceSlug && serviceSlug.trim() ? { serviceSlug: serviceSlug.trim() } : {};
     const r = await fetch(`${CFG.bff}${path}`, {
-      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'include',
       body: JSON.stringify(body),
     });
     if (r.ok) return r.json();
@@ -806,8 +763,7 @@ export class BffService {
   }
 
   private async vpnRevoke(path: string): Promise<number> {
-    const t = this.session.session()?.bffToken;
-    const r = await fetch(`${CFG.bff}${path}`, { method: 'DELETE', headers: { authorization: `Bearer ${t}` } });
+    const r = await fetch(`${CFG.bff}${path}`, { method: 'DELETE', credentials: 'include' });
     if (r.ok) return (await r.json()).revoked ?? 0;
     throw new Error(await this.errorOf(r));
   }
@@ -827,17 +783,15 @@ export class BffService {
 
   /** Every registered domain (the SUPERADMIN brand-list surface). */
   async listDomains(): Promise<DomainResponse[]> {
-    const t = this.session.session()?.bffToken;
-    const r = await fetch(`${CFG.bff}/bff/admin/domains`, { headers: { authorization: `Bearer ${t}` } });
+    const r = await fetch(`${CFG.bff}/bff/admin/domains`, { credentials: 'include' });
     return r.ok ? r.json() : [];
   }
 
   /** Register a new domain. Returns the persisted row, or throws the BFF {error}
    *  (a duplicate cluster_domain → 409; a malformed body → 400). */
   async createDomain(req: CreateDomainRequest): Promise<DomainResponse> {
-    const t = this.session.session()?.bffToken;
     const r = await fetch(`${CFG.bff}/bff/admin/domains`, {
-      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'include',
       body: JSON.stringify(req),
     });
     if (r.ok) return r.json();
@@ -845,9 +799,8 @@ export class BffService {
   }
 
   private async postJob(path: string, body: unknown): Promise<StartJobResult> {
-    const t = this.session.session()?.bffToken;
     const r = await fetch(`${CFG.bff}${path}`, {
-      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'include',
       body: JSON.stringify(body),
     });
     if (r.ok) return r.json();
@@ -856,16 +809,16 @@ export class BffService {
   }
 
   /**
-   * Subscribe to the SSE progress stream for a backup OR restore job id. Uses
-   * fetch (not EventSource) so the Casdoor bearer token can be sent. Parses the
-   * SSE `data:` JobEvent lines and invokes `onEvent` for each; resolves when the
-   * stream completes. `signal` lets the caller abort (component teardown).
+   * Subscribe to the SSE progress stream for a backup OR restore job id. Uses a
+   * credentialed fetch (not EventSource, which cannot be aborted on teardown) so the
+   * HttpOnly bff_ cookie rides via credentials:'include'. Parses the SSE `data:`
+   * JobEvent lines and invokes `onEvent` for each; resolves when the stream
+   * completes. `signal` lets the caller abort (component teardown).
    */
   async streamJobEvents(jobId: string, onEvent: (e: BackupJobEvent) => void,
                         signal?: AbortSignal): Promise<void> {
-    const t = this.session.session()?.bffToken;
     const r = await fetch(`${CFG.bff}/bff/admin/backups/${encodeURIComponent(jobId)}/events`, {
-      headers: { authorization: `Bearer ${t}`, accept: 'text/event-stream' }, signal,
+      headers: { accept: 'text/event-stream' }, credentials: 'include', signal,
     });
     if (!r.ok || !r.body) throw new Error(`HTTP ${r.status}`);
     const reader = r.body.getReader();
@@ -891,25 +844,22 @@ export class BffService {
 
   // ── OIDC provider default-role mappings ──────────────────────────────────
   async oidcProviderRoles(): Promise<OidcProviderMapping[]> {
-    const t = this.session.session()?.bffToken;
-    const r = await fetch(`${CFG.bff}/bff/admin/oidc-providers/roles`, { headers: { authorization: `Bearer ${t}` } });
+    const r = await fetch(`${CFG.bff}/bff/admin/oidc-providers/roles`, { credentials: 'include' });
     if (!r.ok) return [];
     const body: { providers: OidcProviderMapping[] } = await r.json();
     return body.providers ?? [];
   }
 
   async setOidcProviderRoles(provider: string, roles: string[]): Promise<void> {
-    const t = this.session.session()?.bffToken;
     await fetch(`${CFG.bff}/bff/admin/oidc-providers/${encodeURIComponent(provider)}/roles`, {
-      method: 'PUT', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      method: 'PUT', headers: { 'content-type': 'application/json' }, credentials: 'include',
       body: JSON.stringify({ roles }),
     });
   }
 
   async clearOidcProviderRoles(provider: string): Promise<void> {
-    const t = this.session.session()?.bffToken;
     await fetch(`${CFG.bff}/bff/admin/oidc-providers/${encodeURIComponent(provider)}/roles`, {
-      method: 'DELETE', headers: { authorization: `Bearer ${t}` },
+      method: 'DELETE', credentials: 'include',
     });
   }
 
@@ -929,9 +879,8 @@ export class BffService {
 
   /** Pools + assignments VISIBLE to the caller (ADMIN own-domain, SUPERADMIN all). */
   async storagePools(): Promise<{ pools: StoragePool[]; assignments: ServiceAssignment[] }> {
-    const t = this.session.session()?.bffToken;
     const r = await fetch(`${CFG.bff}/bff/admin/device-storage-pools`, {
-      headers: { authorization: `Bearer ${t}` },
+      credentials: 'include',
     });
     if (!r.ok) return { pools: [], assignments: [] };
     const body = await r.json();
@@ -964,8 +913,7 @@ export class BffService {
   }
 
   private async storageMutation<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const t = this.session.session()?.bffToken;
-    const init: RequestInit = { method, headers: { authorization: `Bearer ${t}` } };
+    const init: RequestInit = { method, headers: {}, credentials: 'include' };
     if (body !== undefined) {
       (init.headers as Record<string, string>)['content-type'] = 'application/json';
       init.body = JSON.stringify(body);
@@ -986,24 +934,21 @@ export class BffService {
 
   /** The catalog servers offered + enabled for the caller's domain. */
   async gamesOfferedCatalog(): Promise<GameOffer[]> {
-    const t = this.session.session()?.bffToken;
-    const r = await fetch(`${CFG.bff}/bff/games-services/catalog`, { headers: { authorization: `Bearer ${t}` } });
+    const r = await fetch(`${CFG.bff}/bff/games-services/catalog`, { credentials: 'include' });
     return r.ok ? r.json() : [];
   }
 
   /** The caller's own-brand instances. */
   async gamesInstances(): Promise<GameInstance[]> {
-    const t = this.session.session()?.bffToken;
-    const r = await fetch(`${CFG.bff}/bff/games-services/instances`, { headers: { authorization: `Bearer ${t}` } });
+    const r = await fetch(`${CFG.bff}/bff/games-services/instances`, { credentials: 'include' });
     return r.ok ? r.json() : [];
   }
 
   /** Request a new instance. Returns the persisted row, or throws the BFF {error}
    *  (the creation gate → 403; a duplicate name → 409). */
   async createGameInstance(req: CreateGameInstanceRequest): Promise<GameInstance> {
-    const t = this.session.session()?.bffToken;
     const r = await fetch(`${CFG.bff}/bff/games-services/instances`, {
-      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` },
+      method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'include',
       body: JSON.stringify(req),
     });
     if (r.ok) return r.json();
@@ -1012,24 +957,21 @@ export class BffService {
 
   /** Run/stop transition (suspend | resume | terminate). Returns the updated row. */
   async gameInstanceAction(id: string, action: 'suspend' | 'resume' | 'terminate'): Promise<GameInstance> {
-    const t = this.session.session()?.bffToken;
     const r = await fetch(
       `${CFG.bff}/bff/games-services/instances/${encodeURIComponent(id)}/${action}`,
-      { method: 'POST', headers: { authorization: `Bearer ${t}` } });
+      { method: 'POST', credentials: 'include' });
     if (r.ok) return r.json();
     throw new Error(await this.errorOf(r));
   }
 
   // ── Anubis bot-challenge sidecar (SUPERADMIN only) ────────────────────────
   async anubisStatus(): Promise<AnubisStatus> {
-    const t = this.session.session()?.bffToken;
-    const r = await fetch(`${CFG.bff}/bff/admin/anubis/status`, { headers: { authorization: `Bearer ${t}` } });
+    const r = await fetch(`${CFG.bff}/bff/admin/anubis/status`, { credentials: 'include' });
     return r.ok ? r.json() : { enabled: false, managementUrl: '', difficulty: 0, health: 'error', reachable: false };
   }
 
   async anubisMetrics(): Promise<AnubisMetricsResponse> {
-    const t = this.session.session()?.bffToken;
-    const r = await fetch(`${CFG.bff}/bff/admin/anubis/metrics`, { headers: { authorization: `Bearer ${t}` } });
+    const r = await fetch(`${CFG.bff}/bff/admin/anubis/metrics`, { credentials: 'include' });
     return r.ok ? r.json() : { enabled: false, raw: '', metrics: [] };
   }
 
@@ -1042,10 +984,9 @@ export class BffService {
   /** The capability probe — 200 (with a body) iff the caller has a live grant/role on the
    *  workload console; 404 on deny (no existence leak). Returns null on any non-200. */
   async workloadCapability(): Promise<WorkloadCapability | null> {
-    const t = this.session.session()?.bffToken;
     try {
       const r = await fetch(`${CFG.bff}/bff/admin/workloads/capability`, {
-        headers: { authorization: `Bearer ${t}` },
+        credentials: 'include',
       });
       return r.ok ? (await r.json()) as WorkloadCapability : null;
     } catch {
@@ -1086,13 +1027,12 @@ export class BffService {
 
   /** Non-stream, server-redacted log read (admin log_access-gated). */
   async workloadLogs(namespace: string, pod: string, container?: string, tail = 200): Promise<WorkloadLogResult> {
-    const t = this.session.session()?.bffToken;
     const q = new URLSearchParams();
     if (container) q.set('container', container);
     q.set('tail', String(tail));
     const r = await fetch(
       `${CFG.bff}/bff/admin/workloads/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(pod)}/logs?${q}`,
-      { headers: { authorization: `Bearer ${t}` } });
+      { credentials: 'include' });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return r.json();
   }
@@ -1100,11 +1040,10 @@ export class BffService {
   /** SUPERADMIN live log-tail (SSE, server-redacted). Mirrors {@link streamJobEvents}. */
   async streamWorkloadLogs(namespace: string, pod: string, container: string | undefined,
                            onLine: (e: WorkloadLogLine) => void, signal?: AbortSignal): Promise<void> {
-    const t = this.session.session()?.bffToken;
     const q = container ? `?container=${encodeURIComponent(container)}` : '';
     const r = await fetch(
       `${CFG.bff}/bff/superadmin/workloads/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(pod)}/logs/stream${q}`,
-      { headers: { authorization: `Bearer ${t}`, accept: 'text/event-stream' }, signal });
+      { headers: { accept: 'text/event-stream' }, credentials: 'include', signal });
     if (!r.ok || !r.body) throw new Error(`HTTP ${r.status}`);
     const reader = r.body.getReader();
     const decoder = new TextDecoder();
@@ -1149,14 +1088,11 @@ export class BffService {
    *  tier). Returns the pending intent the UI surfaces as "pending sync". */
   async workloadLifecycle(namespace: string, workload: string, verb: string,
                           body: WorkloadLifecycleRequest, stepUpToken?: string): Promise<WorkloadIntent> {
-    const t = this.session.session()?.bffToken;
-    const headers: Record<string, string> = {
-      'content-type': 'application/json', authorization: `Bearer ${t}`,
-    };
+    const headers: Record<string, string> = { 'content-type': 'application/json' };
     if (stepUpToken) headers['X-Workload-StepUp'] = stepUpToken;
     const r = await fetch(
       `${CFG.bff}/bff/superadmin/workloads/lifecycle/${encodeURIComponent(namespace)}/${encodeURIComponent(workload)}/${encodeURIComponent(verb)}`,
-      { method: 'POST', headers, body: JSON.stringify(body) });
+      { method: 'POST', headers, credentials: 'include', body: JSON.stringify(body) });
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`);
     return r.json();
   }
@@ -1192,8 +1128,7 @@ export class BffService {
 
   // ── shared workload helpers ────────────────────────────────────────────────
   private async workloadGet<T>(path: string, empty: T): Promise<T> {
-    const t = this.session.session()?.bffToken;
-    const r = await fetch(`${CFG.bff}${path}`, { headers: { authorization: `Bearer ${t}` } });
+    const r = await fetch(`${CFG.bff}${path}`, { credentials: 'include' });
     if (!r.ok) {
       if (r.status === 404 || r.status === 403) return empty; // dark / denied — no existence leak
       throw new Error(`HTTP ${r.status}`);
@@ -1202,8 +1137,7 @@ export class BffService {
   }
 
   private async workloadMutate<T = unknown>(method: string, path: string, body?: unknown): Promise<T> {
-    const t = this.session.session()?.bffToken;
-    const init: RequestInit = { method, headers: { authorization: `Bearer ${t}` } };
+    const init: RequestInit = { method, headers: {}, credentials: 'include' };
     if (body !== undefined) {
       (init.headers as Record<string, string>)['content-type'] = 'application/json';
       init.body = JSON.stringify(body);
@@ -1329,14 +1263,12 @@ export class BffService {
    *  ENABLED allowlist, or the device is cross-domain / superadmin-owned. While the BFF ships dark
    *  (app.desktop.remote-install.enabled=false) it returns a {"dark":true,...} result descriptor. */
   async desktopRemoteInstall(deviceId: string, appRef: string, stepUpToken?: string): Promise<string> {
-    const t = this.session.session()?.bffToken;
-    const headers: Record<string, string> = {
-      'content-type': 'application/json', authorization: `Bearer ${t}`,
-    };
+    const headers: Record<string, string> = { 'content-type': 'application/json' };
     if (stepUpToken) headers['X-Device-Terminal-StepUp'] = stepUpToken;
     const r = await fetch(`${CFG.bff}/bff/admin/desktop/remote-install`, {
       method: 'POST',
       headers,
+      credentials: 'include',
       body: JSON.stringify({ deviceId, appRef }),
     });
     if (r.ok) return r.text();
@@ -1350,10 +1282,9 @@ export class BffService {
    *  the workload-console TTY/SSE infra) lands in a follow-on increment; until then the
    *  component renders the terminal greyed with helptext explaining the dark state. */
   async desktopOpenSshSession(deviceId: string): Promise<DesktopSshSession> {
-    const t = this.session.session()?.bffToken;
     const r = await fetch(
       `${CFG.bff}/bff/admin/desktop/ssh-terminal/sessions?deviceId=${encodeURIComponent(deviceId)}`,
-      { method: 'POST', headers: { authorization: `Bearer ${t}` } });
+      { method: 'POST', credentials: 'include' });
     if (r.ok) return r.json();
     throw new Error(await this.errorOf(r));
   }
@@ -1375,10 +1306,9 @@ export class BffService {
    *  Mirrors the HIDDEN-tier workloadCapability idiom: any non-200 / network error → false (no
    *  existence leak, surface stays hidden). A 403/404 means "not for you" → hidden. */
   async desktopDialCapability(): Promise<boolean> {
-    const t = this.session.session()?.bffToken;
     try {
       const r = await fetch(`${CFG.bff}/bff/superadmin/desktop/dials`, {
-        headers: { authorization: `Bearer ${t}` },
+        credentials: 'include',
       });
       return r.ok; // 200 = leg enabled + caller is SUPERADMIN; 403/404/503 → hidden
     } catch {
@@ -1406,10 +1336,9 @@ export class BffService {
   /** Shared dial activate/revoke POST — carries the bearer + the step-up header; throws the BFF
    *  {error} on any non-2xx (so a 422/503/404/403 surfaces verbatim to the operator). */
   private async desktopDialMutate(path: string, stepUpToken: string): Promise<DeviceSshDial> {
-    const t = this.session.session()?.bffToken;
     const r = await fetch(`${CFG.bff}${path}`, {
       method: 'POST',
-      headers: { authorization: `Bearer ${t}`, 'X-Device-Terminal-StepUp': stepUpToken },
+      headers: { 'X-Device-Terminal-StepUp': stepUpToken }, credentials: 'include',
     });
     if (r.ok) return r.json();
     throw new Error(await this.errorOf(r));

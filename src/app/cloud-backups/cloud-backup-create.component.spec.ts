@@ -29,7 +29,7 @@ describe('CloudBackupCreateComponent', () => {
 
   async function mount(): Promise<void> {
     localStorage.clear();
-    localStorage.setItem('snap.session', JSON.stringify({ bffToken: 'tok' }));
+    localStorage.setItem('snap.session', JSON.stringify({ roles: [] }));
     api = jasmine.createSpyObj<CloudBackupsService>('CloudBackupsService', ['services', 'getDestination', 'createSet']);
     api.services.and.resolveTo(menu);
     api.getDestination.and.resolveTo(undefined);

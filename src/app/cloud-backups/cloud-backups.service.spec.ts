@@ -46,21 +46,19 @@ describe('CloudBackupsService', () => {
   }
 
   beforeEach(() => {
-    localStorage.clear();
-    localStorage.setItem('snap.session', JSON.stringify({ bffToken: 'tok-123' }));
     fetchSpy = spyOn(globalThis, 'fetch');
     TestBed.configureTestingModule({
       providers: [CloudBackupsService, { provide: CLOUD_BACKUPS_BASE_URL, useValue: '' }],
     });
     svc = TestBed.inject(CloudBackupsService);
   });
-  afterEach(() => localStorage.clear());
 
-  it('listSets GETs /bff/admin/cloud-backups with the bearer and no domain filter', async () => {
+  it('listSets GETs /bff/admin/cloud-backups with credentials (no bearer) and no domain filter', async () => {
     fetchSpy.and.resolveTo(json([sampleSet()]));
     const out = await svc.listSets();
     expect(lastCall().url).toBe('/bff/admin/cloud-backups');
-    expect((lastCall().init.headers as any)['Authorization']).toBe('Bearer tok-123');
+    expect(lastCall().init.credentials).toBe('include');
+    expect((lastCall().init.headers as any)['Authorization']).toBeUndefined();
     expect(out.length).toBe(1);
   });
 

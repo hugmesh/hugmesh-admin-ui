@@ -29,7 +29,7 @@ describe('CloudBackupTotalComponent (superadmin)', () => {
 
   async function mount(): Promise<void> {
     localStorage.clear();
-    localStorage.setItem('snap.session', JSON.stringify({ bffToken: 'tok' }));
+    localStorage.setItem('snap.session', JSON.stringify({ roles: [] }));
     api = jasmine.createSpyObj<CloudBackupsService>('CloudBackupsService', ['services', 'createTotal']);
     api.services.and.resolveTo(menu);
     api.createTotal.and.resolveTo(totalSet());

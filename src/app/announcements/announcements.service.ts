@@ -77,9 +77,10 @@ export interface AnnouncementInput {
  * {@code src/app/api}, generated from the admin-bff-api OpenAPI spec) instead of
  * hand-rolling {@code fetch} + bearer-token URLs. The generated client calls the
  * SAME same-origin {@code /bff/admin/announcements} paths (its {@code rootUrl}
- * defaults to ''), and the {@code authInterceptor} attaches the SAME session
- * {@code bffToken} as a Bearer header — so the wire calls (URL/method/body/auth)
- * are unchanged. This store keeps its OWN public {@link Announcement} /
+ * defaults to ''), and the {@code authInterceptor} sets {@code withCredentials} so
+ * the request rides the SAME HttpOnly {@code bff_} cookie (the gateway turns it
+ * into the bearer server-side) — so the wire calls (URL/method/body/auth) are
+ * equivalent. This store keeps its OWN public {@link Announcement} /
  * {@link AnnouncementInput} types so the List + Editor components consuming it
  * need NO change; the generated model is bridged at the delegation boundary
  * (the list response is a {@code Map<String,Object>}, narrowed via

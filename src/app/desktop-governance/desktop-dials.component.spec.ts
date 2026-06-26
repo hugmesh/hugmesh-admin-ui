@@ -22,7 +22,7 @@ describe('DesktopDialsComponent (SUPERADMIN dial management)', () => {
     bff.desktopStepUp.and.resolveTo({ stepUpToken: 'STEPUP-TOK', ttlMinutes: 5 });
 
     session = jasmine.createSpyObj<SessionService>('SessionService', ['isSuperadmin']);
-    (session as unknown as { session: () => unknown }).session = () => ({ id: 'root@super', bffToken: 'tok', roles: [] });
+    (session as unknown as { session: () => unknown }).session = () => ({ id: 'root@super', roles: [] });
     (session as unknown as { isSuperadmin: () => boolean }).isSuperadmin = () => opts.superadmin;
 
     TestBed.resetTestingModule();

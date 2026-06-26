@@ -111,7 +111,7 @@ function fakeBff(server: FakeDesktopServer): BffService {
 
 function fakeSession(id = 'admin@brand-a'): SessionService {
   const s: Partial<SessionService> = {
-    session: (() => ({ id, bffToken: 'tok', roles: ['admin'] })) as unknown as SessionService['session'],
+    session: (() => ({ id, roles: ['admin'] })) as unknown as SessionService['session'],
     isSuperadmin: (() => false) as unknown as SessionService['isSuperadmin'],
   };
   return s as SessionService;

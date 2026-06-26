@@ -28,7 +28,7 @@ describe('CloudBackupSetsComponent', () => {
 
   async function mount(isSuperadmin = false): Promise<void> {
     localStorage.clear();
-    localStorage.setItem('snap.session', JSON.stringify({ bffToken: 'tok' }));
+    localStorage.setItem('snap.session', JSON.stringify({ roles: [] }));
     api = jasmine.createSpyObj<CloudBackupsService>('CloudBackupsService', [
       'listSets', 'versions', 'artifacts', 'restore',
     ]);

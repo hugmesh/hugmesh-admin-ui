@@ -16,8 +16,9 @@ import {
  * build's detail, and the LIVE progress of an in-flight build streamed from the admin-bff
  * SSE endpoint.
  *
- * <p>The SSE is consumed via the bearer-fetch ReadableStream reader (NOT raw EventSource —
- * which cannot send the Casdoor Bearer); a stream error surfaces as a synthetic terminal
+ * <p>The SSE is consumed via the credentialed-fetch ReadableStream reader (NOT raw EventSource —
+ * which cannot be aborted on teardown; the HttpOnly bff_ cookie rides via credentials:'include');
+ * a stream error surfaces as a synthetic terminal
  * event so the aria-live region announces it instead of stalling. NO secret is ever held
  * here — the keys bundle is a backend-guaranteed-non-secret download the UI only triggers.
  */

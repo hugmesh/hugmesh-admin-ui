@@ -123,7 +123,7 @@ describe('FEATURE: Admin cloud-backup + step-up restore (e2e)', () => {
 
   beforeEach(() => {
     localStorage.clear();
-    localStorage.setItem('snap.session', JSON.stringify({ bffToken: 'tok' }));
+    localStorage.setItem('snap.session', JSON.stringify({ roles: [] }));
     bffSets = [];
     fetchSpy = spyOn(globalThis, 'fetch');
     installFakeBff();

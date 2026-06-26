@@ -2,7 +2,6 @@ import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, inject, sig
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Terminal } from '@xterm/xterm';
-import { SessionService } from '../session.service';
 import { BffService } from '../bff.service';
 
 declare const __SNAP_BFF_URL__: string | undefined;
@@ -13,9 +12,11 @@ declare const __SNAP_BFF_URL__: string | undefined;
  * upgrade GET matches the {@code /bff/superadmin/workloads/**} prefix so it is gated by BOTH
  * Spring Security ({@code hasRole('SUPERADMIN')}) AND the BFF's central authz WebFilter
  * (DANGEROUS tier: dangerous-tier kill + step-up + device/SSH-license + namespace allowlist).
- * A browser {@code WebSocket} cannot set an Authorization header, so the bearer token + the
- * step-up token ride query params on the handshake (the gateway/BFF authenticate the upgrade
- * from them — same posture as other tailnet-only superadmin WS surfaces).
+ * A browser {@code WebSocket} cannot set an Authorization header; the same-origin upgrade GET
+ * carries the HttpOnly {@code bff_} cookie automatically (the gateway turns it into the bearer
+ * server-side), and only the step-up token rides a query param on the handshake (the gateway/BFF
+ * authenticate the upgrade from the cookie + step-up — same posture as other tailnet-only
+ * superadmin WS surfaces; the browser never holds an admin bearer).
  *
  * <p>Protocol (xterm attach-addon style): inbound container output arrives as text frames and
  * is written to the terminal; keystrokes/resizes are sent as
@@ -31,7 +32,6 @@ declare const __SNAP_BFF_URL__: string | undefined;
   styleUrl: './workload-console.component.scss',
 })
 export class WorkloadTerminalComponent implements AfterViewInit, OnDestroy {
-  private readonly session = inject(SessionService);
   private readonly bff = inject(BffService);
 
   @ViewChild('term', { static: false }) termRef?: ElementRef<HTMLDivElement>;
@@ -70,9 +70,9 @@ export class WorkloadTerminalComponent implements AfterViewInit, OnDestroy {
 
     const bffBase = (typeof __SNAP_BFF_URL__ !== 'undefined' && __SNAP_BFF_URL__) ? __SNAP_BFF_URL__ : '';
     const wsBase = this.toWsBase(bffBase);
-    const token = this.session.session()?.bffToken ?? '';
+    // The same-origin WS upgrade carries the HttpOnly bff_ cookie automatically (gateway turns
+    // it into the bearer server-side); only the step-up token rides a query param.
     const q = new URLSearchParams({
-      access_token: token,
       stepUp,
       command: this.command.trim() || '/bin/sh',
     });

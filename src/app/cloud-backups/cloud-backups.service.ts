@@ -161,10 +161,10 @@ export class CloudBackupApiError extends Error {
 
 /**
  * Hand-written reactive client over the snapdragon-admin-bff-api `cloudbackup`
- * surfaces. Auth piggybacks on the shared-session `bffToken` read from
- * `snap.session` in localStorage (the same Bearer every other admin-ui BFF call
- * uses — see bff.service.ts) — the host injects nothing and the module renders no
- * login form.
+ * surfaces. Auth rides the HttpOnly `bff_` cookie sent via `credentials:'include'`
+ * (the same cookie every other admin-ui BFF call uses — see bff.service.ts; the
+ * gateway turns it into the bearer server-side) — the host injects nothing and the
+ * module renders no login form.
  *
  * Every method maps 1:1 to a bff endpoint. The bff is the AUTHORITATIVE gate
  * (ADMIN/SUPERADMIN domain-scoped on /bff/admin/cloud-backups, SUPERADMIN-only on
@@ -176,21 +176,10 @@ export class CloudBackupApiError extends Error {
 export class CloudBackupsService {
   private readonly base = inject(CLOUD_BACKUPS_BASE_URL);
 
-  // ----- token / headers --------------------------------------------------
-
-  private bffToken(): string | null {
-    try {
-      const s = JSON.parse(localStorage.getItem('snap.session') ?? 'null');
-      return s?.bffToken ?? null;
-    } catch {
-      return null;
-    }
-  }
+  // ----- headers ----------------------------------------------------------
 
   private headers(json = false, extra?: Record<string, string>): Record<string, string> {
     const h: Record<string, string> = { Accept: 'application/json' };
-    const t = this.bffToken();
-    if (t) h['Authorization'] = `Bearer ${t}`;
     if (json) h['Content-Type'] = 'application/json';
     if (extra) Object.assign(h, extra);
     return h;
@@ -208,6 +197,7 @@ export class CloudBackupsService {
     const r = await fetch(`${this.base}${path}`, {
       method,
       headers: this.headers(body !== undefined, extraHeaders),
+      credentials: 'include',
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     if (!r.ok) {

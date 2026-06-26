@@ -1,17 +1,8 @@
 import { TestBed } from '@angular/core/testing';
-import { signal } from '@angular/core';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Announcement, AnnouncementInput, AnnouncementsStore } from './announcements.service';
 import { authInterceptor } from '../auth.interceptor';
-import { SessionService, SnapSession } from '../session.service';
-
-function session(bffToken: string): SnapSession {
-  return {
-    id: 'google:admin@gmail.com', label: 'admin@gmail.com', provider: 'google',
-    roles: ['admin'], bffToken, registrationComplete: true, matrix: null, mastodon: null,
-  };
-}
 
 function announcement(over: Partial<Announcement> = {}): Announcement {
   return {
@@ -30,24 +21,22 @@ const input: AnnouncementInput = {
 
 /**
  * The store now delegates to the generated AnnouncementAdminControllerService
- * (ng-openapi-gen). The wire behaviour is identical, so these tests assert the
- * same URL / method / body / Bearer-header contract — but via
- * HttpTestingController (the generated clients use HttpClient) and the shared
- * authInterceptor (which stamps the SAME session bffToken the fetch path did).
+ * (ng-openapi-gen). The wire behaviour is equivalent, so these tests assert the
+ * same URL / method / body contract — but via HttpTestingController (the generated
+ * clients use HttpClient) and the shared authInterceptor (which sets
+ * withCredentials so the SAME HttpOnly bff_ cookie rides the request the fetch
+ * path sends via credentials:'include').
  */
 describe('AnnouncementsStore', () => {
   let store: AnnouncementsStore;
   let httpMock: HttpTestingController;
-  const sessionSig = signal<SnapSession | null>(session('tok-1'));
 
   beforeEach(() => {
-    sessionSig.set(session('tok-1'));
     TestBed.configureTestingModule({
       providers: [
         AnnouncementsStore,
         provideHttpClient(withInterceptors([authInterceptor])),
         provideHttpClientTesting(),
-        { provide: SessionService, useValue: { session: sessionSig } },
       ],
     });
     store = TestBed.inject(AnnouncementsStore);
@@ -62,11 +51,12 @@ describe('AnnouncementsStore', () => {
     ]);
   });
 
-  it('GETs /bff/admin/announcements with a Bearer token and unwraps { announcements }', async () => {
+  it('GETs /bff/admin/announcements with credentials (no bearer) and unwraps { announcements }', async () => {
     const p = store.refresh();
     const req = httpMock.expectOne('/bff/admin/announcements');
     expect(req.request.method).toBe('GET');
-    expect(req.request.headers.get('Authorization')).toBe('Bearer tok-1');
+    expect(req.request.withCredentials).toBeTrue();
+    expect(req.request.headers.has('Authorization')).toBeFalse();
     req.flush({ announcements: [announcement()] });
     const list = await p;
     expect(list.length).toBe(1);

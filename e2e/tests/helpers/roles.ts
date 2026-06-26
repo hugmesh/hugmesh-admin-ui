@@ -93,9 +93,10 @@ export async function newE2eContext(browser: Browser): Promise<BrowserContext> {
  * written now so a later wave can un-skip a feature without rewriting steps.
  *
  * The admin-ui's host shell renders the login micro-frontend; on success the
- * SessionService writes `snap.session` (see set()/broadcast()). We wait for that
- * key to carry a `bffToken` so a follow-up guarded navigation doesn't race the
- * write.
+ * SessionService writes `snap.session` (see set()/broadcast()) and the gateway
+ * sets the HttpOnly `bff_` cookie via Set-Cookie. We wait for the non-secret
+ * `snap.session` key to appear so a follow-up guarded navigation doesn't race the
+ * write (the bearer no longer lives in the browser — auth rides the cookie).
  */
 export async function login(page: Page, user: SeedUser): Promise<void> {
   await page.goto('/login', { waitUntil: 'domcontentloaded' });
@@ -111,7 +112,7 @@ export async function login(page: Page, user: SeedUser): Promise<void> {
       const raw = window.localStorage.getItem('snap.session');
       if (!raw) return false;
       try {
-        return Boolean(JSON.parse(raw).bffToken);
+        return Boolean(JSON.parse(raw).id);
       } catch {
         return false;
       }
@@ -135,7 +136,6 @@ export async function seedSession(page: Page, user: SeedUser): Promise<void> {
     label: user.username,
     provider: user.provider,
     roles: user.roles,
-    bffToken: `e2e-${user.username}-token`,
     registrationComplete: true,
     matrix: null,
     mastodon: null,
@@ -146,20 +146,6 @@ export async function seedSession(page: Page, user: SeedUser): Promise<void> {
     },
     ['snap.session', JSON.stringify(session)] as const,
   );
-}
-
-/** Read the bffToken off `localStorage['snap.session']` so a step can call the
- *  admin-bff directly via `page.evaluate(fetch)` for the API-level DENY checks. */
-export async function bffToken(page: Page): Promise<string | null> {
-  return await page.evaluate(() => {
-    const raw = window.localStorage.getItem('snap.session');
-    if (!raw) return null;
-    try {
-      return (JSON.parse(raw) as { bffToken?: string }).bffToken ?? null;
-    } catch {
-      return null;
-    }
-  });
 }
 
 /** Clear the session — used between role swaps so a stale identity doesn't carry

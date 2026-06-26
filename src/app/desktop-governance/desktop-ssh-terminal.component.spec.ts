@@ -31,7 +31,7 @@ describe('DesktopSshTerminalComponent (in-UI SSH, ships dark)', () => {
     bff.desktopStepUp.and.resolveTo({ stepUpToken: 'STEPUP-TOK', ttlMinutes: 5 });
 
     session = jasmine.createSpyObj<SessionService>('SessionService', ['isSuperadmin']);
-    (session as unknown as { session: () => unknown }).session = () => ({ id: opts.me, bffToken: 'tok', roles: [] });
+    (session as unknown as { session: () => unknown }).session = () => ({ id: opts.me, roles: [] });
     (session as unknown as { isSuperadmin: () => boolean }).isSuperadmin = () => false;
 
     TestBed.configureTestingModule({

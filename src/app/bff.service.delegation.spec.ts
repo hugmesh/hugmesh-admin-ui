@@ -23,14 +23,12 @@ function jsonResponse(body: unknown, init?: { ok?: boolean; status?: number }): 
   } as unknown as Response;
 }
 
-function adminSession(bffToken: string | undefined): SnapSession | null {
-  if (bffToken === undefined) return null;
+function adminSession(): SnapSession {
   return {
     id: 'google:admin@gmail.com',
     label: 'admin@gmail.com',
     provider: 'google',
     roles: ['admin'],
-    bffToken,
     registrationComplete: true,
     matrix: null,
     mastodon: null,
@@ -68,7 +66,7 @@ describe('BffService delegation transport', () => {
   const sessionSig = signal<SnapSession | null>(null);
 
   beforeEach(() => {
-    sessionSig.set(adminSession('bff-tok-1'));
+    sessionSig.set(adminSession());
     TestBed.configureTestingModule({
       providers: [BffService, { provide: SessionService, useValue: { session: sessionSig } }],
     });
@@ -81,15 +79,17 @@ describe('BffService delegation transport', () => {
   function authHeader(): string | undefined {
     return (lastInit().headers as Record<string, string>)?.['authorization'];
   }
+  function credentials(): RequestCredentials | undefined { return lastInit().credentials; }
   function bodyOf(): any { const b = lastInit().body; return b ? JSON.parse(b as string) : undefined; }
 
   // ── USER-SITUATIONAL (the admin's own delegation actions) ──────────────
   describe('USER-SITUATIONAL', () => {
-    it('GET access-roles returns the suspensions envelope (Bearer attached)', async () => {
+    it('GET access-roles returns the suspensions envelope (credentials attached)', async () => {
       fetchSpy.and.resolveTo(jsonResponse({ suspensions: [suspension] }));
       const out = await service.accessRoles();
       expect(lastUrl()).toContain('/bff/admin/access-roles');
-      expect(authHeader()).toBe('Bearer bff-tok-1');
+      expect(credentials()).toBe('include');
+      expect(authHeader()).toBeUndefined();
       expect(out.suspensions[0].id).toBe('s1');
     });
 
@@ -154,20 +154,20 @@ describe('BffService delegation transport', () => {
     });
   });
 
-  // ── CROSS-USER (isolation: the Bearer the admin sends is its own token) ──
+  // ── CROSS-USER (isolation: auth rides the acting admin's HttpOnly bff_ cookie) ──
   describe('CROSS-USER', () => {
-    it('every delegation call carries the acting admin Bearer (no token leak/blank)', async () => {
+    it('every delegation call sends credentials and NEVER a browser-held bearer', async () => {
       fetchSpy.and.resolveTo(jsonResponse({ suspensions: [] }));
-      sessionSig.set(adminSession('admin-A'));
       await service.suspendAccessRole('ROLE_MATRIX', 'victimB', {});
-      expect(authHeader()).toBe('Bearer admin-A');
+      expect(credentials()).toBe('include');
+      expect(authHeader()).toBeUndefined();
     });
 
-    it('a missing session sends an explicit empty Bearer (the API then 401s — never a silent unauth call)', async () => {
-      sessionSig.set(adminSession(undefined));
+    it('a delegation read still sends credentials (the cookie auths the call; the API 401s if absent)', async () => {
       fetchSpy.and.resolveTo(jsonResponse({ domainLocks: [] }));
       await service.domainLocks();
-      expect(authHeader()).toBe('Bearer undefined');
+      expect(credentials()).toBe('include');
+      expect(authHeader()).toBeUndefined();
     });
   });
 

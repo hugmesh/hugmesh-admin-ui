@@ -21,7 +21,6 @@ import {
   seedSession,
   clearSession,
   newE2eContext,
-  bffToken,
 } from '../../tests/helpers/roles';
 
 // ── Session priming ───────────────────────────────────────────────────────
@@ -118,18 +117,18 @@ Then('{string} sees help text {string}', async ({ user }, username: string, test
 
 // ── API-level cross-user DENY ───────────────────────────────────────────────
 // The console is display-only; the BFF is the real gate. These steps fire a
-// same-origin fetch carrying the user's bffToken so the request exercises the
-// actual admin-bff @PreAuthorize + domain-scope chain, and capture the status.
+// same-origin fetch with credentials:'include' so the HttpOnly bff_ cookie rides
+// the request (the gateway turns it into the bearer server-side) and the actual
+// admin-bff @PreAuthorize + domain-scope chain is exercised; capture the status.
 
 When('{string} GETs {string}', async ({ user }, username: string, path: string) => {
   const page = pageRegistry.get(user(username).username)!;
-  const token = await bffToken(page);
   responseState.lastStatus = await page.evaluate(
-    async ({ url, t }) => {
-      const r = await fetch(url, { headers: t ? { Authorization: `Bearer ${t}` } : {} });
+    async (url) => {
+      const r = await fetch(url, { credentials: 'include' });
       return r.status;
     },
-    { url: path, t: token },
+    path,
   );
 });
 

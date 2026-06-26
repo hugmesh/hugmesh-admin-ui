@@ -10,8 +10,9 @@ import { authInterceptor } from './app/auth.interceptor';
 // same-origin /bff/admin/** surface, so the dev shell must provide HttpClient.
 // In production the host shell provides its own HttpClient; these services are
 // providedIn:'root' so they resolve from whichever app bootstraps them. The
-// authInterceptor injects the session bffToken (same as the fetch-based
-// services), so the generated clients carry the SAME Bearer auth.
+// authInterceptor sets withCredentials (same as the fetch-based services'
+// credentials:'include'), so the generated clients ride the SAME HttpOnly bff_
+// cookie (the gateway turns it into the bearer server-side).
 bootstrapApplication(AppComponent, {
   providers: [
     provideRouter(routes),

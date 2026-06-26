@@ -15,8 +15,9 @@ import {
  * progress of an in-flight run streamed from the admin-bff SSE endpoint.
  *
  * <p>This is the {@code BackupStore} pattern cloned verbatim (job → run): the SSE
- * is consumed via the bearer-fetch ReadableStream reader (NOT raw EventSource —
- * which cannot send the Casdoor Bearer), a stream error surfaces as a synthetic
+ * is consumed via the credentialed-fetch ReadableStream reader (NOT raw EventSource —
+ * which cannot be aborted on teardown; the HttpOnly bff_ cookie rides via
+ * credentials:'include'), a stream error surfaces as a synthetic
  * terminal event so the aria-live region announces it instead of stalling, and no
  * secret is ever held here (there is none on a test run).
  */
