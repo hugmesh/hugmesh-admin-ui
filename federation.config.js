@@ -14,4 +14,16 @@ module.exports = snapdragonRemote({
   exposes: {
     './routes': './src/app/admin.routes.ts',
   },
+  // native-federation's shared-bundler resolves @xterm/xterm via its UMD
+  // `main` entry (the package DOES ship ESM under `module`, but the share
+  // bundler doesn't pick it), producing a shared bundle exposing just
+  // `export default` — so the components' `import { Terminal } from
+  // '@xterm/xterm'` fails to link at runtime ("does not provide an export
+  // named 'Terminal'") and takes down the whole /admin route. Skipping it
+  // makes esbuild BUNDLE the package into the exposed chunks, where its
+  // interop resolves the named import. Don't cargo-cult this: extraSkip is
+  // only needed when the share bundler mis-picks an entry; a dep with a clean
+  // ESM share works fine shared.
+  // (Same extraSkip escape hatch snapdragon.games uses for unshareable deps.)
+  extraSkip: ['@xterm/xterm'],
 });
