@@ -352,9 +352,26 @@ chunks cross-origin) and an SPA fallback to `/index.html`; `GET /healthz` return
 `200`. The nginx config also emits the baseline security-header set on every
 response (`always`): `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
 `Referrer-Policy: strict-origin-when-cross-origin`, and `Strict-Transport-Security`
-(HSTS, 1y + `includeSubDomains`). Stricter policies (CSP, COEP/CORP,
-Permissions-Policy) are deliberately deferred pending per-UI tuning + live-cluster
-browser validation. Runs as its own pod in the **snapdragon-frontend** namespace,
+(HSTS, 1y + `includeSubDomains`) — plus a **strong nonce-based
+`Content-Security-Policy`** (no `unsafe-inline`/`unsafe-hashes` in `script-src`;
+per-request `$request_id` nonce, `sub_filter`-injected into every `<script>` tag of
+`index.html`; see `nginx.conf` for the full policy + rationale). COEP/CORP and
+Permissions-Policy remain deferred pending per-UI tuning + live-cluster browser
+validation.
+
+> ✅ **CSP smoke-verified (2026-07, container from this Dockerfile).** `docker build`
+> + `docker run` of this image, then `curl`: the CSP header is emitted on `/` **and**
+> on SPA-fallback deep links, the header nonce exactly matches the `nonce="…"`
+> injected into all three `index.html` `<script>` tags on the same response, the
+> nonce is fresh per request (two `GET /` = two different nonces), JS bundles are
+> served byte-untouched (`sub_filter` rewrites HTML only; `Content-Type:
+> application/javascript`, zero nonce strings injected into JS), and `/healthz`
+> still returns `200` with the security-header set. What this smoke does NOT cover:
+> real-browser execution of the native-federation module graph under the nonce-CSP
+> (es-module-shims nonce propagation) — that remains on the live-cluster browser
+> validation list.
+
+Runs as its own pod in the **snapdragon-frontend** namespace,
 fronted by the **fe-gateway** at `/admin`.
 
 CI (`.gitlab-ci.yml`) runs **three stages** on push / mirror-sync (CI is **GitLab**
