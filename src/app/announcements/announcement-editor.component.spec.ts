@@ -220,6 +220,21 @@ describe('AnnouncementEditorComponent', () => {
       expect(component.error()).toBe('title required');
       expect(component.savedId()).toBeNull();
     });
+
+    it('retracts the previous saved confirmation when a re-save starts (no stale badge)', async () => {
+      // First save succeeds → the "saved" badge condition (savedId set) holds.
+      component.title = 'First';
+      await component.save();
+      expect(component.savedId()).toBe('srv-1');
+      // The re-save (an update now — editingId is set) FAILS. savedId must be
+      // cleared at save-start so the FIRST save's confirmation can never
+      // present the failed second save as saved.
+      store.update.and.rejectWith(new Error('boom'));
+      component.title = 'Second';
+      await component.save();
+      expect(component.error()).toBe('boom');
+      expect(component.savedId()).toBeNull();
+    });
   });
 
   describe('accessibility', () => {

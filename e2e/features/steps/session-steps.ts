@@ -2,14 +2,15 @@
 //
 // Two flavours of "logged in":
 //   - `Given "X" is logged in`         — full Casdoor round-trip via login()
-//     (LIVE; only reached by @skip scenarios in wave 2b-1).
+//     (LIVE; only reached by @cluster scenarios, which ship dark behind the
+//     default 'not @cluster' filter).
 //   - `Given "X" has a seeded session` — writes snap.session directly via an
 //     addInitScript (OFFLINE-capable; exercises the pure client-side guard
 //     behaviour the host enforces with adminGuard/superadminGuard/gamesGuard).
 //
 // The navigation steps assert the guard outcome: a guarded route either renders
 // its console view (ALLOW) or the guard redirects to /login (DENY). All such
-// steps live in @skip features today because they need the host shell to be
+// steps live in @cluster features today because they need the host shell to be
 // serving the remote; bddgen still compiles them so `--list` proves they parse.
 
 import { expect } from '@playwright/test';
@@ -54,6 +55,19 @@ Given('{string} has a seeded session in their own context', async ({ browser, us
   pageRegistry.set(u.username, page);
 });
 
+Given('{string} is logged in in their own context', async ({ browser, user }, username: string) => {
+  // Cross-user matrix with REAL credentials: each persona gets an isolated
+  // context AND a full Casdoor login, so several identities can fire authorised
+  // BFF calls (their own HttpOnly bff_ cookie) inside one scenario — the
+  // victim-creates-first mutation scenarios need this.
+  const u: SeedUser = user(username);
+  const ctx = await newE2eContext(browser);
+  const page = await ctx.newPage();
+  await login(page, u);
+  ctxRegistry.set(u.username, ctx);
+  pageRegistry.set(u.username, page);
+});
+
 // ── Navigation ─────────────────────────────────────────────────────────────
 
 When('{string} navigates to {string}', async ({ user }, username: string, path: string) => {
@@ -61,6 +75,17 @@ When('{string} navigates to {string}', async ({ user }, username: string, path: 
   const page = pageRegistry.get(u.username);
   if (!page) throw new Error(`No page registered for "${username}" — add a session step first.`);
   await page.goto(path, { waitUntil: 'domcontentloaded' });
+});
+
+When('a signed-out visitor opens {string}', async ({ page }, path: string) => {
+  // SIGNED-OUT persona: the scenario's default page carries NO snap.session (and
+  // no bff_ cookie), so every admin guard must fail-closed on the navigation.
+  await page.goto(path, { waitUntil: 'domcontentloaded' });
+});
+
+Then('the signed-out visitor is redirected to the login page', async ({ page }) => {
+  await page.waitForURL(/\/login(\?|$)/, { timeout: 15_000 });
+  await expect(page).toHaveURL(/\/login(\?|$)/);
 });
 
 // ── Guard-outcome assertions ────────────────────────────────────────────────
@@ -132,6 +157,29 @@ When('{string} GETs {string}', async ({ user }, username: string, path: string) 
   );
 });
 
+When(
+  '{string} POSTs to {string} with body:',
+  async ({ user }, username: string, path: string, body: string) => {
+    // A REAL POST (not a GET stand-in): same-origin fetch, credentials:'include'
+    // so the caller's HttpOnly bff_ cookie rides the request. The docstring body
+    // must be BEAN-VALID for the target endpoint so a 400 can never shadow the
+    // 403 under test — the only gate left standing is the authz chain.
+    const page = pageRegistry.get(user(username).username)!;
+    responseState.lastStatus = await page.evaluate(
+      async ([url, payload]) => {
+        const r = await fetch(url, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload,
+        });
+        return r.status;
+      },
+      [path, body] as const,
+    );
+  },
+);
+
 When('the unauthenticated client GETs {string}', async ({ page }, path: string) => {
   await page.goto('/');
   responseState.lastStatus = await page.evaluate(async (p) => {
@@ -144,6 +192,7 @@ Then('the response status is {int}', async ({}, expected: number) => {
   expect(responseState.lastStatus).toBe(expected);
 });
 
-Then('the response status is one of {int} or {int}', async ({}, a: number, b: number) => {
-  expect([a, b]).toContain(responseState.lastStatus);
-});
+// NOTE: there is deliberately NO "response status is one of X or Y" step. Every
+// DENY on this platform is deterministic (403 at the URL gate, 404-invisible on
+// another brand's id), so each scenario asserts the ONE status its gate answers
+// — an OR-assertion would let a wrong gate pass unnoticed.

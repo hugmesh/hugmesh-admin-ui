@@ -202,6 +202,11 @@ export class AnnouncementEditorComponent {
   /** Validate then create/update the announcement. Errors surface in a live region. */
   async save(): Promise<void> {
     this.error.set('');
+    // Retract the PREVIOUS save's confirmation immediately: the "saved" badge
+    // must only ever reflect THIS save's outcome. Without this, a re-save (e.g.
+    // a retitle) keeps the stale badge visible while the PUT is in flight, so a
+    // failed update could momentarily present as saved.
+    this.savedId.set(null);
     if (!this.title.trim()) { this.error.set('Enter a title for the announcement.'); return; }
     if (this.state() === 'published' && !this.hasTarget()) {
       this.error.set('Select at least one surface (Home, Login, Mastodon or Forum) before publishing.');

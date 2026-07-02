@@ -20,7 +20,7 @@ import { Browser, BrowserContext, Page } from '@playwright/test';
  * `process.env.E2E_PASSWORD` (or `e2e-pass`) unless a per-user override env var
  * is exported.
  */
-export type RoleKind = 'admin' | 'superadmin' | 'games-admin' | 'games-runner' | 'user';
+export type RoleKind = 'admin' | 'superadmin' | 'mod' | 'games-admin' | 'games-runner' | 'user';
 
 export interface SeedUser {
   /** CLI-friendly username referenced from .feature lines. */
@@ -56,6 +56,13 @@ export const SEED_USERS: SeedUser[] = [
   { username: 'games-admin',  passwordEnv: 'E2E_GAMES_ADMIN_PASSWORD',  provider: 'google',  roles: ['admin', 'games_services_admin'],  kind: 'games-admin',  domain: 'domain-a' },
   { username: 'games-runner', passwordEnv: 'E2E_GAMES_RUNNER_PASSWORD', provider: 'discord', roles: ['games_services_runner'],           kind: 'games-runner', domain: 'domain-a' },
 
+  // ── Mod — the SIBLING role, not a subset of admin. A mod carries real
+  //    moderation power over their domain (mod-ui / mod-bff) but must be DENIED
+  //    every admin console: adminGuard admits only 'admin', so the UI bounces a
+  //    mod to /login, and the admin-bff URL gate (/bff/admin/** requires
+  //    ROLE_ADMIN|ROLE_SUPERADMIN) answers 403. The sibling-not-superset rule.
+  { username: 'mod-user', passwordEnv: 'E2E_MOD_PASSWORD', provider: 'discord', roles: ['mod'], kind: 'mod', domain: 'domain-a' },
+
   // ── Plain user — no admin role at all; bounced to /login by adminGuard. The
   //    floor of the DENY matrix.
   { username: 'plain-user', passwordEnv: 'E2E_USER_PASSWORD', provider: 'google', roles: [], kind: 'user' },
@@ -88,9 +95,11 @@ export async function newE2eContext(browser: Browser): Promise<BrowserContext> {
 /**
  * Drive the federated login form and wait for `snap.session` in localStorage.
  *
- * @skip-only — this helper hits a LIVE Casdoor + host shell, so it is only
- * exercised by scenarios tagged `@skip` today (wave 2b-1 ships dark). It is
- * written now so a later wave can un-skip a feature without rewriting steps.
+ * @cluster-only — this helper hits a LIVE Casdoor + host shell, so it is only
+ * exercised by scenarios tagged `@cluster` today (they ship dark: the default
+ * config filters `not @cluster`; a no-filter bddgen still compiles them). A
+ * later wave re-enables a feature by dropping its `@cluster` tag — no step
+ * rewrite needed.
  *
  * The admin-ui's host shell renders the login micro-frontend; on success the
  * SessionService writes `snap.session` (see set()/broadcast()) and the gateway

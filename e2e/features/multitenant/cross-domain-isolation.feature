@@ -5,8 +5,9 @@
 # is asserted with both users live, not by swapping a single session.
 #
 # The display-layer DENY (guard bounce) is backed by an API-layer DENY: the
-# admin-bff re-enforces domain scope, so a cross-domain read returns 403/404
-# (fail-closed) even if the UI were bypassed.
+# admin-bff re-enforces domain scope, so a cross-domain read answers a
+# deterministic 404 — another brand's id resolves to EMPTY (invisible, not a
+# data-leaking 403; AnnouncementService) — even if the UI were bypassed.
 #
 # @cluster — ships dark; config filters `not @cluster` so no live stack is needed.
 @cluster @admin-ui @cross-user
@@ -15,11 +16,18 @@ Feature: Cross-domain isolation — domain admins cannot reach each other's reso
   I must isolate each brand's admin surface from every other brand
   So a compromised domain-A admin token cannot read or mutate domain-B
 
-  Scenario: domain-B admin cannot read domain-A's OIDC provider-roles via the BFF (403/404)
-    Given "admin-domain-a" has a seeded session in their own context
-    And "admin-domain-b" has a seeded session in their own context
-    When "admin-domain-b" GETs "/bff/admin/oidc-provider-roles?domain=domain-a"
-    Then the response status is one of 403 or 404
+  # Victim-creates-first: admin-A creates a REAL row and captures the REAL
+  # server id; admin-B's read of that id must answer exactly 404 (the admin-bff
+  # resolves another brand's id to empty — invisible by design) AND the row
+  # stays readable, untouched, by its owner. Real logins (not seeded sessions)
+  # because the BFF calls need each caller's own HttpOnly bff_ cookie.
+  Scenario: domain-B admin cannot read domain-A's announcement via the BFF (404-invisible)
+    Given "admin-domain-a" is logged in in their own context
+    And "admin-domain-b" is logged in in their own context
+    When "admin-domain-a" creates an announcement titled "Domain A isolation probe" via the BFF
+    And "admin-domain-b" attempts to read the announcement titled "Domain A isolation probe" via the BFF
+    Then the response status is 404
+    And "admin-domain-a" still reads the announcement titled "Domain A isolation probe" via the BFF
 
   Scenario: domain-A admin cannot reach any superadmin-only console (DENY)
     Given "admin-domain-a" has a seeded session in their own context
@@ -40,3 +48,20 @@ Feature: Cross-domain isolation — domain admins cannot reach each other's reso
     Given a clean session
     When the unauthenticated client GETs "/bff/admin/superadmin/domains"
     Then the response status is 401
+
+  # The ONE place crossing domains is CORRECT: SUPERADMIN's DomainScope is the
+  # null predicate, so it reads BOTH brands' rows where each domain admin reads
+  # only its own. Victim-creates-first both ways: each admin creates a REAL row
+  # in their own brand, then all three read their own scoped list.
+  Scenario: a superadmin reads both brands' resources where each domain admin sees only its own (ALLOW)
+    Given "admin-domain-a" is logged in in their own context
+    And "admin-domain-b" is logged in in their own context
+    And "superadmin" is logged in in their own context
+    When "admin-domain-a" creates an announcement titled "Domain A bulletin" via the BFF
+    And "admin-domain-b" creates an announcement titled "Domain B bulletin" via the BFF
+    Then the announcement "Domain A bulletin" appears in "superadmin"'s announcements list within 15 seconds
+    And the announcement "Domain B bulletin" appears in "superadmin"'s announcements list within 15 seconds
+    And "admin-domain-a"'s announcements list contains "Domain A bulletin"
+    And "admin-domain-a"'s announcements list does not contain "Domain B bulletin"
+    And "admin-domain-b"'s announcements list contains "Domain B bulletin"
+    And "admin-domain-b"'s announcements list does not contain "Domain A bulletin"

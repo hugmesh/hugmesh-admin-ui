@@ -27,8 +27,10 @@ Then('{string} can tab to the skip link', async ({}, username: string) => {
   await expect(skip).toHaveAttribute('href', '#main');
 });
 
-Then('activating the skip link moves focus to the main region', async ({}, username: string) => {
-  const page = pageOf(username);
+// The declarative (no-persona) steps below act on the scenario's default page —
+// the same page the preceding `Given "X" has a seeded session` registered.
+
+Then('activating the skip link moves focus to the main region', async ({ page }) => {
   await page.locator('a.skip').press('Enter');
   const main = page.locator('main#main');
   await expect(main).toBeFocused();
@@ -38,13 +40,11 @@ Then('activating the skip link moves focus to the main region', async ({}, usern
 
 // ── ARIA landmarks / labels ──────────────────────────────────────────────────
 
-Then('the admin module menu has an accessible name', async ({}, username: string) => {
-  const page = pageOf(username);
+Then('the admin module menu has an accessible name', async ({ page }) => {
   await expect(page.locator('nav[aria-label="Admin modules"]')).toBeVisible();
 });
 
-Then('the {string} view has an accessible name', async ({}, username: string, testid: string) => {
-  const page = pageOf(username);
+Then('the {string} view has an accessible name', async ({ page }, testid: string) => {
   const view = page.locator(`[data-testid="${testid}"]`);
   // Each console root is aria-labelledby a heading (or has an explicit
   // aria-label) — assert one of the two is present so assistive tech can name
@@ -54,8 +54,7 @@ Then('the {string} view has an accessible name', async ({}, username: string, te
   expect(Boolean(labelledby) || Boolean(ariaLabel)).toBe(true);
 });
 
-Then('the capability-gate banner announces unavailability', async ({}, username: string) => {
-  const page = pageOf(username);
+Then('the capability-gate banner announces unavailability', async ({ page }) => {
   const gate = page.locator('[data-testid="capability-gate"]');
   await expect(gate).toBeVisible();
   // role="status" → announced politely (a degraded, non-error state), plus an
@@ -72,8 +71,7 @@ When('{string} focuses the first admin module link', async ({}, username: string
   await page.locator('nav[aria-label="Admin modules"] a.nav-link').first().focus();
 });
 
-Then('arrow-key navigation moves focus along the admin module links', async ({}, username: string) => {
-  const page = pageOf(username);
+Then('arrow-key navigation moves focus along the admin module links', async ({ page }) => {
   const links = page.locator('nav[aria-label="Admin modules"] a.nav-link');
   await expect(links.first()).toBeFocused();
   await page.keyboard.press('ArrowDown');
@@ -83,7 +81,6 @@ Then('arrow-key navigation moves focus along the admin module links', async ({},
 
 // ── Focus restoration after a route change ───────────────────────────────────
 
-Then('focus is restored to the main region after navigation', async ({}, username: string) => {
-  const page = pageOf(username);
+Then('focus is restored to the main region after navigation', async ({ page }) => {
   await expect(page.locator('main#main')).toBeFocused();
 });
