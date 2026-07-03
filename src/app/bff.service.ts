@@ -147,6 +147,38 @@ export class BffService {
     return typeof err === 'string' ? err : JSON.stringify(err);
   }
 
+  // ── ACCOUNT-BAN appeal inbox (ADMIN/SUPERADMIN, admin-bff /bff/admin/account-appeals) ──
+  // DISTINCT from the moderation "Appeals" console below: that domain is CONTENT
+  // moderation (federation-api ModerationRequest rows over posts/profiles). This is
+  // the ACCOUNT-level ban/suspension appeal a curtailed principal files against their
+  // OWN access_suspension PROFILE row via POST /bff/me/appeal (login-ui). An APPROVE
+  // decide here CLEARS the underlying suspension server-side (SuspensionService.clear)
+  // — never a bare status flip — so "access restored" is a real, observable effect.
+  //
+  //   GET  /bff/admin/account-appeals                        → [AccountAppeal]
+  //   POST /bff/admin/account-appeals/{id}/decide?status=APPROVED|DENIED
+  //                                                          → { decided, status }
+
+  /** The brand's account-appeal inbox (own brand; SUPERADMIN all). A dark/denied
+   *  surface yields [] (no existence leak). */
+  async accountAppeals(): Promise<AccountAppeal[]> {
+    const r = await fetch(`${CFG.bff}/bff/admin/account-appeals`, { credentials: 'include' });
+    return r.ok ? r.json() : [];
+  }
+
+  /** Decide an account-ban appeal (CAS PENDING -> APPROVED|DENIED, single-winner,
+   *  brand-scoped). An APPROVED decide restores the appellant's PROFILE access
+   *  server-side FIRST; if that restore fails the whole call fails (surfaced via the
+   *  thrown error) and the appeal stays PENDING — never a false "approved". Returns
+   *  the affected row count (decided:0 = already decided / out of scope). */
+  async decideAccountAppeal(id: string, status: 'APPROVED' | 'DENIED'): Promise<{ decided: number; status: string }> {
+    const r = await fetch(
+      `${CFG.bff}/bff/admin/account-appeals/${encodeURIComponent(id)}/decide?status=${encodeURIComponent(status)}`,
+      { method: 'POST', credentials: 'include' });
+    if (r.ok) return r.json();
+    throw new Error(await this.errorOf(r));
+  }
+
   // ── Appeals adjudication / moderation DECIDE (ADMIN-only, decide-proxy) ──
   // The admin-ui Appeals console's DECIDE action. The admin-bff does NOT own the
   // moderation_requests table — its AdminController PROXIES to snapdragon-federation-
@@ -1482,6 +1514,22 @@ export interface AccessSuspension {
 }
 export interface AccessRolesView { suspensions: AccessSuspension[]; }
 export interface AccessRolesResult { suspended?: AccessSuspension; suspensions: AccessSuspension[]; }
+
+/** One account_appeal row (admin-bff AccountAppeal record) — a curtailed principal's
+ *  OWN structured appeal against their access_suspension PROFILE ban/suspension.
+ *  DISTINCT from {@link ModerationRequest} (content moderation). */
+export interface AccountAppeal {
+  id: string;
+  userSub: string;
+  handle: string;
+  domain: string;
+  reason?: string | null;
+  contactEmail?: string | null;
+  status: 'PENDING' | 'APPROVED' | 'DENIED';
+  submittedAt?: string | null;
+  decidedAt?: string | null;
+  decidedBy?: string | null;
+}
 
 /** One domain_lock row (admin-bff DomainLock record). An active row means the
  *  user is forced local-only (KEEPS the base ROLE_MATRIX/ROLE_MASTODON). */

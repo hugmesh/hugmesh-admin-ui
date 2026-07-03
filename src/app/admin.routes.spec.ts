@@ -16,6 +16,7 @@ import { TestReportsComponent } from './test-reports/test-reports.component';
 import { ImageGenComponent } from './image-gen/image-gen.component';
 import { ForumAdminComponent } from './forum-admin/forum-admin.component';
 import { AppealsComponent } from './appeals/appeals.component';
+import { AccountAppealsComponent } from './account-appeals/account-appeals.component';
 import { DeviceLicensesComponent } from './device-licenses.component';
 import { DevicePendingComponent } from './device-pending.component';
 import { StoragePoolsComponent } from './storage-pools.component';
@@ -64,6 +65,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('image-gen')!.component).toBe(ImageGenComponent);
     expect(byPath('forum')!.component).toBe(ForumAdminComponent);
     expect(byPath('appeals')!.component).toBe(AppealsComponent);
+    expect(byPath('account-appeals')!.component).toBe(AccountAppealsComponent);
     expect(byPath('device-licenses')!.component).toBe(DeviceLicensesComponent);
     expect(byPath('device-pending')!.component).toBe(DevicePendingComponent);
     expect(byPath('node-storage')!.component).toBe(StoragePoolsComponent);
@@ -75,7 +77,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('superadmin/anubis')!.component).toBe(AnubisAdminComponent);
   });
 
-  it('exposes exactly the thirty admin views the host expects (incl. delegation + appeals + device-licenses + device-pending + node-storage + desktop governance + egress-vpn + superadmin/domains + oidc-providers + games-services + superadmin/anubis + cloud-backups + image-gen + the HIDDEN-tier workloads console + its logs/terminal sub-views)', () => {
+  it('exposes exactly the thirty-one admin views the host expects (incl. delegation + appeals + account-appeals + device-licenses + device-pending + node-storage + desktop governance + egress-vpn + superadmin/domains + oidc-providers + games-services + superadmin/anubis + cloud-backups + image-gen + the HIDDEN-tier workloads console + its logs/terminal sub-views)', () => {
     expect(ADMIN_ROUTES.map((r) => r.path)).toEqual([
       '',
       'usage',
@@ -95,6 +97,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
       'image-gen',
       'forum',
       'appeals',
+      'account-appeals',
       'device-licenses',
       'device-pending',
       'node-storage',
@@ -176,6 +179,13 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(appeals).toBeDefined();
     expect(appeals!.component).toBe(AppealsComponent);
     expect(appeals!.canActivate).toBeUndefined();
+  });
+
+  it('exposes the account-appeals console as a plain ADMIN route (no superadmin guard) — DISTINCT from the content-moderation appeals console', () => {
+    const accountAppeals = byPath('account-appeals');
+    expect(accountAppeals).toBeDefined();
+    expect(accountAppeals!.component).toBe(AccountAppealsComponent);
+    expect(accountAppeals!.canActivate).toBeUndefined();
   });
 
   it('exposes the node-storage console as a plain ADMIN route (ADMIN-CAPABLE — the deliberate divergence from device-licenses; ownership is gated by the BFF)', () => {

@@ -1,0 +1,65 @@
+@use '../../styles/tokens' as t;
+
+:host {
+  display: block;
+}
+
+.snap-account-appeals {
+  display: block;
+  padding: 1rem;
+
+  .aa-intro {
+    color: var(--sd-text-muted, #{t.$light});
+    margin-block: 0.25rem 1rem;
+    max-width: 42rem;
+  }
+
+  .aa-cards {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.75rem;
+    max-width: 42rem;
+  }
+
+  .aa-card {
+    border: 1px solid var(--sd-border, #{t.$mid});
+    border-radius: t.$radius-sm;
+    padding: 0.75rem 1rem;
+    display: grid;
+    gap: 0.4rem;
+  }
+
+  .aa-card-decided {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: baseline;
+    opacity: 0.85;
+  }
+
+  .aa-card-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: baseline;
+  }
+
+  .aa-meta {
+    color: var(--sd-text-muted, #{t.$muted});
+    font-size: 0.85rem;
+  }
+
+  .aa-reason {
+    white-space: pre-wrap;
+  }
+
+  .aa-card-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .aa-note-ok { color: var(--sd-success, #{t.$pastel-mint}); }
+  .aa-note-err { color: var(--sd-error, #{t.$pastel-rose}); }
+}

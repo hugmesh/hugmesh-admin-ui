@@ -54,6 +54,7 @@ export class AdminComponent implements OnInit {
     { path: 'image-gen', label: 'Image generation' },
     { path: 'forum', label: 'Forum admin' },
     { path: 'appeals', label: 'Appeals' },
+    { path: 'account-appeals', label: 'Account appeals' },
     { path: 'device-licenses', label: 'Device licenses', superadminOnly: true },
     { path: 'device-pending', label: 'Pending devices', superadminOnly: true },
     { path: 'node-storage', label: 'Node storage' },

@@ -15,6 +15,7 @@ import { DelegationComponent } from './delegation/delegation.component';
 import { TestReportsComponent } from './test-reports/test-reports.component';
 import { ForumAdminComponent } from './forum-admin/forum-admin.component';
 import { AppealsComponent } from './appeals/appeals.component';
+import { AccountAppealsComponent } from './account-appeals/account-appeals.component';
 import { DeviceLicensesComponent } from './device-licenses.component';
 import { DevicePendingComponent } from './device-pending.component';
 import { StoragePoolsComponent } from './storage-pools.component';
@@ -48,6 +49,10 @@ import { workloadConsoleGuard } from './workload-console.guard';
  *  /admin/appeals (the Appeals-Decide console — approve/deny a referred moderation
  *  appeal via the admin-bff decide-proxy that forwards to federation-api,
  *  domain-scoped), and
+ *  /admin/account-appeals (the ACCOUNT-BAN appeal inbox — distinct from /admin/appeals
+ *  above: approve/deny a curtailed user's own appeal against their access_suspension
+ *  PROFILE ban/suspension; an approve actually restores access via
+ *  SuspensionService.clear, domain-scoped, ADMIN/SUPERADMIN only), and
  *  /admin/device-licenses (the SUPERADMIN-only Device Licenses console over the
  *  device-ownership / SSH-operate-license registry — additionally superadmin-guarded), and
  *  /admin/device-pending (the SUPERADMIN-only Pending Devices pick-list — assign a
@@ -95,6 +100,7 @@ export const ADMIN_ROUTES: Routes = [
   { path: 'image-gen', component: ImageGenComponent },
   { path: 'forum', component: ForumAdminComponent },
   { path: 'appeals', component: AppealsComponent },
+  { path: 'account-appeals', component: AccountAppealsComponent },
   { path: 'device-licenses', component: DeviceLicensesComponent, canActivate: [superadminGuard] },
   { path: 'device-pending', component: DevicePendingComponent, canActivate: [superadminGuard] },
   { path: 'node-storage', component: StoragePoolsComponent },

@@ -240,6 +240,39 @@ describe('BffService', () => {
     });
   });
 
+  // ── ACCOUNT-BAN appeal inbox (ADMIN/SUPERADMIN, DISTINCT from decideModeration) ──
+  describe('account appeals', () => {
+    it('accountAppeals GETs the inbox with credentials', async () => {
+      const row = { id: 'ap-1', userSub: 'google:alice@x.com', handle: 'alice@x.com', domain: 'brand-a', status: 'PENDING' };
+      fetchSpy.and.resolveTo(jsonResponse([row]));
+      const rows = await service.accountAppeals();
+      expect(lastUrl()).toContain('/bff/admin/account-appeals');
+      expect(lastInit().credentials).toBe('include');
+      expect(rows).toEqual([row] as unknown as typeof rows);
+    });
+
+    it('accountAppeals returns [] (not throw) on a failed read', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({}, { ok: false, status: 403 }));
+      await expectAsync(service.accountAppeals()).toBeResolvedTo([]);
+    });
+
+    it('decideAccountAppeal POSTs the id + status and returns the decide result', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ decided: 1, status: 'APPROVED' }));
+      const res = await service.decideAccountAppeal('ap-1', 'APPROVED');
+      expect(lastUrl()).toContain('/bff/admin/account-appeals/ap-1/decide');
+      expect(lastUrl()).toContain('status=APPROVED');
+      expect(lastInit().method).toBe('POST');
+      expect(lastInit().credentials).toBe('include');
+      expect(res).toEqual({ decided: 1, status: 'APPROVED' });
+    });
+
+    it('decideAccountAppeal throws the BFF {error} verbatim on a failed restore — never a silent success', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ error: 'suspension clear failed' }, { ok: false, status: 502 }));
+      await expectAsync(service.decideAccountAppeal('ap-1', 'APPROVED'))
+        .toBeRejectedWithError('suspension clear failed');
+    });
+  });
+
   // ── Domain registry (SUPERADMIN: GET/POST /bff/admin/domains) ──
   describe('domain registry', () => {
     it('GETs the bare JSON-array domain list from /bff/admin/domains', async () => {

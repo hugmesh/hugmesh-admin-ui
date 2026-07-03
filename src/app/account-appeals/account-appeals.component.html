@@ -1,0 +1,62 @@
+<section class="snap-account-appeals" data-testid="account-appeals-view" aria-labelledby="aa-heading">
+  <h2 id="aa-heading">Account appeals</h2>
+  <p class="aa-intro">
+    A banned or suspended user's own appeal against their account block. Approving
+    restores their access (clears the underlying ban/suspension); denying leaves it in
+    place. Distinct from the content-moderation <strong>Appeals</strong> console.
+  </p>
+
+  <h3 id="aa-pending-heading">Pending appeals</h3>
+  <p *ngIf="loaded() && pending().length === 0" data-testid="aa-empty">No pending appeals.</p>
+  <ul data-testid="aa-pending" aria-labelledby="aa-pending-heading" class="aa-cards">
+    <li *ngFor="let a of pending()" [attr.data-appeal-id]="a.id" class="aa-card">
+      <div class="aa-card-head">
+        <strong data-testid="aa-handle">{{ a.handle }}</strong>
+        <span class="aa-meta">domain: {{ a.domain }}</span>
+        <span class="aa-meta" *ngIf="a.submittedAt">submitted: {{ a.submittedAt }}</span>
+      </div>
+      <p class="aa-reason" data-testid="aa-reason" *ngIf="a.reason">{{ a.reason }}</p>
+      <p class="aa-contact" data-testid="aa-contact-email" *ngIf="a.contactEmail">
+        alternate contact: {{ a.contactEmail }}
+      </p>
+
+      <div class="aa-card-actions">
+        <button
+          type="button"
+          [attr.data-approve]="a.id"
+          [disabled]="isDeciding(a)"
+          [attr.aria-busy]="isDeciding(a)"
+          [attr.aria-label]="'Approve ' + appealLabel(a) + ' — restore access'"
+          (click)="approve(a)"
+        >{{ isDeciding(a) ? 'working…' : 'approve (restore access)' }}</button>
+        <button
+          type="button"
+          [attr.data-deny]="a.id"
+          [disabled]="isDeciding(a)"
+          [attr.aria-busy]="isDeciding(a)"
+          [attr.aria-label]="'Deny ' + appealLabel(a)"
+          (click)="deny(a)"
+        >{{ isDeciding(a) ? 'working…' : 'deny' }}</button>
+      </div>
+
+      <p
+        *ngIf="noteFor(a.id) as note"
+        [attr.data-note]="a.id"
+        [class.aa-note-ok]="note.kind === 'ok'"
+        [class.aa-note-err]="note.kind === 'err'"
+        role="status"
+        [attr.aria-live]="note.kind === 'err' ? 'assertive' : 'polite'"
+      >{{ note.text }}</p>
+    </li>
+  </ul>
+
+  <h3 id="aa-decided-heading">Decided appeals</h3>
+  <ul data-testid="aa-decided" aria-labelledby="aa-decided-heading" class="aa-cards">
+    <li *ngFor="let a of decided()" [attr.data-appeal-id]="a.id" class="aa-card aa-card-decided">
+      <strong>{{ a.handle }}</strong>
+      <span class="aa-meta" [attr.data-status]="a.id">{{ a.status }}</span>
+      <span class="aa-meta" *ngIf="a.decidedBy">by {{ a.decidedBy }}</span>
+      <span class="aa-meta" *ngIf="a.decidedAt">{{ a.decidedAt }}</span>
+    </li>
+  </ul>
+</section>
