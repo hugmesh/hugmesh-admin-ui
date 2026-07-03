@@ -1,0 +1,276 @@
+<section class="snap-mfa" data-testid="mfa-security-view" aria-labelledby="mfa-security-heading">
+  <h2 id="mfa-security-heading">Security — two-factor authentication</h2>
+
+  <p class="intro">
+    Manage your own two-factor methods (authenticator app or passkey) for this account. These
+    factors are also what satisfy a step-up check when a privileged admin action asks you to
+    confirm it's you.
+  </p>
+
+  <ng-container *ngIf="!loaded()">
+    <p class="mfa-help" data-testid="mfa-security-loading" role="status" aria-live="polite">
+      Loading your security settings…
+    </p>
+  </ng-container>
+
+  <ng-container *ngIf="loaded() && dark()">
+    <p class="mfa-help" data-testid="mfa-security-dark">
+      Two-factor authentication is not enabled yet on this deployment. There is nothing to manage
+      here until it has been turned on.
+    </p>
+  </ng-container>
+
+  <ng-container *ngIf="loaded() && !dark()">
+    <p
+      *ngIf="error()"
+      class="mfa-error"
+      data-testid="mfa-security-error"
+      role="alert"
+      aria-live="assertive"
+    >{{ error() }}</p>
+
+    <!-- ── LIST VIEW ─────────────────────────────────────────────────────── -->
+    <ng-container *ngIf="view() === 'list'">
+      <h3>Your two-factor methods</h3>
+      <p *ngIf="factors().length === 0" data-testid="mfa-security-empty">
+        You have no two-factor methods yet. Add one to protect your account.
+      </p>
+      <ul class="mfa-factor-list" data-testid="mfa-factor-list" *ngIf="factors().length > 0">
+        <li class="mfa-factor" *ngFor="let f of factors()" [attr.data-factor]="f.id">
+          <span class="mfa-factor-type">{{ typeLabel(f.type) }}</span>
+          <span class="mfa-factor-meta">
+            added {{ f.createdAt }}
+            <em class="mfa-factor-pending" *ngIf="!f.enabled">(pending)</em>
+          </span>
+          <button
+            type="button"
+            class="mfa-btn danger"
+            data-testid="mfa-factor-remove"
+            [attr.aria-label]="removeLabel(f)"
+            [disabled]="busy()"
+            (click)="remove(f)"
+          >
+            Remove
+          </button>
+        </li>
+      </ul>
+
+      <div class="mfa-actions">
+        <button
+          type="button"
+          class="mfa-btn primary"
+          data-testid="mfa-security-add"
+          (click)="startEnroll()"
+        >
+          Add a method
+        </button>
+        <button
+          type="button"
+          class="mfa-btn"
+          data-testid="mfa-security-regenerate"
+          aria-describedby="mfa-regen-help"
+          [disabled]="busy()"
+          (click)="regenerate()"
+        >
+          Regenerate recovery codes
+        </button>
+      </div>
+      <p class="mfa-help" id="mfa-regen-help">
+        Regenerating replaces your old recovery codes. This needs a fresh security check.
+      </p>
+
+      <section
+        class="mfa-recovery"
+        data-testid="mfa-new-recovery"
+        role="region"
+        aria-label="New recovery codes — save these now, they are shown only once"
+        *ngIf="newRecoveryCodes().length > 0"
+      >
+        <p class="mfa-help">
+          Your new recovery codes — save them now. <strong>They are shown only once</strong> and
+          your old codes no longer work.
+        </p>
+        <ul class="mfa-codes" data-testid="mfa-new-recovery-codes">
+          <li *ngFor="let code of newRecoveryCodes()"><code>{{ code }}</code></li>
+        </ul>
+      </section>
+
+      <!-- ── Inline MFA step-up dialog for the remove/regenerate mutations ── -->
+      <snap-mfa-step-up-dialog
+        *ngIf="stepUpChallenge() as challenge"
+        [action]="challenge.description"
+        (satisfied)="onStepUpSatisfied()"
+        (dismissed)="onStepUpDismissed()"
+      ></snap-mfa-step-up-dialog>
+    </ng-container>
+
+    <!-- ── ENROLL WIZARD ─────────────────────────────────────────────────── -->
+    <ng-container *ngIf="view() === 'enroll'">
+      <h3>Set up two-factor authentication</h3>
+
+      <p
+        *ngIf="enrollError()"
+        class="mfa-error"
+        data-testid="mfa-enroll-error"
+        role="alert"
+        aria-live="assertive"
+      >{{ enrollError() }}</p>
+
+      <ng-container [ngSwitch]="enrollStep()">
+        <ng-container *ngSwitchCase="'choose'">
+          <p data-testid="mfa-enroll-intro">
+            Add a second step to your sign-in. Choose an authenticator app (a 6-digit code) or a
+            passkey (a device fingerprint, face, or security key).
+          </p>
+          <div class="mfa-actions">
+            <button
+              type="button"
+              class="mfa-btn primary"
+              data-testid="mfa-choose-totp"
+              [disabled]="enrollBusy()"
+              (click)="startTotp()"
+            >
+              Use an authenticator app
+            </button>
+            <button
+              type="button"
+              class="mfa-btn"
+              data-testid="mfa-choose-webauthn"
+              aria-describedby="mfa-webauthn-help"
+              [disabled]="enrollBusy() || !webauthnAvailable"
+              (click)="startWebauthn()"
+            >
+              Add a passkey
+            </button>
+            <button type="button" class="mfa-btn" data-testid="mfa-enroll-cancel" (click)="cancelEnroll()">
+              Cancel
+            </button>
+          </div>
+          <p class="mfa-help" id="mfa-webauthn-help" data-testid="mfa-webauthn-help">
+            <ng-container *ngIf="webauthnAvailable; else noWebauthn">
+              A passkey uses your device's fingerprint, face, or a security key. Your browser will
+              prompt you to confirm.
+            </ng-container>
+            <ng-template #noWebauthn>
+              This browser does not support passkeys — use an authenticator app instead.
+            </ng-template>
+          </p>
+        </ng-container>
+
+        <ng-container *ngSwitchCase="'totp-show'">
+          <h4>Scan this with your authenticator app</h4>
+          <div
+            class="mfa-qr"
+            data-testid="mfa-qr"
+            role="img"
+            aria-label="QR code to add this account to your authenticator app. If you cannot scan it, enter the setup key shown below."
+            *ngIf="qrMatrix() as matrix; else qrFallback"
+            [style.gridTemplateColumns]="'repeat(' + matrix.length + ', 1fr)'"
+          >
+            <ng-container *ngFor="let row of matrix">
+              <span class="mfa-qr-cell" *ngFor="let cell of row" [class.dark]="cell"></span>
+            </ng-container>
+          </div>
+          <ng-template #qrFallback>
+            <p class="mfa-help" data-testid="mfa-qr-fallback">
+              Could not draw the QR code. Enter the setup key below in your authenticator app
+              instead.
+            </p>
+          </ng-template>
+
+          <p class="mfa-secret-label">Setup key (if you can't scan):</p>
+          <p class="mfa-secret" data-testid="mfa-secret" aria-describedby="mfa-secret-help">
+            <code>{{ secret() }}</code>
+          </p>
+          <p class="mfa-help" id="mfa-secret-help">
+            Type this key into your authenticator app, then enter the 6-digit code it shows. This
+            key is shown only once.
+          </p>
+
+          <form class="mfa-verify" (ngSubmit)="verifyTotp()">
+            <label for="mfa-passcode">6-digit code</label>
+            <input
+              id="mfa-passcode"
+              name="passcode"
+              data-testid="mfa-passcode"
+              type="text"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              maxlength="6"
+              [(ngModel)]="passcode"
+              aria-describedby="mfa-passcode-help"
+            />
+            <p class="mfa-help" id="mfa-passcode-help">
+              Enter the current 6-digit code from your authenticator app to finish.
+            </p>
+            <div class="mfa-actions">
+              <button
+                type="submit"
+                class="mfa-btn primary"
+                data-testid="mfa-verify-totp"
+                [disabled]="enrollBusy() || !passcodeValid()"
+              >
+                Verify and enable
+              </button>
+              <button type="button" class="mfa-btn" data-testid="mfa-cancel" (click)="cancelEnroll()">
+                Cancel
+              </button>
+            </div>
+          </form>
+        </ng-container>
+
+        <ng-container *ngSwitchCase="'recovery'">
+          <h4>Save your recovery codes</h4>
+          <section
+            class="mfa-recovery"
+            data-testid="mfa-recovery"
+            role="region"
+            aria-label="Recovery codes — save these now, they are shown only once"
+          >
+            <p class="mfa-help">
+              Save these codes somewhere safe. Each can be used once if you lose your
+              authenticator. <strong>They are shown only once.</strong>
+            </p>
+            <ul class="mfa-codes" data-testid="mfa-recovery-codes">
+              <li *ngFor="let code of recoveryCodes()"><code>{{ code }}</code></li>
+            </ul>
+          </section>
+          <div class="mfa-actions">
+            <button
+              type="button"
+              class="mfa-btn primary"
+              data-testid="mfa-recovery-done"
+              (click)="finishEnroll()"
+            >
+              I've saved them — continue
+            </button>
+          </div>
+        </ng-container>
+
+        <ng-container *ngSwitchCase="'done'">
+          <h4>Passkey added</h4>
+          <p data-testid="mfa-webauthn-done">
+            Your passkey is registered. It now appears in your list of methods above.
+          </p>
+          <div class="mfa-actions">
+            <button type="button" class="mfa-btn primary" data-testid="mfa-done" (click)="finishEnroll()">
+              Done
+            </button>
+          </div>
+        </ng-container>
+
+        <ng-container *ngSwitchCase="'dark'">
+          <p class="mfa-help" data-testid="mfa-enroll-dark">
+            Two-factor authentication is not enabled yet. Check back once it has been turned on
+            for your account.
+          </p>
+          <div class="mfa-actions">
+            <button type="button" class="mfa-btn" data-testid="mfa-enroll-dark-back" (click)="cancelEnroll()">
+              Back
+            </button>
+          </div>
+        </ng-container>
+      </ng-container>
+    </ng-container>
+  </ng-container>
+</section>

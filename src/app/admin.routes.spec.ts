@@ -14,6 +14,7 @@ import { AnnouncementListComponent } from './announcements/announcement-list.com
 import { DelegationComponent } from './delegation/delegation.component';
 import { TestReportsComponent } from './test-reports/test-reports.component';
 import { ImageGenComponent } from './image-gen/image-gen.component';
+import { MfaSecurityComponent } from './mfa/mfa-security.component';
 import { ForumAdminComponent } from './forum-admin/forum-admin.component';
 import { AppealsComponent } from './appeals/appeals.component';
 import { AccountAppealsComponent } from './account-appeals/account-appeals.component';
@@ -66,6 +67,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('forum')!.component).toBe(ForumAdminComponent);
     expect(byPath('appeals')!.component).toBe(AppealsComponent);
     expect(byPath('account-appeals')!.component).toBe(AccountAppealsComponent);
+    expect(byPath('security')!.component).toBe(MfaSecurityComponent);
     expect(byPath('device-licenses')!.component).toBe(DeviceLicensesComponent);
     expect(byPath('device-pending')!.component).toBe(DevicePendingComponent);
     expect(byPath('node-storage')!.component).toBe(StoragePoolsComponent);
@@ -77,7 +79,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('superadmin/anubis')!.component).toBe(AnubisAdminComponent);
   });
 
-  it('exposes exactly the thirty-one admin views the host expects (incl. delegation + appeals + account-appeals + device-licenses + device-pending + node-storage + desktop governance + egress-vpn + superadmin/domains + oidc-providers + games-services + superadmin/anubis + cloud-backups + image-gen + the HIDDEN-tier workloads console + its logs/terminal sub-views)', () => {
+  it('exposes exactly the thirty-two admin views the host expects (incl. delegation + appeals + account-appeals + the self-service security/MFA console + device-licenses + device-pending + node-storage + desktop governance + egress-vpn + superadmin/domains + oidc-providers + games-services + superadmin/anubis + cloud-backups + image-gen + the HIDDEN-tier workloads console + its logs/terminal sub-views)', () => {
     expect(ADMIN_ROUTES.map((r) => r.path)).toEqual([
       '',
       'usage',
@@ -98,6 +100,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
       'forum',
       'appeals',
       'account-appeals',
+      'security',
       'device-licenses',
       'device-pending',
       'node-storage',

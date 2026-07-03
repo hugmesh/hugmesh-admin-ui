@@ -560,16 +560,20 @@ export class BffService {
 
   /**
    * Download a build's NON-SECRET SSH-keys bundle (.tar.gz). Only meaningful when the build's
-   * sshKeysAllowed is true; the BFF additionally requires the X-ImageGen-StepUp header (a fresh
-   * step-up). The bundle is guaranteed non-secret by the backend (keysRef is a build-artifacts
-   * pointer, never a private dial key) — the UI just triggers the download and NEVER displays or
-   * persists any key. Returns false (no throw) when denied / unavailable.
+   * sshKeysAllowed is true; the BFF additionally requires a satisfied step-up — EITHER the
+   * X-ImageGen-StepUp token header OR a fresh Casdoor-MFA stamp on the caller's session (the "A5
+   * UNIFIED step-up"; see `ImageGenStepUpGate`). The bundle is guaranteed non-secret by the
+   * backend (keysRef is a build-artifacts pointer, never a private dial key) — the UI just
+   * triggers the download and NEVER displays or persists any key. Throws the BFF {error} on a
+   * non-2xx (mirrors {@link triggerImageBuild}) so a step-up-required 403 can be distinguished
+   * from "no bundle available" and offered the inline MFA step-up dialog
+   * ({@code isStepUpRequiredError}); returns true on a successful save.
    */
   async downloadImageKeys(id: string, stepUpToken?: string): Promise<boolean> {
     const headers: Record<string, string> = { accept: 'application/gzip' };
     if (stepUpToken) headers['X-ImageGen-StepUp'] = stepUpToken;
     const r = await fetch(`${CFG.bff}/bff/admin/image-builds/${encodeURIComponent(id)}/keys`, { headers, credentials: 'include' });
-    if (!r.ok) return false;
+    if (!r.ok) throw new Error(await this.errorOf(r));
     return this.saveBlob(await r.blob(), `snapdragon-keys-${id.replace(/[^A-Za-z0-9._-]/g, '_')}.tar.gz`);
   }
 

@@ -102,7 +102,7 @@
       </div>
 
       <div class="field">
-        <label for="ig-stepup">Step-up confirmation token</label>
+        <label for="ig-stepup">Step-up confirmation token (optional)</label>
         <input
           id="ig-stepup"
           data-testid="ig-stepup"
@@ -113,10 +113,22 @@
           aria-describedby="ig-stepup-help"
         />
         <span id="ig-stepup-help" class="hint">
-          Triggering a build (and downloading the keys bundle) requires a fresh step-up
-          confirmation, sent to the BFF in the X-ImageGen-StepUp header. It is never stored.
+          Triggering a build (and downloading the keys bundle) needs a fresh step-up
+          confirmation, sent to the BFF in the X-ImageGen-StepUp header. If you have no token,
+          leave this blank and submit — you will be asked to verify with your authenticator app,
+          a passkey, or a recovery code instead. Never stored.
         </span>
       </div>
+
+      <!-- ── Inline MFA step-up dialog: shown when the trigger or a keys download 403s
+           with the platform's "requires step-up" contract. On success the SAME action is
+           retried automatically. ── -->
+      <snap-mfa-step-up-dialog
+        *ngIf="stepUpChallenge() as challenge"
+        [action]="challenge.action"
+        (satisfied)="onStepUpSatisfied()"
+        (dismissed)="onStepUpDismissed()"
+      ></snap-mfa-step-up-dialog>
 
       <button
         type="submit"

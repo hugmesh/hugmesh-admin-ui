@@ -100,7 +100,9 @@ export class ImageGenStore {
   }
 
   /** Download a build's NON-SECRET keys bundle (only when ssh_keys_allowed; needs step-up).
-   *  False = none/denied. The UI never displays or persists a key — it only triggers the save. */
+   *  False = no bundle available. Throws the BFF {error} on a denial — notably a "requires
+   *  step-up" 403 the component offers the inline MFA step-up dialog for. The UI never displays
+   *  or persists a key — it only triggers the save. */
   downloadKeys(id: string, stepUpToken?: string): Promise<boolean> {
     return this.bff.downloadImageKeys(id, stepUpToken);
   }

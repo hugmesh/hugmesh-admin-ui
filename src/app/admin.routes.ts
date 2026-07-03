@@ -30,6 +30,7 @@ import { WorkloadLogsComponent } from './workload-console/workload-logs.componen
 import { WorkloadTerminalComponent } from './workload-console/workload-terminal.component';
 import { CloudBackupsComponent } from './cloud-backups/cloud-backups.component';
 import { ImageGenComponent } from './image-gen/image-gen.component';
+import { MfaSecurityComponent } from './mfa/mfa-security.component';
 import { superadminGuard } from './superadmin.guard';
 import { gamesServicesGuard } from './games-services.guard';
 import { workloadConsoleGuard } from './workload-console.guard';
@@ -71,7 +72,12 @@ import { workloadConsoleGuard } from './workload-console.guard';
  *  RUNNER mod-delegated run/stop, behind the games-services guard), and
  *  /admin/superadmin/anubis (SUPERADMIN-only read-only view of the Anubis PoW challenge sidecar:
  *  status, configured settings, and proxied Prometheus metrics with auto-refresh — additionally
- *  superadmin-guarded).
+ *  superadmin-guarded), and
+ *  /admin/security (the self-service Security console: enroll/list/remove your OWN MFA factors
+ *  — TOTP authenticator or WebAuthn passkey — and regenerate recovery codes, over the shared
+ *  snapdragon-auth-core /bff/mfa/* contract; the SAME inline step-up dialog this console uses
+ *  for its own step-up-gated remove/regenerate mutations is reusable by any privileged admin
+ *  action elsewhere in this app — see {@code MfaStepUpDialogComponent}).
  *  Casdoor-admin-role guarded by the host. */
 export const ADMIN_ROUTES: Routes = [
   { path: '', component: AdminComponent },
@@ -101,6 +107,12 @@ export const ADMIN_ROUTES: Routes = [
   { path: 'forum', component: ForumAdminComponent },
   { path: 'appeals', component: AppealsComponent },
   { path: 'account-appeals', component: AccountAppealsComponent },
+  // Self-service Security console: enroll/list/remove your OWN MFA factors (TOTP +
+  // WebAuthn passkey) and regenerate recovery codes, over the shared snapdragon-auth-core
+  // /bff/mfa/* contract (the same one login-ui's /login/security already uses). ANY
+  // authenticated admin/superadmin may reach it (no additional guard) — the BFF is the
+  // authoritative owner scope (a caller only ever sees/mutates their own factors).
+  { path: 'security', component: MfaSecurityComponent },
   { path: 'device-licenses', component: DeviceLicensesComponent, canActivate: [superadminGuard] },
   { path: 'device-pending', component: DevicePendingComponent, canActivate: [superadminGuard] },
   { path: 'node-storage', component: StoragePoolsComponent },

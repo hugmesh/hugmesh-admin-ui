@@ -131,13 +131,45 @@ describe('ImageGenComponent', () => {
       expect(component.error()).toContain('target user');
     });
 
-    it('requires a step-up token before triggering', async () => {
+    it('triggers with no step-up token entered (the BFF, not the client, is the step-up gate)', async () => {
       await init();
       component.targetUser = 'alice@brand';
       component.stepUpToken = '';
       await component.triggerBuild();
-      expect(bff.triggerImageBuild).not.toHaveBeenCalled();
-      expect(component.error()).toContain('step-up');
+      expect(bff.triggerImageBuild).toHaveBeenCalledWith(jasmine.any(Object), undefined);
+    });
+
+    it('offers the inline MFA step-up dialog when the trigger 403s "requires step-up", then retries on satisfied', async () => {
+      bff.triggerImageBuild.and.rejectWith(
+        new Error('image build requires step-up re-authentication (present X-ImageGen-StepUp)'),
+      );
+      await init();
+      component.targetUser = 'alice@brand';
+      component.stepUpToken = '';
+      await component.triggerBuild();
+      fixture.detectChanges();
+      expect(component.stepUpChallenge()).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('[data-testid="mfa-stepup-dialog"]')).not.toBeNull();
+      expect(component.error()).toBe('');
+
+      // Once the dialog reports success, the SAME trigger is retried and now succeeds.
+      bff.triggerImageBuild.and.resolveTo({
+        id: 'b3', status: 'QUEUED', imageType: 'primary', domain: 'brand', sshKeysAllowed: false,
+      });
+      await component.onStepUpSatisfied();
+      expect(component.stepUpChallenge()).toBeNull();
+      expect(bff.triggerImageBuild).toHaveBeenCalledTimes(2);
+    });
+
+    it('dismissing the step-up dialog drops the pending retry', async () => {
+      bff.triggerImageBuild.and.rejectWith(new Error('image build requires step-up re-authentication'));
+      await init();
+      component.targetUser = 'alice@brand';
+      await component.triggerBuild();
+      expect(component.stepUpChallenge()).not.toBeNull();
+      component.onStepUpDismissed();
+      expect(component.stepUpChallenge()).toBeNull();
+      expect(bff.triggerImageBuild).toHaveBeenCalledTimes(1);
     });
 
     it('triggers a build with the exact contract body + step-up header token', async () => {
@@ -234,12 +266,11 @@ describe('ImageGenComponent', () => {
       expect(ctrl.getAttribute('aria-label')).toContain('step-up');
     });
 
-    it('is step-up-gated: refuses the keys download without a token (no bff call)', async () => {
+    it('attempts the keys download with no token entered (the BFF is the step-up gate)', async () => {
       await init();
       component.stepUpToken = '';
       await component.downloadKeys(withKeys);
-      expect(bff.downloadImageKeys).not.toHaveBeenCalled();
-      expect(component.downloadNote()).toContain('step-up');
+      expect(bff.downloadImageKeys).toHaveBeenCalledWith(withKeys.id, undefined);
     });
 
     it('passes the step-up token to the keys-download bff method when present', async () => {
@@ -247,6 +278,29 @@ describe('ImageGenComponent', () => {
       component.stepUpToken = 'step-up-xyz';
       await component.downloadKeys(withKeys);
       expect(bff.downloadImageKeys).toHaveBeenCalledWith(withKeys.id, 'step-up-xyz');
+    });
+
+    it('offers the inline MFA step-up dialog when a keys download 403s "requires step-up"', async () => {
+      bff.downloadImageKeys.and.rejectWith(
+        new Error('keys download requires step-up re-authentication (present X-ImageGen-StepUp)'),
+      );
+      await init();
+      await component.downloadKeys(withKeys);
+      expect(component.stepUpChallenge()).not.toBeNull();
+      expect(component.downloadNote()).toBe('');
+
+      bff.downloadImageKeys.and.resolveTo(true);
+      await component.onStepUpSatisfied();
+      expect(component.stepUpChallenge()).toBeNull();
+      expect(bff.downloadImageKeys).toHaveBeenCalledTimes(2);
+    });
+
+    it('surfaces a non-step-up download failure as a note, not a crash', async () => {
+      bff.downloadImageKeys.and.rejectWith(new Error('image generation is disabled on this deployment'));
+      await init();
+      await component.downloadKeys(withKeys);
+      expect(component.downloadNote()).toContain('disabled');
+      expect(component.stepUpChallenge()).toBeNull();
     });
 
     it('canDownloadKeys is false for a build that did not allow keys', () => {

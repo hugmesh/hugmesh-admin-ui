@@ -5,6 +5,8 @@ import { ImageBuild, ImageType } from '../bff.service';
 import { ImageGenStore } from './image-gen-store.service';
 import { CapabilityGateComponent } from '../platform/capability-gate.component';
 import { PlatformCapabilitiesService } from '../platform/platform-capabilities.service';
+import { MfaStepUpDialogComponent } from '../mfa/mfa-step-up-dialog.component';
+import { isStepUpRequiredError } from '../mfa/step-up-error';
 
 /**
  * Admin "Image generation" console (ADMIN/SUPERADMIN only, route-guarded). Trigger an image
@@ -26,11 +28,20 @@ import { PlatformCapabilitiesService } from '../platform/platform-capabilities.s
  *
  * <p>SECURITY: a private key is NEVER displayed or persisted in the UI; the keys download streams
  * a backend-guaranteed-non-secret bundle — the UI only triggers the save.
+ *
+ * <p>STEP-UP: the trigger + keys download are gated on the BFF's "A5 UNIFIED step-up"
+ * ({@code ImageGenStepUpGate}) — EITHER the manual step-up-confirmation token below OR a fresh
+ * Casdoor-MFA stamp. A caller with no token (the common case for a plain ADMIN, who has no
+ * first-class way to mint one — see {@code ImageGenStepUpGate}'s security-review flag) can
+ * instead just submit; a "requires step-up" 403 ({@link isStepUpRequiredError}) opens the inline
+ * {@link MfaStepUpDialogComponent}, and the SAME action is retried automatically once the
+ * dialog reports success — no token needed on the retry, since the BFF reads the freshness off
+ * this session.
  */
 @Component({
   selector: 'snap-image-gen',
   standalone: true,
-  imports: [CommonModule, FormsModule, CapabilityGateComponent],
+  imports: [CommonModule, FormsModule, CapabilityGateComponent, MfaStepUpDialogComponent],
   templateUrl: './image-gen.component.html',
   styleUrl: './image-gen.component.scss',
 })
@@ -61,6 +72,11 @@ export class ImageGenComponent implements OnInit, OnDestroy {
   readonly triggering = signal(false);
   /** A polite note when a download has no artifact yet (build not finished). */
   readonly downloadNote = signal('');
+
+  /** A pending step-up challenge for the trigger or a keys download, or null when none is in
+   *  flight. `retry` re-attempts the SAME privileged call once the inline
+   *  {@link MfaStepUpDialogComponent} reports the challenge satisfied. */
+  readonly stepUpChallenge = signal<null | { action: string; retry: () => Promise<void> }>(null);
 
   /** Hint for the active build's image-type label (for the progress heading). */
   readonly activeTypeLabel = computed(() => {
@@ -108,11 +124,6 @@ export class ImageGenComponent implements OnInit, OnDestroy {
       this.error.set('Hardware class is too long (max 64 characters).');
       return;
     }
-    // The trigger is a privileged step-up action; require the token before calling the BFF.
-    if (!this.stepUpToken.trim()) {
-      this.error.set('A step-up confirmation token is required to trigger a build.');
-      return;
-    }
     this.error.set('');
     this.triggering.set(true);
     try {
@@ -123,13 +134,36 @@ export class ImageGenComponent implements OnInit, OnDestroy {
           hardwareClass: this.hardwareClass.trim() || null,
           sshKeysAllowed: this.sshKeysAllowed,
         },
-        this.stepUpToken.trim(),
+        this.stepUpToken.trim() || undefined,
       );
     } catch (e) {
+      if (isStepUpRequiredError(e)) {
+        this.offerStepUp('Triggering this image build', () => this.triggerBuild());
+        return;
+      }
       this.error.set(e instanceof Error ? e.message : 'Could not start the build.');
     } finally {
       this.triggering.set(false);
     }
+  }
+
+  /** Offer the inline MFA step-up dialog for a privileged call that just 403'd with the
+   *  "requires step-up" contract. `retry` is invoked once the dialog reports success. */
+  private offerStepUp(action: string, retry: () => Promise<void>): void {
+    this.stepUpChallenge.set({ action, retry });
+  }
+
+  /** The inline step-up dialog reported success — retry the gated call it was blocking (the
+   *  BFF now reads a fresh MFA stamp off this session; no token is needed on the retry). */
+  async onStepUpSatisfied(): Promise<void> {
+    const challenge = this.stepUpChallenge();
+    this.stepUpChallenge.set(null);
+    if (challenge) await challenge.retry();
+  }
+
+  /** The user cancelled the step-up dialog — drop the pending retry. */
+  onStepUpDismissed(): void {
+    this.stepUpChallenge.set(null);
   }
 
   async toggleDetail(build: ImageBuild): Promise<void> {
@@ -150,13 +184,17 @@ export class ImageGenComponent implements OnInit, OnDestroy {
 
   async downloadKeys(build: ImageBuild): Promise<void> {
     this.downloadNote.set('');
-    if (!this.stepUpToken.trim()) {
-      this.downloadNote.set('Enter a step-up confirmation token above to download the keys bundle.');
-      return;
-    }
-    const ok = await this.store.downloadKeys(build.id, this.stepUpToken.trim());
-    if (!ok) {
-      this.downloadNote.set('The keys bundle could not be downloaded (not available, or step-up required).');
+    try {
+      const ok = await this.store.downloadKeys(build.id, this.stepUpToken.trim() || undefined);
+      if (!ok) {
+        this.downloadNote.set('The keys bundle could not be downloaded (not available yet).');
+      }
+    } catch (e) {
+      if (isStepUpRequiredError(e)) {
+        this.offerStepUp('Downloading this keys bundle', () => this.downloadKeys(build));
+        return;
+      }
+      this.downloadNote.set(e instanceof Error ? e.message : 'The keys bundle could not be downloaded.');
     }
   }
 
