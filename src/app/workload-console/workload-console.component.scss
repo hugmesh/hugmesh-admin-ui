@@ -28,22 +28,32 @@
   color: var(--sd-success);
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
+// Nested under .workload-console (present on every consumer's template root — see
+// workload-console/workload-logs/workload-terminal .component.html) instead of bare element
+// selectors. WorkloadTerminalComponent compiles this file under ViewEncapsulation.None (xterm.js
+// paints its own DOM outside Angular's renderer, so its rules need to reach un-namespaced nodes)
+// — bare `table`/`th`/`td` selectors would compile to genuinely global rules inside that
+// component's federation-exposed chunk and bleed onto every <table> on the host page once
+// mounted. Scoping under the wrapper class keeps the rule federation-safe under both
+// encapsulation modes without changing anything for the Emulated-encapsulation consumers.
+.workload-console {
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th,
+  td {
+    text-align: left;
+    padding: 0.4rem 0.6rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
 }
 
 .wc-caption {
   text-align: left;
   font-weight: 600;
   margin-bottom: 0.25rem;
-}
-
-th,
-td {
-  text-align: left;
-  padding: 0.4rem 0.6rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .wc-actions {

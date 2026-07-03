@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, inject, signal } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, ViewEncapsulation, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Terminal } from '@xterm/xterm';
@@ -29,7 +29,20 @@ declare const __SNAP_BFF_URL__: string | undefined;
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './workload-terminal.component.html',
-  styleUrl: './workload-console.component.scss',
+  // xterm.js paints its own DOM (.xterm, .xterm-viewport, ...) directly into the #term div
+  // OUTSIDE Angular's template/renderer, so those nodes never carry Angular's emulated-
+  // encapsulation content attribute and Angular-scoped rules would never match them. Loading
+  // xterm's stylesheet as a component styleUrl (rather than a repo-local angular.json global
+  // style) means it ships bundled INSIDE this component's own JS chunk, so it's present
+  // whether admin-ui is served standalone (dev) or mounted by the snapdragon.systems host as a
+  // native-federation remote (loadRemoteModule only pulls the remote's exposed JS — it never
+  // links a remote's separate global stylesheet, which is the federation-safety gap this fixes;
+  // see federation.config.js's @xterm/xterm extraSkip note for the sibling federation quirk).
+  styleUrls: [
+    '../../../node_modules/@xterm/xterm/css/xterm.css',
+    './workload-console.component.scss',
+  ],
+  encapsulation: ViewEncapsulation.None,
 })
 export class WorkloadTerminalComponent implements AfterViewInit, OnDestroy {
   private readonly bff = inject(BffService);

@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, inject, signal } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, ViewEncapsulation, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Terminal } from '@xterm/xterm';
@@ -39,7 +39,15 @@ declare const __SNAP_BFF_URL__: string | undefined;
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './desktop-ssh-terminal.component.html',
-  styleUrl: './desktop-governance.component.scss',
+  // Same federation-safe xterm CSS loading as WorkloadTerminalComponent (see its styleUrls
+  // comment) — xterm paints its own DOM outside Angular's renderer, so the stylesheet has to
+  // ship unscoped and bundled into THIS component's own chunk, not a repo-local angular.json
+  // global style the host's native-federation mount never links.
+  styleUrls: [
+    '../../../node_modules/@xterm/xterm/css/xterm.css',
+    './desktop-governance.component.scss',
+  ],
+  encapsulation: ViewEncapsulation.None,
 })
 export class DesktopSshTerminalComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly bff = inject(BffService);

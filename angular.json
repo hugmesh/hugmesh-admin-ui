@@ -54,8 +54,7 @@
 						"tsConfig": "tsconfig.app.json",
 						"assets": [],
 						"styles": [
-							"src/styles.scss",
-							"node_modules/@xterm/xterm/css/xterm.css"
+							"src/styles.scss"
 						]
 					},
 					"configurations": {
@@ -97,8 +96,7 @@
 						"karmaConfig": "karma.conf.js",
 						"assets": [],
 						"styles": [
-							"src/styles.scss",
-							"node_modules/@xterm/xterm/css/xterm.css"
+							"src/styles.scss"
 						],
 						"scripts": []
 					}
