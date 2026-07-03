@@ -37,12 +37,14 @@ test:
 
 # -----------------------------------------------------------------------------
 # e2e:bdd — Playwright + playwright-bdd Gherkin harness for the admin-ui remote
-# (e2e/). WAVE 2b-1 SHIPS DARK: every scenario that needs a live stack is tagged
-# `@cluster` and the default playwright config filters them out
-# (`tags: 'not @cluster'`), so this job runs WITHOUT a cluster. It only proves
-# the harness installs, the .feature files COMPILE (bddgen), and the scenarios
-# are DISCOVERABLE (`playwright test --list` via a no-filter override) — the
-# offline gates the PR validates. `allow_failure: true` keeps it NON-BLOCKING
+# (e2e/). Every scenario that needs a live stack is tagged `@cluster` and the
+# default playwright config filters them out (`tags: 'not @cluster'`); the
+# untagged `@offline` lane (pure client-side UI behaviour) runs against
+# `ng serve admin` with E2E_BASE_URL — see e2e/README.md. This job runs WITHOUT a
+# cluster AND without a browser: it only proves the harness installs, the
+# .feature files COMPILE (bddgen — default + no-filter), and every scenario is
+# DISCOVERABLE (`playwright test --list` via a no-filter override) — the offline
+# structural gates the PR validates. `allow_failure: true` keeps it NON-BLOCKING
 # (no app-code/karma coupling) while the env-test-build wiring for the live run
 # lands in a later wave; un-skip by dropping a feature's `@cluster` tag then.
 # -----------------------------------------------------------------------------

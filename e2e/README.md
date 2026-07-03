@@ -19,26 +19,69 @@ with the deepest cross-user / DENY coverage:
 | CROSS-USER | `features/multitenant/cross-domain-isolation.feature` | domain-A admin DENIED on domain-B; admin DENIED on superadmin-only; anonymous → 401; superadmin reads BOTH brands where each admin sees only its own (the DomainScope null predicate) |
 | SECURITY | `features/security/bff-auth-gates.feature` | the admin-bff rejection paths behind the display-only consoles, incl. the mod sibling-not-superset 403s and a REAL runner create-POST → 403 |
 | A11Y | `features/a11y/accessibility.feature` | skip-link → focus `#main`, named landmarks, roving tabindex, capability-gate `role="status"`, focus restore |
+| EVERY-FUNCTION | `features/admin/route-access-edit.feature` | Gateway-access rule editor: `@offline` client-side blank-pattern validation (role=alert + `aria-invalid`, no write); `@cluster` real add+remove (row rendered from the server response, `data-rule-id`) and a mod add-POST → 403 |
+| EVERY-FUNCTION | `features/admin/node-storage.feature` | Node-storage console: `@offline` the node-pinned **no-HA warning** heuristic on a database-shaped service name, and attach-form blank-submit validation; `@cluster` a mod attach-POST → 403 |
+| EVERY-FUNCTION | `features/admin/read-only-consoles.feature` | `@offline` honest no-backend states of the read-only / infra-gated consoles: Usage default figures, ISO empty state, ArgoCD + Backup **capability-gate degradation** (action surface suppressed), Recovery empty state |
+| EVERY-FUNCTION | `features/admin/device-pending.feature` | Pending-devices pick-list: `@offline` register control **disabled** with no candidate + opaque-fp placeholder (superadmin); `@cluster` a domain-admin register-POST → 403 (superadmin-only) |
+
+## Two lanes: `@offline` (default, runs on `ng serve`) and `@cluster` (dark)
+
+The wave-2b-1 suite ships everything that needs a live stack dark; the
+every-function wave adds a second, **default-running** lane for pure client-side
+UI behaviour that needs no backend.
+
+- **`@offline`** — client-side behaviour reachable with **no backend**: form
+  validation, a client-side heuristic warning, empty/degraded states, a disabled
+  control. These carry **no `@cluster` tag**, so the default config
+  (`tags: 'not @cluster'`) INCLUDES them — `npx bddgen` now generates the offline
+  lane (currently **9 scenarios**). They run against the standalone dev shell
+  (`ng serve admin`, which mounts `ADMIN_ROUTES` at the root — see
+  `src/app/app.routes.ts`) with `E2E_BASE_URL` pointed at it. Every assertion is a
+  real observable state change that fails against a blank page — never a bare
+  "element exists".
+- **`@cluster`** — needs the host shell serving the remote + admin-bff + Casdoor
+  seed (real writes, the role/cross-domain DENY POSTs). Still filtered out by
+  default; see "Running against a live stack" below.
+
+### Offline UI lane (no cluster, no mocks)
+
+```sh
+# 1. serve the standalone admin remote (from the repo root)
+npm install && npm start          # ng serve admin → prints http://localhost:<port>
+
+# 2. run only the @offline lane against it (from e2e/)
+cd e2e && npm install
+E2E_BASE_URL=http://localhost:<port> npx bddgen
+E2E_BASE_URL=http://localhost:<port> npx playwright test --grep-invert @cluster
+```
+
+No backend is started: the components render their default / empty / degraded
+states (their BFF fetches simply reject and the templates render their fallbacks,
+or the fail-safe absent capability envelope drives the capability-gate).
 
 ## Ships dark (wave 2b-1)
 
 Every scenario that needs a live stack (host shell serving the remote +
-admin-bff + Casdoor seed) is tagged **`@cluster`** at the feature level. The
-default config filters them out (`tags: 'not @cluster'`), so the default run
-needs **no cluster** and the GitLab `e2e:bdd` job is `allow_failure: true`.
+admin-bff + Casdoor seed) is tagged **`@cluster`** at the feature level (or at
+the scenario level in the every-function features, which mix an `@offline` and a
+`@cluster` scenario in one file). The default config filters those out
+(`tags: 'not @cluster'`); the GitLab `e2e:bdd` job is `allow_failure: true` and
+only *compiles + lists* (it never launches a browser), so it stays green whether
+the default lane is empty or holds the `@offline` scenarios.
 
 `@cluster` is used deliberately instead of playwright-bdd's reserved `@skip`:
 `@skip` drops a scenario from generation entirely (`bddgen` emits 0 specs for
 it), so a `@skip`-tagged suite cannot be *discovered*. `@cluster` is a plain
-filter tag — the no-filter validation below generates and lists all 65
-scenarios, proving the Gherkin compiles, while the default config keeps them
-dark.
+filter tag — the no-filter validation below generates and lists every scenario
+(**89 today across 16 files**), proving the Gherkin compiles, while the default
+config keeps the `@cluster` ones dark and surfaces the `@offline` lane.
 
-## Offline validation (no cluster)
+## Structural validation (no cluster, no browser)
 
 ```sh
 npm install
-npx bddgen            # default: 'not @cluster' → 0 specs (ships dark, intended)
+npx bddgen            # default: 'not @cluster' → the 9 @offline specs (run them via
+                      # the Offline UI lane above; @cluster scenarios stay dark)
 
 # Prove every feature compiles + all scenarios are discovered (no filter):
 cat > pw-validate.config.ts <<'EOF'
@@ -51,7 +94,7 @@ export default defineConfig({ reporter: [['list']],
   projects: [{ name: 'bdd', testDir: d, use: { ...devices['Desktop Chrome'] } }] });
 EOF
 npx bddgen -c pw-validate.config.ts
-npx playwright test --list -c pw-validate.config.ts   # → 65 tests in 8 files
+npx playwright test --list -c pw-validate.config.ts   # → 89 tests in 16 files
 rm pw-validate.config.ts
 ```
 
