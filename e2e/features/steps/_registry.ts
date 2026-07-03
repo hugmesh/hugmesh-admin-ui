@@ -35,6 +35,14 @@ export const scenarioState = {
    *  scenario (the appeals-decide victim-creates-first oracle). Wave 2's Appeals
    *  console coverage: mod-bff submits/refers, admin-bff decides. */
   moderationRequestId: null as number | null,
+  /** The admin-bff account_appeal a curtailed principal filed this scenario (the
+   *  ACCOUNT-BAN appeal victim-creates-first oracle, distinct from
+   *  moderationRequestId above): appellant username → { id, handle }. `handle` is
+   *  the server-resolved identity the appeal (and the PROFILE ban that targets it)
+   *  are keyed on — captured from the real POST /bff/me/appeal response, never
+   *  guessed, so the admin's later ban targets the EXACT string the decide's
+   *  clearByHandle restore will match. */
+  accountAppeals: new Map<string, { id: string; handle: string }>(),
 };
 
 /** Lazily mint the per-scenario uniquifier (lowercase alnum, DNS-label safe). */
@@ -55,4 +63,5 @@ export function resetRegistry(): void {
   scenarioState.announcements.clear();
   scenarioState.uniqueNames.clear();
   scenarioState.moderationRequestId = null;
+  scenarioState.accountAppeals.clear();
 }

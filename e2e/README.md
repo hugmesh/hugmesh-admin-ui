@@ -23,6 +23,8 @@ with the deepest cross-user / DENY coverage:
 | EVERY-FUNCTION | `features/admin/node-storage.feature` | Node-storage console: `@offline` the node-pinned **no-HA warning** heuristic on a database-shaped service name, and attach-form blank-submit validation; `@cluster` a mod attach-POST → 403 |
 | EVERY-FUNCTION | `features/admin/read-only-consoles.feature` | `@offline` honest no-backend states of the read-only / infra-gated consoles: Usage default figures, ISO empty state, ArgoCD + Backup **capability-gate degradation** (action surface suppressed), Recovery empty state |
 | EVERY-FUNCTION | `features/admin/device-pending.feature` | Pending-devices pick-list: `@offline` register control **disabled** with no candidate + opaque-fp placeholder (superadmin); `@cluster` a domain-admin register-POST → 403 (superadmin-only) |
+| MUTATION | `features/admin/egress-vpn-cross-domain.feature` | Egress-VPN console: superadmin imports a VPN config into a brand that is **not its own** (real cross-domain write, UI evidence) and a domain admin's identical POST → 403 (SUPERADMIN-only, not "any admin") |
+| MUTATION | `features/admin/account-appeals-decide.feature` | Account-ban Appeals console (admin-ui #65): ADMIN approve **actually restores** the appellant's access (re-read via the BFF, not assumed from the 200), ADMIN deny leaves it restricted, SUPERADMIN decides **cross-domain**, and a mod's decide attempt is a real 403 (not merely UI-hidden) |
 
 ## Two lanes: `@offline` (default, runs on `ng serve`) and `@cluster` (dark)
 
@@ -73,7 +75,7 @@ the default lane is empty or holds the `@offline` scenarios.
 `@skip` drops a scenario from generation entirely (`bddgen` emits 0 specs for
 it), so a `@skip`-tagged suite cannot be *discovered*. `@cluster` is a plain
 filter tag — the no-filter validation below generates and lists every scenario
-(**89 today across 16 files**), proving the Gherkin compiles, while the default
+(**101 today across 20 files**), proving the Gherkin compiles, while the default
 config keeps the `@cluster` ones dark and surfaces the `@offline` lane.
 
 ## Structural validation (no cluster, no browser)
@@ -94,7 +96,7 @@ export default defineConfig({ reporter: [['list']],
   projects: [{ name: 'bdd', testDir: d, use: { ...devices['Desktop Chrome'] } }] });
 EOF
 npx bddgen -c pw-validate.config.ts
-npx playwright test --list -c pw-validate.config.ts   # → 89 tests in 16 files
+npx playwright test --list -c pw-validate.config.ts   # → 101 tests in 20 files
 rm pw-validate.config.ts
 ```
 
