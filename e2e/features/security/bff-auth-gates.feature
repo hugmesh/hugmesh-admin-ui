@@ -62,3 +62,26 @@ Feature: admin-bff authorization gates — anonymous and under-privileged reject
       {"title":"mod deny probe","body_html":"<p>probe</p>","state":"draft","target_home":true}
       """
     Then the response status is 403
+
+  # ── Admin-invite gate: the DENY half of the admin-invite -> register ->
+  #    access loop (wave 3). The ALLOW half (an admin's REAL invite via the
+  #    console) is features/admin/allowlist-invite.feature. A bean-valid
+  #    {"email": ...} body means a 400 can never shadow the verdict — 403 is
+  #    the only honest outcome for a caller AdminController#invite's
+  #    @PreAuthorize("hasRole('ADMIN')") does not admit. ─────────────────────
+
+  Scenario: a mod POSTing an invite to the allowlist is forbidden — 403
+    Given "mod-user" is logged in
+    When "mod-user" POSTs to "/bff/admin/allowlist" with body:
+      """
+      {"email":"e2e-deny-probe-mod@gmail.com"}
+      """
+    Then the response status is 403
+
+  Scenario: a plain user POSTing an invite to the allowlist is forbidden — 403
+    Given "plain-user" is logged in
+    When "plain-user" POSTs to "/bff/admin/allowlist" with body:
+      """
+      {"email":"e2e-deny-probe-user@gmail.com"}
+      """
+    Then the response status is 403
