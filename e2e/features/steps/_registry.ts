@@ -14,6 +14,11 @@ export const ctxRegistry = new Map<string, BrowserContext>();
  *  scenario teardown. */
 export const responseState = { lastStatus: 0 };
 
+/** Last JSON body captured from a role-grant/revoke BFF call (role-grant.feature's
+ *  "the role response reports ..." assertion reads this). Module-global for the
+ *  same reason as responseState. Cleared on scenario teardown. */
+export const roleGrantState = { lastBody: null as Record<string, unknown> | null };
+
 /** Per-scenario state for the REAL-WRITE (mutation) scenarios. `nonce` makes
  *  every created resource name unique per run (repeat runs against a live
  *  stack must not collide); the maps translate the declarative names used in
@@ -45,6 +50,7 @@ export function resetRegistry(): void {
   pageRegistry.clear();
   ctxRegistry.clear();
   responseState.lastStatus = 0;
+  roleGrantState.lastBody = null;
   scenarioState.nonce = '';
   scenarioState.announcements.clear();
   scenarioState.uniqueNames.clear();
