@@ -26,6 +26,10 @@ export const scenarioState = {
   announcements: new Map<string, { id: string; fullTitle: string }>(),
   /** Uniquified names typed into UI forms: feature-file name → real value. */
   uniqueNames: new Map<string, string>(),
+  /** The federation-api moderation_requests.id a mod submitted+referred this
+   *  scenario (the appeals-decide victim-creates-first oracle). Wave 2's Appeals
+   *  console coverage: mod-bff submits/refers, admin-bff decides. */
+  moderationRequestId: null as number | null,
 };
 
 /** Lazily mint the per-scenario uniquifier (lowercase alnum, DNS-label safe). */
@@ -44,4 +48,5 @@ export function resetRegistry(): void {
   scenarioState.nonce = '';
   scenarioState.announcements.clear();
   scenarioState.uniqueNames.clear();
+  scenarioState.moderationRequestId = null;
 }
