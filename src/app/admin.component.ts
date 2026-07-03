@@ -34,8 +34,15 @@ export class AdminComponent implements OnInit {
   private readonly bff = inject(BffService);
   private readonly session = inject(SessionService);
 
-  /** The full admin menu (routerLinks relative to the /admin mount point). The
-   *  superadmin-only Device licenses console is appended last. */
+  /**
+   * The full admin menu, including items that are hidden for the current session. Filtered
+   * at template time by the `menu` computed so only presentable items are rendered.
+   *
+   * - Regular items: visible to any ROLE_ADMIN session.
+   * - `superadminOnly` items: hidden from an ADMIN — visible only to ROLE_SUPERADMIN.
+   * - `hidden` items: the HIDDEN tier — only surfaced when a server-confirmed capability probe
+   *   passes (the workload console is the first example; the route guard is the authoritative gate).
+   */
   private readonly allMenu: ReadonlyArray<AdminMenuItem> = [
     { path: 'usage', label: 'Usage analytics' },
     { path: 'namespaces', label: 'Namespace access' },
@@ -80,34 +87,62 @@ export class AdminComponent implements OnInit {
       return true;
     }));
 
+  /** Gmail address input for the allowlist invite form (ngModel-bound plain property). */
   email = '';
+  /** Discord username input for the allowlist invite form (ngModel-bound plain property). */
   discord = '';
+  /** Current email allowlist entries, loaded from `GET /bff/admin/allowlist`. */
   readonly emails = signal<string[]>([]);
+  /** Current Discord username allowlist entries. */
   readonly discordUsers = signal<string[]>([]);
-  /** Inline validation messages surfaced in role=alert live regions. Empty = valid. */
+  /**
+   * Inline validation messages surfaced in `role=alert` aria-live regions.
+   * An empty string means no error (the region is hidden from AT when empty).
+   */
   readonly emailError = signal('');
+  /** Inline Discord validation message — surfaced in an aria-live region. */
   readonly discordError = signal('');
 
   async ngOnInit(): Promise<void> {
+    // Load the current allowlist on init so the existing entries are shown immediately.
     this.refresh(await this.bff.allowlist());
     // HIDDEN-tier discovery: probe the workload-console capability (404 on deny = stays
     // hidden). Best-effort + defensive — a probe error never breaks the menu.
     try {
-      const cap = typeof this.bff.workloadCapability === 'function'
-        ? await this.bff.workloadCapability() : null;
+      const cap = await this.bff.workloadCapability();
       this.workloadVisible.set(cap !== null);
     } catch {
+      // If the probe throws, treat it as absent — never let a network error reveal the feature.
       this.workloadVisible.set(false);
     }
   }
+
+  /**
+   * Replace the in-memory allowlist state from the BFF response. Called after every
+   * mutating BFF call (invite) to keep the displayed list in sync without a full reload.
+   *
+   * @param a - The updated allowlist returned by the BFF.
+   */
   private refresh(a: { emails: string[]; discord: string[] }): void {
     this.emails.set(a.emails); this.discordUsers.set(a.discord);
   }
+
+  /**
+   * Invite a Gmail address to the registration allowlist (`POST /bff/admin/allowlist/invite`).
+   * Normalises the input to lowercase before sending (Casdoor subject comparison is lowercase).
+   * Refreshes the allowlist from the BFF response.
+   */
   async inviteEmail(): Promise<void> {
     if (!this.email.trim()) { this.emailError.set('Enter a Gmail address to invite.'); return; }
     this.emailError.set('');
     this.refresh(await this.bff.invite('email', this.email.trim().toLowerCase())); this.email = '';
   }
+
+  /**
+   * Invite a Discord username to the registration allowlist (`POST /bff/admin/allowlist/invite`).
+   * Normalises the input to lowercase before sending.
+   * Refreshes the allowlist from the BFF response.
+   */
   async inviteDiscord(): Promise<void> {
     if (!this.discord.trim()) { this.discordError.set('Enter a Discord username to invite.'); return; }
     this.discordError.set('');

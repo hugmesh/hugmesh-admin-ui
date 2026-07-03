@@ -38,73 +38,131 @@ export class StoragePoolsComponent implements OnInit {
 
   readonly pools = signal<StoragePool[]>([]);
   readonly assignments = signal<ServiceAssignment[]>([]);
-  /** Registered devices (attach targets) — own-domain admin-owned for an ADMIN. */
+  /** Registered devices visible to this session — own-domain admin-owned nodes for ADMIN; all nodes for SUPERADMIN. */
   readonly devices = signal<DeviceRegistration[]>([]);
 
-  /** Attach-pool form state. */
+  // ── Attach-pool form fields (ngModel-bound plain properties, not signals) ──
+  /** The device ID of the node the pool is being attached to. */
   attachDeviceId = '';
+  /** Hardware serial of the disk to register (from `lsblk -o SERIAL`). */
   diskSerial = '';
+  /** Absolute path on the node where the pool is mounted (e.g. `/mnt/data`). */
   poolPath = '';
+  /** Reserved capacity in GiB (converted to bytes before sending to BFF). */
   reservedGiB = 100;
+  /** Whether this pool is exclusive to a single service assignment at a time. */
   exclusive = false;
+  /** Filesystem type hint (e.g. `ext4`, `xfs`). Informational — the pool is assumed formatted. */
   filesystem = 'ext4';
+  /** Error message from the last attach/detach attempt. Displayed in an aria-live region. */
   readonly attachError = signal('');
 
-  /** Assign-service form state. */
+  // ── Assign-service form fields (ngModel-bound plain properties) ──
+  /** The pool ID to assign a service to (pre-filled with the first active pool on load). */
   assignPoolId = '';
+  /** The Kubernetes service name requesting this storage (used for the HA warning heuristic). */
   serviceName = '';
+  /** The PersistentVolumeClaim name the service will bind. */
   pvcName = '';
+  /** Requested allocation in GiB (converted to bytes before sending to BFF). */
   requestedGiB = 10;
+  /** Error message from the last assign/revoke attempt. Displayed in an aria-live region. */
   readonly assignError = signal('');
 
   async ngOnInit(): Promise<void> {
+    // Load the pools + assignments, then the device list (sequentially).
     const { pools, assignments } = await this.bff.storagePools();
     this.pools.set(pools);
     this.assignments.set(assignments);
     this.devices.set(await this.bff.devices());
+    // Pre-select the first device and the first active pool so the form is usable immediately.
     if (!this.attachDeviceId && this.devices().length) this.attachDeviceId = this.devices()[0].id;
     if (!this.assignPoolId && this.activePools().length) this.assignPoolId = this.activePools()[0].id;
   }
 
-  /** Only ACTIVE pools may take a new assignment. */
+  /**
+   * Only `active` pools may accept a new assignment. Pools in `pending`, `failed` or
+   * `degraded` reconcile state are filtered out so the assign-form dropdown stays safe.
+   */
   readonly activePools = computed(() => this.pools().filter((p) => p.state === 'active'));
 
-  /** Active assignments grouped by pool id (for the per-pool list + the capacity sum). */
+  /**
+   * Return the currently-active assignments for a given pool (for the per-pool capacity
+   * summary and the assignment list in the UI).
+   *
+   * @param poolId - The pool to filter assignments for.
+   */
   assignmentsForPool(poolId: string): ServiceAssignment[] {
     return this.assignments().filter((a) => a.poolId === poolId && a.state === 'active');
   }
 
-  /** Bytes committed on a pool = sum of its active assignments' requestedBytes. */
+  /**
+   * Total bytes committed on a pool — the sum of all active assignments' `requestedBytes`.
+   * Used to compute the capacity bar fraction.
+   *
+   * @param poolId - The pool to sum.
+   */
   committedBytes(poolId: string): number {
     return this.assignmentsForPool(poolId).reduce((sum, a) => sum + a.requestedBytes, 0);
   }
 
-  /** Committed fraction (0..1) for the capacity bar. */
+  /**
+   * Fraction of reserved capacity that is committed (0..1, clamped at 1). Used as the
+   * `width` percentage in the capacity progress bar.
+   *
+   * @param pool - The pool to compute the fraction for.
+   * @returns A value in [0, 1]; 0 when the pool has no reserved capacity.
+   */
   committedFraction(pool: StoragePool): number {
     if (pool.reservedBytes <= 0) return 0;
     return Math.min(1, this.committedBytes(pool.id) / pool.reservedBytes);
   }
 
-  /** Human-readable bytes (GiB-ish) for the capacity labels. */
+  /**
+   * Format a byte count as a human-readable string using the largest binary unit
+   * that keeps the value ≥ 1 (e.g. `2.5 GiB`, `512 MiB`, `1.0 TiB`).
+   *
+   * @param bytes - The raw byte count to format.
+   * @returns A string with the value and the appropriate binary unit.
+   */
   humanBytes(bytes: number): string {
     const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
     let v = bytes;
     let i = 0;
+    // Step up units while the value is ≥ 1024 and a larger unit exists.
     while (v >= 1024 && i < units.length - 1) {
       v /= 1024;
       i++;
     }
+    // Use one decimal place for values < 100, except for whole-byte values.
     return `${v.toFixed(v >= 100 || i === 0 ? 0 : 1)} ${units[i]}`;
   }
 
+  /**
+   * Convert a GiB value (from the form input) to bytes for the BFF payload.
+   *
+   * @param gib - GiB value to convert.
+   * @returns The equivalent byte count, rounded to the nearest integer.
+   */
   private gibToBytes(gib: number): number {
     return Math.round(gib * 1024 * 1024 * 1024);
   }
 
-  /** Heuristic: a likely-stateful service name (a node-pinned PV with NO HA is a data-loss
-   *  risk for it). Surfaced as a non-blocking WARNING on the assign form. A plain method
-   *  (NOT a computed) because {@code serviceName} is an ngModel-bound plain property, not a
-   *  signal — the template re-evaluates it each change-detection pass. */
+  /**
+   * Heuristic warning for assigning a likely-stateful service to a node-pinned pool.
+   *
+   * A node-pinned PV has **no HA** — a disk loss means data loss. This method checks
+   * the service name for database-shaped keywords and returns a non-blocking warning
+   * string when they match, urging the operator to use node-pinned storage only for
+   * REPLACEABLE data (caches, media, downloads).
+   *
+   * **Why a plain getter, not a `computed()`?** `serviceName` is an ngModel-bound plain
+   * property (not a signal). Angular's change-detection re-evaluates this method on each
+   * CD pass, which is correct for plain-property bindings. Wrapping it in `computed()`
+   * would NOT track the plain property and would silently return a stale value.
+   *
+   * @returns A warning string if the name looks stateful, or `''` if it looks safe.
+   */
   assignWarning(): string {
     const name = this.serviceName.trim().toLowerCase();
     if (!name) return '';
@@ -116,6 +174,13 @@ export class StoragePoolsComponent implements OnInit {
     return '';
   }
 
+  /**
+   * Attach a new storage pool to a node. Validates required fields before calling the BFF
+   * (`POST /bff/admin/node-storage/{deviceId}/pools`). Reloads the pool list on success
+   * and clears the volatile form fields (serial + path), leaving the device selector in place.
+   *
+   * @throws BFF error message surfaced into `attachError` signal.
+   */
   async attach(): Promise<void> {
     const diskSerial = this.diskSerial.trim();
     const poolPath = this.poolPath.trim();
@@ -128,11 +193,13 @@ export class StoragePoolsComponent implements OnInit {
       await this.bff.attachPool(this.attachDeviceId, {
         diskSerial,
         poolPath,
+        // Convert GiB to bytes for the BFF payload.
         reservedBytes: this.gibToBytes(this.reservedGiB),
         exclusive: this.exclusive,
         filesystem: this.filesystem.trim() || null,
       });
       await this.reload();
+      // Clear the one-shot fields; leave device + size intact for a multi-disk attach flow.
       this.diskSerial = '';
       this.poolPath = '';
     } catch (e) {
@@ -140,6 +207,13 @@ export class StoragePoolsComponent implements OnInit {
     }
   }
 
+  /**
+   * Assign a service to an active storage pool (`POST /bff/admin/node-storage/pools/{poolId}/assignments`).
+   * Validates required fields, converts GiB to bytes, reloads on success, and clears
+   * the service name and PVC name (leaving the pool selector in place for bulk assignment).
+   *
+   * @throws BFF error message surfaced into `assignError` signal.
+   */
   async assign(): Promise<void> {
     const serviceName = this.serviceName.trim();
     const pvcName = this.pvcName.trim();
@@ -162,6 +236,12 @@ export class StoragePoolsComponent implements OnInit {
     }
   }
 
+  /**
+   * Detach an existing pool from its node (`DELETE /bff/admin/node-storage/pools/{poolId}`).
+   * Only callable when the pool has no active assignments (the BFF enforces this).
+   *
+   * @param poolId - The pool to detach.
+   */
   async detach(poolId: string): Promise<void> {
     try {
       await this.bff.detachPool(poolId);
@@ -171,6 +251,12 @@ export class StoragePoolsComponent implements OnInit {
     }
   }
 
+  /**
+   * Revoke a service assignment from a pool (`DELETE /bff/admin/node-storage/assignments/{id}`).
+   * The PVC affinity is removed; the scheduler may then bind the PVC elsewhere.
+   *
+   * @param assignmentId - The assignment row to revoke.
+   */
   async revoke(assignmentId: string): Promise<void> {
     try {
       await this.bff.revokeAssignment(assignmentId);
@@ -180,6 +266,7 @@ export class StoragePoolsComponent implements OnInit {
     }
   }
 
+  /** Re-fetch pools and assignments from the BFF after any mutation. */
   private async reload(): Promise<void> {
     const { pools, assignments } = await this.bff.storagePools();
     this.pools.set(pools);

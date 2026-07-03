@@ -5,8 +5,6 @@ import { Terminal } from '@xterm/xterm';
 import { BffService, DeviceRegistration, DesktopSshSession } from '../bff.service';
 import { SessionService } from '../session.service';
 
-declare const __SNAP_BFF_URL__: string | undefined;
-
 /**
  * The in-UI SSH TERMINAL (own repo: snapdragon-admin-ui). The admin front-end for the
  * desktop-governance SSH-terminal surface. The PRE-HANDSHAKE descriptor is fetched from

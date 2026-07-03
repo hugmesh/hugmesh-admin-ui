@@ -1,10 +1,10 @@
 # snapdragon-admin-ui
 
-Admin console for the Snapdragon platform, built as an **Angular 22
-native-federation REMOTE** (federation remote name `admin`), split out of
-snapdragon-social-ui. The **snapdragon.systems host** federates this remote's
-single exposed `./routes` module at runtime and mounts the exposed
-`ADMIN_ROUTES` at **/admin**.
+Admin console for the Snapdragon platform. This repo is an **Angular 22
+native-federation REMOTE** (remote name `admin`) that was split out of
+snapdragon-social-ui. At runtime the **snapdragon.systems host** loads this
+remote's single exposed module (`./routes`) and mounts its `ADMIN_ROUTES`
+at **/admin**.
 
 ## Where it sits in the architecture
 
@@ -50,23 +50,20 @@ flowchart LR
 > for surfaces that are designed/in-flight but not yet shipped here.
 
 This is the admin surface of the multi-brand / multi-tenant platform. It is a
-*consumer-facing UI only*: every privileged action is brokered by the admin BFF,
-which is the single contract to the cluster. The BFF in turn reaches **Casdoor
-through the snapdragon-pki gateway** for identity/role operations and proxies
-in-cluster systems (ArgoCD, ClickHouse, the gateway route registries) so their
-URLs/tokens never leave the cluster. Roles are **owned by Casdoor**; this UI
-never mints or evaluates authority on its own — it only reflects the
-`snap.session` roles and lets the BFF/gateway enforce.
+*presentation layer only*: every privileged action is brokered by the admin BFF,
+which is the single cluster contract. The BFF reaches **Casdoor through the
+snapdragon-pki gateway** for identity and role operations, and proxies in-cluster
+systems (ArgoCD, ClickHouse, the gateway route registries) so their URLs and
+tokens never leave the cluster.
 
-> Multi-tenancy note: in the platform direction (per-domain CA + per-brand
-> gateway/BFF/UI instances + issuer-keyed domain scoping + the least-privilege
-> cascade SUPERADMIN→ADMIN→MOD→USER), this console is the **per-brand ADMIN
-> surface**. As shipped today (✅) the base gate is a Casdoor `admin` role
-> (`roles.includes('admin')`), and a handful of routes additionally require the
-> Casdoor `superadmin` role (`SuperadminGuard`); two routes ride the games-services
-> derived roles. **Domain scoping is still enforced upstream at the gateway/BFF**
-> (the BFF stamps/scopes each call to the caller's domain), not in this UI — the
-> client-side role flags are presentation-only and the BFF/gateway is the authority.
+> **Multi-tenancy note:** The platform's per-domain CA + per-brand
+> gateway/BFF/UI model with its least-privilege cascade (SUPERADMIN→ADMIN→MOD→USER)
+> means this console is the **per-brand ADMIN surface**. As shipped (✅), the base
+> gate is a Casdoor `admin` role (`roles.includes('admin')`); a handful of routes
+> additionally require `superadmin` (enforced by `SuperadminGuard`); and two routes
+> use the games-services derived roles. **Domain scoping is enforced upstream at the
+> gateway and BFF** (the BFF stamps every call to the caller's domain) — the
+> client-side role flags are presentation-only, and the BFF/gateway is the authority.
 
 > State convention used below: **✅ shipped** = merged to `main`;
 > **🚧 in-flight** = code on an open branch/PR; **🔭 planned** = design-complete, no
@@ -155,20 +152,23 @@ are ✅ shipped on `main`.
 | `/admin/workloads/terminal` | Workload pod TTY (SUPERADMIN, xterm.js)            | `WorkloadTerminalComponent` | `workloadConsoleGuard` | hidden |
 
 `AdminComponent` is both the landing view (registration allowlist) and the admin
-**menu**. The menu does **not** auto-surface every route: superadmin-only items
-appear only when the session carries the `superadmin` role (defence-in-depth — the
-route is `superadminGuard`ed too); the Workload Console is **HIDDEN tier** and
-appears only when a server-confirmed capability probe (`/bff/admin/workloads/capability`,
-200 = live grant/role, 404 = dark/denied) passes; and a few routes
-(`/admin/oidc-providers`, `/admin/games-services`, `/admin/superadmin/anubis`) are
-reachable by direct navigation / cross-links rather than a top-level menu entry.
+**menu**. The menu does **not** auto-surface every route:
+
+- **Superadmin-only items** appear only when the session carries the `superadmin`
+  role. The route guard (`superadminGuard`) provides a second layer of enforcement.
+- The **Workload Console** is a **HIDDEN tier** entry that appears only after a
+  server-confirmed capability probe succeeds (`/bff/admin/workloads/capability`;
+  `200` = live grant/role, `404` = dark or denied).
+- A few routes (`/admin/oidc-providers`, `/admin/games-services`,
+  `/admin/superadmin/anubis`) have no top-level menu entry and are reached only
+  by direct navigation or cross-links from other views.
 
 ## Role gate & session
 
-The base gate is the Casdoor **admin role**; the host route-guards `/admin`. This
-repo ships four `CanActivateFn` guards, each reading `SessionService` role flags
-(all client-side checks are **presentation-only** — the BFF/gateway is the
-authority):
+The host route-guards `/admin` behind the Casdoor **admin role**. This repo also
+ships four `CanActivateFn` guards for finer-grained in-remote routing. All
+client-side role checks are **presentation-only** — the BFF and gateway are the
+authority:
 
 | Guard                  | File                          | Allows when                                                                 | Guards |
 | ---------------------- | ----------------------------- | --------------------------------------------------------------------------- | ------ |
@@ -178,33 +178,46 @@ authority):
 | `workloadConsoleGuard` | `src/app/workload-console.guard.ts` | admin/superadmin **and** a live server-confirmed `workloadCapability()` probe (200); else bounced to `/admin` | workloads + workloads/logs + workloads/terminal |
 
 `SessionService` (`src/app/session.service.ts`) reads the shared **`snap.session`**
-localStorage key written by the **login remote** (identity, `roles`, `bffToken`,
-`registrationComplete`, optional Matrix/Mastodon tokens). **`bffToken` is the
-opaque `bff_`-prefixed session handle — not a raw Casdoor JWT;** the gateway swaps
-it for the internal custody JWT on the way in (the user never sees their JWT). The
-login/registration flow that writes this key is owned by the login remote (now
-backed by `snapdragon-user-bff`, which holds the per-session JWT custody). It
-exposes the role state as **computed signals** — `isAdmin`, `isSuperadmin`, plus
-the games-services derived roles `isGamesServicesAdmin` / `isGamesServicesRunner`
-(materialized in Casdoor and surfaced lowercased, `ROLE_`-prefix-stripped, in
-`session.roles`) — and `fullyRegistered` (the registration-complete gate). The
-host shell and each remote hold their own `SessionService` instance over the same
-key and re-read on a same-document broadcast (`snap-session-change`) and cross-tab
-`storage` events, so a session change (e.g. registration completing in the login
-remote) propagates without a reload.
+localStorage key written by the **login remote**. The key carries identity
+(`id`, `label`, `provider`), `roles`, and `registrationComplete`. It **no longer
+carries a bearer token or provider credentials** — the browser holds only the
+opaque, HttpOnly `bff_` cookie (never readable by JS); every `/bff/*` call rides
+that cookie (`credentials: 'include'`) and the gateway's `BffCookieToBearerWebFilter`
+swaps it for the internal custody JWT server-side. The login/registration flow
+that writes this key is owned by the login remote (now backed by
+`snapdragon-user-bff`, which holds the per-session JWT custody).
+
+The service exposes role state as **computed signals**:
+
+- `isAdmin` / `isSuperadmin` — derived from the `roles` array.
+- `isGamesServicesAdmin` / `isGamesServicesRunner` — games-services derived roles,
+  materialised in Casdoor and surfaced in `session.roles` with the `ROLE_` prefix
+  stripped and lowercased.
+- `fullyRegistered` — the registration-complete gate.
+
+The host shell and every remote each hold their own `SessionService` instance over
+the same localStorage key. All instances re-read on a same-document broadcast
+(`snap-session-change`) and on cross-tab `storage` events, so a session change —
+for example, registration completing inside the login remote — propagates
+immediately without a page reload.
 
 ## BFF contract
 
 `BffService` (`src/app/bff.service.ts`) is the hand-written typed client against
-**snapdragon-admin-bff-api**. Every call attaches the opaque session handle
-(`authorization: Bearer ${snap.session.bffToken}` — a `bff_` session, swapped to
-the internal Casdoor custody JWT by the gateway) and targets the admin-scoped (and
-a few superadmin-scoped) endpoints — the registration/login/Matrix-Mastodon
-service-token broker flow lives in the login remote (backed by user-bff). The BFF
-URL + Uptrace URL are read from runtime globals (`__SNAP_BFF_URL__`,
-`__SNAP_UPTRACE_URL__`). SSE streams (backup/restore progress, test-run progress,
-live workload logs) are read with a bearer `fetch` + `ReadableStream` reader rather
-than raw `EventSource`, so the session handle can be sent.
+**snapdragon-admin-bff-api**. Every call sends `credentials: 'include'` so the
+opaque, HttpOnly `bff_` cookie rides the request (the browser never holds a
+bearer token); the gateway's `BffCookieToBearerWebFilter` swaps it for the
+internal Casdoor custody JWT server-side. Calls target the admin-scoped (and a
+few superadmin-scoped) endpoints — the registration/login/Matrix-Mastodon
+service-token broker flow lives in the login remote (backed by user-bff).
+
+The BFF base URL and the Uptrace URL are read from runtime globals
+(`__SNAP_BFF_URL__`, `__SNAP_UPTRACE_URL__`).
+
+SSE streams (backup/restore progress, test-run progress, live workload logs) are
+read with a `fetch({ credentials: 'include' })` + `ReadableStream` reader rather
+than raw `EventSource`, so every streamed endpoint shares the same cookie-auth +
+error-handling path as the rest of `BffService`.
 
 | Module                  | Endpoint(s)                                                | Notes |
 | ----------------------- | ---------------------------------------------------------- | ----- |
@@ -234,23 +247,29 @@ than raw `EventSource`, so the session handle can be sent.
 
 ## Announcements
 
-`/admin/announcements` creates, schedules and targets announcements via the admin
-BFF (`/bff/admin/announcements`, ROLE_ADMIN). An announcement carries a
-`body_html` (HTML / WYSIWYG), a `state` (draft / published / archived), a schedule
-(`starts_at` / `ends_at` / `timezone`), a `priority`, a `dismissible` flag and
-**four per-surface target flags** so one announcement can show on any combination
-of the logged-in **Home** top banner, the public **Login** page (everyone, incl.
-anonymous), **Mastodon/akkoma** (as a local-only admin announcement, propagated by
-the BFF on publish) and the **Forum** main page. The per-surface read endpoints
-(`/bff/announcements/home`, `/bff/public/announcements/login`,
-`/bff/announcements/forum`) live in the BFF and apply the authoritative ACTIVE
-rule; this UI computes an "active now" badge client-side for display only.
+`/admin/announcements` creates, schedules, and targets announcements via the admin
+BFF (`/bff/admin/announcements`, ROLE_ADMIN). Each announcement carries:
 
-`body_html` is admin HTML shown to end users (including anonymous login visitors),
+- `body_html` — WYSIWYG HTML body shown to end users.
+- `state` — `draft` | `published` | `archived`.
+- `starts_at` / `ends_at` / `timezone` — optional display schedule.
+- `priority` and `dismissible` flag.
+- **Four per-surface target flags** — a single announcement can appear on any
+  combination of the logged-in **Home** top banner, the public **Login** page
+  (including anonymous visitors), **Mastodon/akkoma** (as a local-only admin
+  announcement, propagated by the BFF on publish), and the **Forum** main page.
+
+The per-surface read endpoints (`/bff/announcements/home`,
+`/bff/public/announcements/login`, `/bff/announcements/forum`) are owned by the BFF
+and apply the authoritative ACTIVE rule. The UI computes an "active now" badge
+client-side for display only.
+
+**HTML safety:** `body_html` is shown to end users including anonymous visitors,
 so it is **sanitised server-side by the BFF** (the authority) and the editor
 **never uses raw `innerHTML`**: the live preview renders the sanitised body inside
 a **sandboxed null-origin `srcdoc` iframe** (`sandbox=""` — no `allow-scripts`, no
 `allow-same-origin`), mirroring the snapdragon-user-ui card-builder two-wall model.
+
 `AnnouncementsStore` is the signal-backed typed client. Note (✅):
 `ng-openapi-gen` **is** wired AND the generated client **is committed** to
 `src/app/api/` (see *OpenAPI client generation* below). `AnnouncementsStore` is
@@ -262,11 +281,12 @@ still hand-written against the shared API contract pending its own migration.
 ## Workload Console (HIDDEN tier) ✅
 
 `/admin/workloads` is a podman/OpenShift-equivalent pod-management module. It is
-**registered but never auto-surfaced**: the menu entry and the `workloadConsoleGuard`
-both read a single server-confirmed truth — the `workloadCapability()` probe, which
-returns `200` with a capability body iff the caller has a live grant/role and `404`
-on deny (no existence leak). When the feature is dark (generator gate off / DB master
-flag off / no active grant) the whole surface 404s.
+**registered but never auto-surfaced**: both the menu entry and the
+`workloadConsoleGuard` gate on a single server-confirmed truth — the
+`workloadCapability()` probe. The probe returns `200` with a capability body when
+the caller has a live grant/role, and `404` on deny (no existence leak — a `403`
+would reveal the feature's presence). When the feature is dark (generator gate off,
+DB master flag off, or no active grant), the entire surface responds with `404`.
 
 ```mermaid
 flowchart TD
@@ -279,10 +299,15 @@ flowchart TD
   SA -->|"DANGEROUS tier"| STEPUP["requires short-TTL step-up token<br/>X-Workload-StepUp header"]
 ```
 
-Tiering matches the BFF: admins read `/bff/admin/workloads/**` (read-only,
-own-domain, grant-gated); superadmins reach `/bff/superadmin/workloads/**` for the
-mutating/dangerous surfaces. The live log stream is SSE (bearer `fetch`); the pod
-TTY uses `@xterm/xterm`.
+Tiering mirrors the BFF:
+
+- **Admins** call `/bff/admin/workloads/**` — read-only, own-domain, grant-gated.
+- **Superadmins** call `/bff/superadmin/workloads/**` — mutating and dangerous
+  surfaces (rollout-restart, delete, GitOps lifecycle). Dangerous-tier mutations
+  require a short-TTL step-up token in the `X-Workload-StepUp` header.
+
+The live log stream uses SSE via a cookie-authenticated `fetch`; the pod TTY uses
+`@xterm/xterm`.
 
 ## OpenAPI client generation ✅ (wired + committed)
 
@@ -298,21 +323,33 @@ migration onto the generated client.
 
 ## Accessibility
 
-Every module follows the platform a11y baseline: inline validation surfaced in
-`role=alert` live regions, async progress announced via `role=status` /
-`aria-live`, status conveyed with text (not colour alone), `<label for>` on every
-field, confirm-before-destructive guards, and keyboard-operable controls
-(the ArgoCD sync confirm is a focus-managed `role=dialog aria-modal`). The
-standalone dev shell supplies a skip link + a `<main id="main">` landmark.
+Every module follows the platform a11y baseline:
+
+- Inline validation errors surfaced in `role=alert` live regions.
+- Async progress announced via `role=status` / `aria-live`.
+- Status conveyed with text, not colour alone.
+- `<label for>` on every field.
+- Confirm-before-destructive guards (e.g. the ArgoCD sync confirm is a
+  focus-managed `role=dialog aria-modal`).
+- All controls are keyboard-operable.
+
+The standalone dev shell also provides a skip link and a `<main id="main">` landmark.
 
 ## Federation
 
-`federation.config.js` (built via `federation-base.js`, the shared Snapdragon
-federation surface) exposes `./routes` → `src/app/admin.routes.ts`
-(`ADMIN_ROUTES`). The remote name `admin` and the exposed module key `./routes`
-**must stay unchanged** or the host's admin console breaks. The build emits
-`dist/admin/browser/remoteEntry.json`, whose `exposes` entry the host consumes to
-lazy-load the routes.
+`federation.config.js` (composed via `federation-base.js`, the shared Snapdragon
+federation base) exposes one module:
+
+```
+./routes  →  src/app/admin.routes.ts  (exports ADMIN_ROUTES)
+```
+
+The remote name `admin` and the exposed module key `./routes` **must stay
+unchanged** — the host references them by these exact strings, and renaming either
+breaks the admin console in production.
+
+The build emits `dist/admin/browser/remoteEntry.json`. The `exposes` entry in that
+manifest is what the host fetches to lazy-load the routes at runtime.
 
 ## Develop
 
@@ -322,8 +359,8 @@ npm start            # ng serve admin → http://localhost:4204 (standalone dev 
 ```
 
 The standalone dev shell (`AppComponent`, selector `snap-admin-root`) mounts
-`ADMIN_ROUTES` at `/` so the remote is browsable on its own. In production the
-host loads `./routes` directly and this shell is not used.
+`ADMIN_ROUTES` at `/`, making the remote browsable in isolation. In production the
+host loads the `./routes` module directly and the dev shell is not used.
 
 ## Build
 
@@ -340,7 +377,7 @@ The Angular application builder nests output under **`dist/admin/browser/`**
 npm test             # ng test admin --watch=false --browsers=ChromeHeadlessCI
 ```
 
-In CI this runs as the `test` stage (a `node:24-alpine` + chromium container,
+In CI this runs as the `test` stage (a `node:24-alpine` + Chromium container,
 emitting JUnit via `karma-junit-reporter`) and **gates** the image build — see
 *Deploy*.
 
@@ -371,29 +408,50 @@ validation.
 > (es-module-shims nonce propagation) — that remains on the live-cluster browser
 > validation list.
 
-Runs as its own pod in the **snapdragon-frontend** namespace,
-fronted by the **fe-gateway** at `/admin`.
+The resulting container runs as its own pod in the **snapdragon-frontend**
+namespace, fronted by the **fe-gateway** at `/admin`.
 
-CI (`.gitlab-ci.yml`) runs **three stages** on push / mirror-sync (CI is **GitLab**
-across the platform — there are no GitHub Actions):
+CI (`.gitlab-ci.yml`) runs **four stages** on every push and mirror-sync (CI is
+**GitLab** across the platform — there are no GitHub Actions):
 
-1. `test` — `ng test` in a `node:24-alpine` + chromium container, emitting JUnit
-   reports (`karma-junit-reporter`).
-2. `build` — `build:image` (`needs: [test]`, so the image build/push only proceeds
-   after tests pass) builds + pushes the image to the in-cluster GitLab registry,
-   tagged with the release tag / git SHA plus a moving branch tag.
-3. `pentest` — the centralized OWASP harness `include`d from `snapdragon-generator`
-   (`pentest:sca` = Dependency-Check SCA; `pentest:dast` = authenticated ZAP baseline
-   + custom probes + nuclei). Both are `allow_failure: true`, so findings surface in
-   the MR security widget without breaking the build.
+1. **`test`** — `ng test` in a `node:24-alpine` + Chromium container, emitting JUnit
+   reports via `karma-junit-reporter`.
+2. **`e2e`** — `e2e:bdd` (`needs: []`, runs in parallel with `test`): installs the
+   `e2e/` Playwright + playwright-bdd harness in a `node:24` container and proves the
+   Gherkin features compile (`bddgen`) and all scenarios are discoverable
+   (`playwright test --list`) with **no live cluster**. Ships dark — see
+   `e2e/README.md`. `allow_failure: true`, so it does **not** gate the image build.
+3. **`build`** — `build:image` (`needs: [test]`) builds and pushes the Docker image to
+   the in-cluster GitLab registry, tagged with the release tag / git SHA plus a
+   moving branch tag. The image build only starts after `test` passes (`e2e:bdd` is
+   not in its `needs`, so it cannot block the build).
+4. **`pentest`** — includes the centralised OWASP harness from `snapdragon-generator`:
+   `pentest:sca` runs Dependency-Check (SCA) and `pentest:dast` runs an authenticated
+   ZAP baseline scan plus custom probes and nuclei templates. Both jobs use
+   `allow_failure: true`, so findings appear in the MR security widget without
+   blocking the build.
 
-**Images carry no KEYS material** — it is supplied from the USB at first boot.
+```mermaid
+flowchart LR
+  push["git push / mirror-sync"] --> test
+  push --> e2ebdd
+  test["1 · test\nng test (ChromeHeadlessCI)\n→ JUnit report"]
+  e2ebdd["e2e · e2e:bdd\nbddgen + playwright --list\n(no cluster, allow_failure)"]
+  test -->|pass| build
+  test -->|fail| stop["image build blocked"]
+  build["2 · build:image\nbuild + push to GitLab registry\n(sha tag + branch tag)"]
+  build --> pentest
+  pentest["3 · pentest\nSCA (Dependency-Check)\nDAST (ZAP + nuclei)\nallow_failure: true"]
+  pentest --> widget["findings → MR security widget"]
+```
+
+**Images carry no KEYS material** — keys are supplied from the USB at first boot.
 
 ## Roadmap (not shipped in this repo)
 
-These are clearly-labelled **future** items — design-complete or in-flight elsewhere
-in the platform — that are expected to add surfaces to this admin remote. None of
-them is shipped here today; do not read the routes/BFF tables above as covering them.
+These items are design-complete or in-flight elsewhere in the platform and are
+expected to add new surfaces to this remote. **None is shipped here today.** Do not
+read the Routes or BFF contract tables above as covering any of them.
 
 - **🚧 SSO end-to-end + e2e (in progress).** The Casdoor OIDC (PKCE) login → opaque
   `bff_` session → gateway `bff_`→JWT swap path is being wired and proven end-to-end

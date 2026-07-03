@@ -1,6 +1,6 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { BffService } from './bff.service';
+import { BffService, UsageStats } from './bff.service';
 
 /**
  * Admin "Usage" micro-frontend view (own repo: snapdragon-admin-ui). Visible
@@ -17,6 +17,6 @@ import { BffService } from './bff.service';
 })
 export class UsageComponent implements OnInit {
   private readonly bff = inject(BffService);
-  readonly usage = signal<any | null>(null);
+  readonly usage = signal<UsageStats | null>(null);
   async ngOnInit(): Promise<void> { this.usage.set(await this.bff.usage()); }
 }

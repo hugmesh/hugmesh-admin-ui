@@ -4,7 +4,6 @@ import { BffService } from './bff.service';
 
 describe('UsageComponent', () => {
   let fixture: ComponentFixture<UsageComponent>;
-  let component: UsageComponent;
   let bff: jasmine.SpyObj<BffService>;
 
   const usage = {
@@ -22,7 +21,6 @@ describe('UsageComponent', () => {
       providers: [{ provide: BffService, useValue: bff }],
     }).compileComponents();
     fixture = TestBed.createComponent(UsageComponent);
-    component = fixture.componentInstance;
   });
 
   it('loads usage on init and renders the summary counts', async () => {

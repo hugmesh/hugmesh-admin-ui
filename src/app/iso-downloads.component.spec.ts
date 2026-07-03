@@ -4,7 +4,6 @@ import { BffService } from './bff.service';
 
 describe('IsoDownloadsComponent', () => {
   let fixture: ComponentFixture<IsoDownloadsComponent>;
-  let component: IsoDownloadsComponent;
   let bff: jasmine.SpyObj<BffService>;
 
   beforeEach(async () => {
@@ -14,7 +13,6 @@ describe('IsoDownloadsComponent', () => {
       providers: [{ provide: BffService, useValue: bff }],
     }).compileComponents();
     fixture = TestBed.createComponent(IsoDownloadsComponent);
-    component = fixture.componentInstance;
   });
 
   it('loads ISOs on init and renders a download link per artifact', async () => {

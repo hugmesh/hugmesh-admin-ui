@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BffService, ArgoApp, ArgoAppDetail } from './bff.service';
 import { FocusTrapDirective } from './a11y/focus-trap.directive';

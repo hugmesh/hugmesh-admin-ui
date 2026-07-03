@@ -4,8 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { Terminal } from '@xterm/xterm';
 import { BffService } from '../bff.service';
 
-declare const __SNAP_BFF_URL__: string | undefined;
-
 /**
  * SUPERADMIN interactive TTY terminal (DECISION 1 — full exec -it parity over xterm.js). The
  * handshake opens a WebSocket to {@code /bff/superadmin/workloads/exec-tty/{ns}/{pod}}; the
@@ -49,16 +47,25 @@ export class WorkloadTerminalComponent implements AfterViewInit, OnDestroy {
 
   @ViewChild('term', { static: false }) termRef?: ElementRef<HTMLDivElement>;
 
+  /** The Kubernetes namespace of the target pod (defaults to the primary app namespace). */
   namespace = 'snapdragon-backend';
+  /** The pod name to exec into (must be running, in the accessible namespace). */
   pod = '';
+  /** Optional container name within the pod (omit to use the first container). */
   container = '';
+  /** The command to spawn inside the container (defaults to `/bin/sh`). */
   command = '/bin/sh';
 
+  /** True while the WebSocket is open and the TTY is interactive. */
   readonly connected = signal(false);
+  /** Status message announced in an aria-live region (connecting / connected / closed). */
   readonly statusMsg = signal('');
+  /** Error message from the connect or step-up flow. Displayed in an aria-live region. */
   readonly error = signal('');
 
+  /** The xterm.js terminal instance (created lazily on connect). */
   private term?: Terminal;
+  /** The WebSocket backing the TTY session. */
   private ws?: WebSocket;
 
   ngAfterViewInit(): void {
@@ -66,7 +73,18 @@ export class WorkloadTerminalComponent implements AfterViewInit, OnDestroy {
     // touching xterm during SSR/headless test bootstrap.
   }
 
-  /** Mint a fresh step-up token then open the TTY WebSocket. */
+  /**
+   * Mint a fresh DANGEROUS-tier step-up token, then open the TTY WebSocket to the BFF.
+   *
+   * Flow:
+   * 1. Call `BffService.workloadStepUp()` to get a short-TTL step-up token.
+   * 2. Build the WS URL with both the bearer token and the step-up token in query params
+   *    (WebSocket API cannot set headers, so tokens ride the URL — same posture as other
+   *    Tailnet-only WS surfaces).
+   * 3. Open the terminal, connect the WebSocket, wire `onData` → stdin and `onResize` → resize frames.
+   *
+   * @throws Error shown in the `error` signal when the step-up call fails.
+   */
   async connect(): Promise<void> {
     this.error.set('');
     if (!this.pod.trim()) {
@@ -112,22 +130,33 @@ export class WorkloadTerminalComponent implements AfterViewInit, OnDestroy {
     };
   }
 
+  /** Close the WebSocket and mark the terminal as disconnected. */
   disconnect(): void {
     this.ws?.close();
     this.ws = undefined;
     this.connected.set(false);
   }
 
+  /**
+   * Convert an HTTP base URL to its WebSocket equivalent.
+   * When `httpBase` is empty, derives the base from `window.location` so the terminal
+   * works in both local dev (ws://localhost) and production (wss://...).
+   *
+   * @param httpBase - The BFF HTTP origin (e.g. `https://admin.snapdragon.systems`), or `''` for same-origin.
+   * @returns The WebSocket origin (e.g. `wss://admin.snapdragon.systems`).
+   */
   private toWsBase(httpBase: string): string {
     if (!httpBase) {
       const loc = typeof window !== 'undefined' ? window.location : undefined;
       const proto = loc?.protocol === 'https:' ? 'wss:' : 'ws:';
       return loc ? `${proto}//${loc.host}` : 'ws://localhost';
     }
+    // Replace the scheme prefix: http: → ws:, https: → wss:.
     return httpBase.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
   }
 
   ngOnDestroy(): void {
+    // Ensure the WebSocket is closed on component teardown to avoid background frames.
     this.disconnect();
     this.term?.dispose();
   }

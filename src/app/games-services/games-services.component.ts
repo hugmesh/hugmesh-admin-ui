@@ -38,29 +38,51 @@ export class GamesServicesComponent implements OnInit {
   private readonly bff = inject(BffService);
   private readonly session = inject(SessionService);
 
+  /** The game servers offered for this domain (`GET /bff/admin/games/offers`). */
   readonly offers = signal<GameOffer[]>([]);
+  /** The running game instances for this domain (`GET /bff/admin/games/instances`). */
   readonly instances = signal<GameInstance[]>([]);
 
   /** A games-services ADMIN may create; a RUNNER (not admin) may only run/stop. */
   readonly canCreate = computed(() => this.session.isGamesServicesAdmin());
 
-  /** Create-instance form state (mirrors CreateGameInstanceRequest). */
+  /**
+   * Create-instance form fields (mirror `CreateGameInstanceRequest`).
+   * `slug` is the offered game server slug; `name` is the instance's DNS label;
+   * `ttlHours` is an optional lifetime in hours (blank = no expiry clock).
+   */
   slug = '';
   name = '';
   ttlHours = '';
 
+  /** Inline validation / creation error — surfaced in a `role=alert` live region. */
   readonly formError = signal('');
+  /** Error from a run/stop action — surfaced in a `role=alert` live region. */
   readonly actionError = signal('');
 
   async ngOnInit(): Promise<void> {
     await this.refresh();
   }
 
+  /**
+   * Reload the offered catalog and the running instances from the BFF.
+   * Called on init and after a successful create.
+   */
   private async refresh(): Promise<void> {
     this.offers.set(await this.bff.gamesOfferedCatalog());
     this.instances.set(await this.bff.gamesInstances());
   }
 
+  /**
+   * Create a game instance (`POST /bff/admin/games/instances`). Validates the slug
+   * (required) and the instance name (DNS label pattern) before calling. The TTL is
+   * optional; blank = no expiry clock (the instance runs until terminated).
+   *
+   * The BFF gates: a 403 = quota/offer not enabled; a 409 = duplicate instance name.
+   * Both error bodies are surfaced verbatim in `formError`.
+   *
+   * @throws BFF error body surfaced into `formError`.
+   */
   async create(): Promise<void> {
     if (!this.canCreate()) return; // belt-and-braces; the form is disabled for a runner
     const slug = this.slug.trim();
@@ -69,6 +91,7 @@ export class GamesServicesComponent implements OnInit {
       this.formError.set('Choose a game server to run.');
       return;
     }
+    // Instance name must be a valid DNS label (Kubernetes pod/service naming rule).
     if (!/^[a-z0-9][a-z0-9-]{0,62}$/.test(name)) {
       this.formError.set('Enter an instance name (a DNS label: lowercase letters, digits, “-”).');
       return;
@@ -77,10 +100,12 @@ export class GamesServicesComponent implements OnInit {
     const req: CreateGameInstanceRequest = {
       slug,
       name,
+      // Convert hours to seconds; null signals “no TTL” (permanent until terminated).
       ttlSeconds: this.ttlHours.trim() ? Math.round(Number(this.ttlHours) * 3600) : null,
     };
     try {
       const created = await this.bff.createGameInstance(req);
+      // Optimistically prepend the new instance; no full reload needed.
       this.instances.set([created, ...this.instances()]);
       this.slug = '';
       this.name = '';
@@ -91,10 +116,19 @@ export class GamesServicesComponent implements OnInit {
     }
   }
 
+  /**
+   * Apply a lifecycle action to a running instance (`POST /bff/admin/games/instances/{id}/{action}`).
+   * Updates the instance row in place from the returned DTO.
+   *
+   * @param i - The instance to act on.
+   * @param action - The lifecycle action: `'suspend'` (pause), `'resume'` (unpause), or `'terminate'` (stop + delete).
+   * @throws BFF errors are caught and surfaced into `actionError`.
+   */
   async act(i: GameInstance, action: 'suspend' | 'resume' | 'terminate'): Promise<void> {
     this.actionError.set('');
     try {
       const updated = await this.bff.gameInstanceAction(i.id, action);
+      // Replace the matching row in the instances signal without a full reload.
       this.instances.set(this.instances().map((x) => (x.id === updated.id ? updated : x)));
     } catch (e) {
       this.actionError.set(e instanceof Error ? e.message : String(e));

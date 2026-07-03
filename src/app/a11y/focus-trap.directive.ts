@@ -36,8 +36,12 @@ export class FocusTrapDirective implements AfterViewInit, OnDestroy {
   private previouslyFocused: HTMLElement | null = null;
 
   ngAfterViewInit(): void {
+    // Capture the focused element BEFORE the dialog opens so we can restore it on close.
     this.previouslyFocused =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    // Use queueMicrotask to defer the focus move until after Angular has finished rendering
+    // the dialog's DOM — synchronous focus at this point would target an element that may
+    // not yet have its final layout (offsetParent would be null).
     queueMicrotask(() => {
       const first = this.focusable()[0] ?? this.host.nativeElement;
       first.focus();
@@ -45,16 +49,31 @@ export class FocusTrapDirective implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    // Restore focus to the trigger so a keyboard user is never stranded.
+    // Restore focus to the trigger so a keyboard user is never stranded on a removed element.
     this.previouslyFocused?.focus?.();
   }
 
+  /**
+   * Return all natively-focusable, non-disabled, layout-visible descendants of the dialog.
+   * The `offsetParent !== null` check excludes hidden (`display:none`) or detached elements.
+   * The active-element exception prevents the currently-focused element from being lost
+   * mid-interaction (e.g. a focus event fires before layout is updated).
+   */
   private focusable(): HTMLElement[] {
     return Array.from(this.host.nativeElement.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
       (el) => el.offsetParent !== null || el === document.activeElement,
     );
   }
 
+  /**
+   * Handle keyboard events inside the dialog to implement Tab wrapping and Escape dismissal.
+   *
+   * - **Escape**: emits `dismiss` so the host closes the dialog and focus is restored.
+   * - **Tab**: wraps forward from the last focusable item to the first.
+   * - **Shift+Tab**: wraps backward from the first focusable item to the last.
+   *
+   * @param event - The keyboard event from the host listener.
+   */
   @HostListener('keydown', ['$event'])
   onKeydown(event: KeyboardEvent): void {
     if (event.key === 'Escape') {

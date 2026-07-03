@@ -2,9 +2,17 @@ import { Injectable, inject } from '@angular/core';
 import { SessionService } from './session.service';
 
 const CFG = {
-  bff: (globalThis as any).__SNAP_BFF_URL__ ?? '',
-  uptrace: (globalThis as any).__SNAP_UPTRACE_URL__ ?? 'https://uptrace.snapdragon.systems',
+  bff: __SNAP_BFF_URL__ ?? '',
+  uptrace: __SNAP_UPTRACE_URL__ ?? 'https://uptrace.snapdragon.systems',
 };
+
+/** Admin-only usage analytics aggregated by the BFF from ClickHouse (GET /bff/admin/usage). */
+export interface UsageStats {
+  byModule: { module: string; events: number; users: number }[];
+  byAction: { action: string; events: number }[];
+  activeUsers: number;
+  totalEvents: number;
+}
 
 /**
  * Talks to the Spring admin BFF (backend namespace, behind the gateway), which
@@ -34,7 +42,7 @@ export class BffService {
   }
 
   /** Admin-only usage analytics aggregated by the BFF from ClickHouse. */
-  async usage(): Promise<any> {
+  async usage(): Promise<UsageStats> {
     const r = await fetch(`${CFG.bff}/bff/admin/usage`, { credentials: 'include' });
     return r.ok ? r.json() : { byModule: [], byAction: [], activeUsers: 0, totalEvents: 0 };
   }

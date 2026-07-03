@@ -5,7 +5,7 @@ import { Injectable, InjectionToken, inject } from '@angular/core';
  *  `globalThis.__SNAP_BFF_URL__` lets the host override the target at runtime
  *  (mirrors the other remotes' __SNAP_*_URL__ globals + bff.service.ts CFG). */
 export const CLOUD_BACKUPS_BASE_URL = new InjectionToken<string>('CLOUD_BACKUPS_BASE_URL', {
-  factory: () => (globalThis as any).__SNAP_BFF_URL__ ?? '',
+  factory: () => __SNAP_BFF_URL__ ?? '',
 });
 
 // ---------------------------------------------------------------------------
