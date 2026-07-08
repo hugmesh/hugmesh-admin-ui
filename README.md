@@ -25,7 +25,7 @@ flowchart LR
 
   subgraph remote["snapdragon-admin-ui (this repo) — federated REMOTE"]
     UI["ADMIN_ROUTES<br/>(AdminComponent + modules)"]
-    SS["SessionService<br/>(reads snap.session — opaque bff_ session)"]
+    SS["SessionService<br/>(reads snap.session — id/roles only, no token)"]
     BS["BffService<br/>(hand-written fetch client)"]
   end
 
@@ -80,11 +80,14 @@ absorbed into `main`).
 The one place this UI is **deliberately tracking a moving backend** is the auth /
 session bridge, recently unified across the platform:
 
-- **SSO is Casdoor (OIDC authorization-code + PKCE).** The `login-ui` remote runs
-  the Casdoor redirect; **`snapdragon-user-bff` does the server-side
-  code→token exchange and holds per-session JWT custody/refresh.** The browser
-  only ever holds an **opaque `bff_`-prefixed session** (the `snap.session`
-  payload). **The user never sees their own Casdoor JWT.**
+- **Login is native, not a Casdoor redirect.** The old OIDC authorization-code
+  (PKCE) browser-redirect flow has been superseded platform-wide: each service's
+  own login-ui remote posts credentials to a login-style endpoint on that
+  service's own BFF, and **`snapdragon-user-bff` holds per-session JWT
+  custody/refresh server-side.** **Casdoor is internal-only and never redirects
+  the browser.** The browser holds only the opaque, HttpOnly **`bff_` cookie**
+  (never readable by JS) plus the identity/roles `snap.session` localStorage
+  payload. **The user never sees their own Casdoor JWT.**
 - **The gateway is a pure Casdoor-JWT OAuth2 resource server.** A pre-security
   exchange filter swaps the opaque `bff_` session → the internal custody JWT, so
   the gateway's JWT validation + role gate run unchanged. Authorization is
@@ -104,9 +107,10 @@ session bridge, recently unified across the platform:
   2025.1.2 / Java 25 LTS**, on `snapdragon-parent` (metapom 2.7.0) +
   `snapdragon-commons` (2.7.0).
 
-> Implication for this UI: `snap.session.bffToken` is the **opaque `bff_` session
-> handle**, not a raw Casdoor JWT — the gateway performs the `bff_`→JWT swap.
-> `BffService` continues to attach it on every call; the registration / login /
+> Implication for this UI: the opaque **`bff_` session lives in an HttpOnly
+> cookie**, not a field on `snap.session` — the gateway performs the `bff_`→JWT
+> swap server-side. `BffService` continues to send it automatically via
+> `credentials: 'include'` on every call; the registration / login /
 > service-token broker flow lives in the **login remote** (now backed by user-bff),
 > not here.
 
@@ -455,12 +459,6 @@ These items are design-complete or in-flight elsewhere in the platform and are
 expected to add new surfaces to this remote. **None is shipped here today.** Do not
 read the Routes or BFF contract tables above as covering any of them.
 
-- **🚧 SSO end-to-end + e2e (in progress).** The Casdoor OIDC (PKCE) login → opaque
-  `bff_` session → gateway `bff_`→JWT swap path is being wired and proven end-to-end
-  (incl. e2e). The login/session/account relocation from admin-bff to user-bff and
-  the `snapdragon-auth-core` extraction land on the backend; this UI's contract is
-  unchanged (it keeps sending `snap.session.bffToken`), but the login remote it
-  depends on is moving to user-bff.
 - **🚧 Desktop app governance maturity** — UI shipped (above); fleet-side backend effectors (Discover curation sync, remote-install via device-ssh-license, admin-bff effector wiring) continue alongside the generator.
 - **🚧 Notifications EXTERNAL channels** (in-flight). Matrix DM / Akkoma feed / phpBB /
   email adapters atop the shipped in-app notifications MVP. Any admin-side channel /
