@@ -2,8 +2,14 @@ import { Injectable, inject } from '@angular/core';
 import { SessionService } from './session.service';
 
 const CFG = {
-  bff: __SNAP_BFF_URL__ ?? '',
-  uptrace: __SNAP_UPTRACE_URL__ ?? 'https://uptrace.snapdragon.systems',
+  // Bare references (no globalThis/typeof guard) throw ReferenceError: nothing
+  // in this build ever DECLARES __SNAP_BFF_URL__/__SNAP_UPTRACE_URL__ as real
+  // globals — runtime-config.d.ts is a TypeScript-only ambient declaration, not
+  // an injection mechanism (unlike login-ui's snap-config.js entrypoint script,
+  // which actually sets window.__SNAP_*__). mfa.service.ts in this same repo
+  // already uses the correct globalThis-guarded form; this just matches it.
+  bff: (globalThis as any).__SNAP_BFF_URL__ ?? '',
+  uptrace: (globalThis as any).__SNAP_UPTRACE_URL__ ?? 'https://uptrace.snapdragon.systems',
 };
 
 /** Admin-only usage analytics aggregated by the BFF from ClickHouse (GET /bff/admin/usage). */
