@@ -1,9 +1,11 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
 import { signal } from '@angular/core';
 import { AdminComponent } from './admin.component';
 import { BffService } from './bff.service';
 import { SessionService } from './session.service';
+import { ADMIN_ROUTES } from './admin.routes';
 
 describe('AdminComponent', () => {
   let fixture: ComponentFixture<AdminComponent>;
@@ -220,5 +222,58 @@ describe('AdminComponent', () => {
       expect(el.querySelector('[data-testid="admin-email-error"]')).toBeNull();
       expect(el.querySelector<HTMLInputElement>('#admin-email')!.getAttribute('aria-invalid')).toBeNull();
     });
+  });
+});
+/**
+ * Regression coverage for a real bug: the menu's routerLink used
+ * `['/', item.path]`, an ABSOLUTE navigation from the router root (e.g.
+ * `/usage`) rather than a link relative to where AdminComponent is actually
+ * mounted (`/admin`, per admin.routes.ts's own doc comment). Every existing
+ * AdminComponent spec above used `provideRouter([])` (an EMPTY route table),
+ * which asserts the `data-menu` attribute is present but can never catch a
+ * wrong TARGET — an absolute-vs-relative regression renders identically
+ * either way when there is nothing for the router to actually resolve
+ * against. This suite mounts the REAL `ADMIN_ROUTES` under `/admin` (mirroring
+ * how the snapdragon.systems host actually mounts this remote) and asserts
+ * the rendered anchors resolve to `/admin/<path>`, not `/<path>`.
+ */
+describe('AdminComponent menu — resolved navigation targets', () => {
+  beforeEach(async () => {
+    const bff = jasmine.createSpyObj<BffService>('BffService', ['allowlist', 'invite']);
+    bff.allowlist.and.resolveTo({ emails: [], discord: [] });
+    await TestBed.configureTestingModule({
+      providers: [
+        { provide: BffService, useValue: bff },
+        { provide: SessionService, useValue: { isSuperadmin: signal(true) } },
+        provideRouter([{ path: 'admin', children: ADMIN_ROUTES }]),
+      ],
+    }).compileComponents();
+  });
+
+  it('resolves the Usage analytics menu link to /admin/usage, not /usage', async () => {
+    const harness = await RouterTestingHarness.create('/admin');
+    harness.detectChanges();
+    const el: HTMLElement = harness.routeNativeElement!;
+    const link = el.querySelector<HTMLAnchorElement>('[data-menu="usage"]');
+    expect(link).withContext('usage menu link').not.toBeNull();
+    expect(link!.getAttribute('href')).toBe('/admin/usage');
+  });
+
+  it('resolves the Namespace access menu link to /admin/namespaces, not /namespaces', async () => {
+    const harness = await RouterTestingHarness.create('/admin');
+    harness.detectChanges();
+    const el: HTMLElement = harness.routeNativeElement!;
+    const link = el.querySelector<HTMLAnchorElement>('[data-menu="namespaces"]');
+    expect(link).withContext('namespaces menu link').not.toBeNull();
+    expect(link!.getAttribute('href')).toBe('/admin/namespaces');
+  });
+
+  it('resolves a nested-path menu link (superadmin/domains) to /admin/superadmin/domains', async () => {
+    const harness = await RouterTestingHarness.create('/admin');
+    harness.detectChanges();
+    const el: HTMLElement = harness.routeNativeElement!;
+    const link = el.querySelector<HTMLAnchorElement>('[data-menu="superadmin/domains"]');
+    expect(link).withContext('superadmin/domains menu link').not.toBeNull();
+    expect(link!.getAttribute('href')).toBe('/admin/superadmin/domains');
   });
 });

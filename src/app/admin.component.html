@@ -3,7 +3,7 @@
     <ul>
       <li *ngFor="let item of menu()">
         <a
-          [routerLink]="['/', item.path]"
+          [routerLink]="[item.path]"
           routerLinkActive="is-active"
           class="nav-link"
           [attr.data-menu]="item.path"
