@@ -259,6 +259,9 @@ describe('ImageGenComponent (worklist host shell)', () => {
       component.onEditPackages(key);
       expect(component.pkgModalImageLabel()).toBe('be.x86');
       expect(component.pkgModalImageLabel()).not.toBe(key); // key is an opaque wle-N-xxxx
+      // The entry's role is seeded too — the modal needs it to pick the catalog's
+      // per-(platform, role) tier baseline (locked floor / removable defaults).
+      expect(component.pkgModalRole()).toBe('be');
     });
 
     it('round-trips adhoc option keys through the seam (seeds from the entry, persists on apply)', () => {

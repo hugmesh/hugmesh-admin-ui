@@ -66,6 +66,9 @@ export class ImageGenComponent implements OnInit, OnDestroy {
   // ── item 9: per-image package-catalog modal, host-mediated ────────────────
   readonly pkgModalOpen = signal(false);
   readonly pkgModalPlatform = signal('');
+  /** The edited entry's Studio role id — lets the modal pick the catalog's per-(platform, role)
+   *  tier baseline (locked floor / removable defaults) when the catalog carries one. */
+  readonly pkgModalRole = signal('');
   readonly pkgModalImageLabel = signal('');
   readonly pkgModalSelection = signal<PackageSelection | null>(null);
   private pkgEditingKey = '';
@@ -77,6 +80,7 @@ export class ImageGenComponent implements OnInit, OnDestroy {
     if (!entry) return;
     this.pkgEditingKey = key;
     this.pkgModalPlatform.set(entry.platform);
+    this.pkgModalRole.set(entry.role);
     // The human-facing modal heading is the entry's wire id (role.platform), NOT the opaque
     // internal row key (wle-N-xxxx) — matching the wizard's own per-entry title.
     this.pkgModalImageLabel.set(entryWireId(entry));

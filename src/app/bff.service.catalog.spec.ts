@@ -29,6 +29,11 @@ function fixture(): ImageBuildCatalog {
       platforms: {
         x86: { packages: { gate: 'base', sections: [{ title: '', atoms: ['app-misc/jq'] }] } },
       },
+      // The OPTIONAL per-platform role→tier baselines newer catalogs carry (PackageRoleTiers)
+      // — pinned here to prove they pass through verbatim like the rest of the payload.
+      roles: {
+        x86: { be: { essential: ['app-misc/jq'], removable: [], available: ['net-vpn/tor'] } },
+      },
     },
     images: {
       platform_labels: { x86: 'x86_64 host' },
@@ -75,6 +80,7 @@ describe('BffService.imageBuildCatalog', () => {
     // The load-bearing shapes the modal + wizard read survive verbatim.
     expect(result!.packages.platforms['x86']['packages'].gate).toBe('base');
     expect(result!.packages.adhoc_adds['tor'].atoms).toEqual(['net-vpn/tor']);
+    expect(result!.packages.roles!['x86']['be'].essential).toEqual(['app-misc/jq']);
     expect(result!.images.role_class.desktop).toContain('laptop');
     expect(result!.images.roles['cloud'][0].platforms[0].axes['desktop']).toEqual(['thin', 'full']);
   });

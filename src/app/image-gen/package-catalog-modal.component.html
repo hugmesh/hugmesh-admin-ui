@@ -28,10 +28,17 @@
       </header>
 
       <p id="pkg-modal-note" class="pkg-note" data-testid="pkg-essential-note">
-        Base packages (the always-on floor for
-        <strong>{{ platform() || 'this platform' }}</strong>) are locked on. Which default
-        packages are removable, and which extras your role auto-installs, are resolved by the
-        builder at image-build time — here you add extra packages and enable add-on options.
+        @if (tiersActive()) {
+          Locked packages are the essential floor for the
+          <strong>{{ role() }}</strong> role on <strong>{{ platform() }}</strong> (plus the
+          packages of any enabled add-on option). Default packages you un-tick are removed from
+          the image; extra packages you tick are added.
+        } @else {
+          Base packages (the always-on floor for
+          <strong>{{ platform() || 'this platform' }}</strong>) are locked on. Which default
+          packages are removable, and which extras your role auto-installs, are resolved by the
+          builder at image-build time — here you add extra packages and enable add-on options.
+        }
       </p>
 
       <div class="pkg-body" data-testid="pkg-body">

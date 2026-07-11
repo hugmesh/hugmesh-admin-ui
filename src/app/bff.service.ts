@@ -2082,15 +2082,30 @@ export interface PackageSection { title: string; atoms: string[]; }
 
 /** One platform package group (the base list, a desktop list, a GPU list, …): its builder
  *  GATE name + the sections it holds. `gate === 'base'` is the always-on ESSENTIAL FLOOR —
- *  the only tier the catalog declares; the rest of the tier split (default-removable vs
- *  available) is resolved LIVE by the builder at image-build time, not here. */
+ *  the only tier the group grammar declares. Catalogs that additionally carry the top-level
+ *  `roles` tier maps ({@link PackageRoleTiers}) refine the split per role; without them the
+ *  rest of the tier split is resolved LIVE by the builder at image-build time, not here. */
 export interface PackageGroup { gate: string; sections: PackageSection[]; }
 
+/** One (platform, role) tier cell of packages-catalog.json `roles` — the generator's
+ *  package_catalog.tiers() baseline for a DEFAULT-OPTIONS image of that role. `essential` is
+ *  the locked floor (base list + role payloads, e.g. a node role's k8s atoms); `essential` ∪
+ *  `removable` is the builder's default install set (un-ticking a removable atom emits a
+ *  `packages_drop`); `available` is the rest of the platform catalog (ticking one emits a
+ *  `packages_add`). The tiers are sorted, duplicate-free and pairwise disjoint (enforced by
+ *  the generator's validate_roles_tiers()). Adhoc-option atoms are NOT in the baseline — the
+ *  UI layers an enabled option's atoms client-side as additional locked floor. */
+export interface PackageRoleTiers { essential: string[]; removable: string[]; available: string[]; }
+
 /** packages-catalog.json — the flat adhoc add-on options + the per-platform package tree
- *  (platform → group-key → {@link PackageGroup}). */
+ *  (platform → group-key → {@link PackageGroup}), plus (on newer catalogs) the per-platform
+ *  role→tier baselines (`roles[platform][role]` → {@link PackageRoleTiers}; role ids are the
+ *  Studio ROLE_CHOICES ids — the same grammar image-catalog.json serves). `roles` is OPTIONAL:
+ *  a legacy catalog without it keeps the base-gate-floor modal behaviour unchanged. */
 export interface PackageCatalog {
   adhoc_adds: Record<string, PackageAdhocAdd>;
   platforms: Record<string, Record<string, PackageGroup>>;
+  roles?: Record<string, Record<string, PackageRoleTiers>>;
 }
 
 /** One image-catalog role: a role × its per-platform axes, plus its class + label. */
@@ -2118,8 +2133,10 @@ export interface ImageBuildCatalog { packages: PackageCatalog; images: ImageCata
  *  to fold into a worklist entry's per-image CONTENT (`packages_add` / `packages_drop`,
  *  space-joined Portage atoms; see worklist.v1 worklistEntry). `add`/`drop` are the
  *  load-bearing WIRE fields; `options` carries the enabled adhoc-add KEYS for round-trip +
- *  display (their atoms are already folded into `add`, since a WorklistEntry has no per-option
- *  flag). The always-on essential floor is NEVER emitted (the builder always installs it). */
+ *  display. On a LEGACY catalog (no `roles` tier maps) an enabled option's atoms are folded
+ *  into `add` (a WorklistEntry has no per-option flag); on a role-tiered catalog they are
+ *  part of the LOCKED floor and — like the essential floor — NEVER emitted (the generator's
+ *  tiers() installs them for the enabled option). */
 export interface PackageSelection { add: string[]; drop: string[]; options: string[]; }
 
 // ── Anubis bot-challenge sidecar DTOs ────────────────────────────────────────

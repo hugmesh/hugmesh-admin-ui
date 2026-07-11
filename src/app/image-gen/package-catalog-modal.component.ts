@@ -5,6 +5,7 @@ import {
   PackageAdhocAdd,
   PackageCatalog,
   PackageGroup,
+  PackageRoleTiers,
   PackageSelection,
 } from '../bff.service';
 
@@ -54,25 +55,35 @@ const ATOM_RE = /^[a-z0-9][a-z0-9+._-]*\/[A-Za-z0-9+._-]+$/;
  * It emits a {@link PackageSelection} the wizard folds into a worklist entry's per-image
  * CONTENT (`packages_add` / `packages_drop`).
  *
- * <p><b>Essential floor.</b> The catalog does NOT declare a full tier split — only the
- * `gate:'base'` group is declared always-on (package_catalog.py: "base is always-on", and it
- * is the core of `essential_floor`). So the modal greys (checked + disabled, never emitted)
- * every atom in a `gate:'base'` group; everything else is a toggleable EXTRA that, when
- * checked, compiles to `packages_add`. The LIVE tier resolution — which default packages are
- * removable (→ `packages_drop`) and which extras a given role auto-installs, via
- * `package_catalog.tiers()` — needs Python in the image-gen container and is DEFERRED/STRUCTURAL;
- * the modal documents this in-surface and rides the static tree meanwhile (design decision:
- * "static tree now, essentials-greying via the declared floor, live tiers deferred").
+ * <p><b>Role tiers (preferred).</b> A newer catalog carries per-platform role→tier baselines
+ * (`roles[platform][role]` → {@link PackageRoleTiers}, precomputed by the generator's
+ * `package_catalog.tiers()` for a default-options image). When the map covers this entry's
+ * (platform, role), the modal's LOCK/DEFAULT state comes from the tiers — the tree SHAPE stays
+ * the same gate-grouped catalog tree: `essential` atoms are the locked floor (checked +
+ * disabled, never emitted); `removable` atoms default to CHECKED and un-ticking one emits a
+ * `packages_drop`; `available` atoms default to UNCHECKED and ticking one emits a
+ * `packages_add`. An enabled adhoc option's atoms render as additional locked floor (the
+ * generator's tiers() treats them as REQUIRED while the option is on) — checked + disabled —
+ * but they are STILL folded into `add` on apply unless the role tier installs them anyway
+ * (essential/removable): the lock is a UI affordance, not an emission filter (see below).
+ *
+ * <p><b>Essential floor (legacy fallback).</b> A catalog WITHOUT the `roles` maps (or one whose
+ * maps do not cover this entry's platform/role) declares only the `gate:'base'` group always-on
+ * (package_catalog.py: "base is always-on", the core of `essential_floor`). The modal then greys
+ * (checked + disabled, never emitted) every atom in a `gate:'base'` group; everything else is a
+ * toggleable EXTRA that, when checked, compiles to `packages_add` — the pre-tiers behaviour,
+ * kept byte-identical.
  *
  * <p><b>Options vs atoms.</b> A WorklistEntry has no per-option flag channel (its only per-image
- * package channel is `packages_add`/`packages_drop`), so an enabled adhoc option's atoms are
- * folded into `add`. `PackageSelection.options` carries the enabled KEYS purely for round-trip +
- * display.
+ * package channel is `packages_add`/`packages_drop` — `options` never reaches the builder), so
+ * on BOTH paths an enabled adhoc option's atoms are folded into `add`; the role-tiers path
+ * merely renders them locked, and skips only the atoms the role tier installs regardless.
+ * `PackageSelection.options` carries the enabled KEYS for round-trip + display in both modes.
  *
  * <p><b>Coupling.</b> The modal is self-sufficient — it lazily fetches the catalog itself via
  * {@link BffService.imageBuildCatalog} on first open — and communicates with the wizard ONLY
- * through its `open`/`platform`/`selection` inputs and its `applied`/`dismissed` outputs (the
- * agreed thin selection interface; the wizard component is never edited from here).
+ * through its `open`/`platform`/`role`/`selection` inputs and its `applied`/`dismissed` outputs
+ * (the agreed thin selection interface; the wizard component is never edited from here).
  *
  * <p>a11y: `role="dialog" aria-modal="true"` with the shared {@link FocusTrapDirective}
  * (focus moves in, Tab wraps, Escape dismisses, focus is restored to the trigger on close);
@@ -94,6 +105,10 @@ export class PackageCatalogModalComponent {
   /** The selected image's platform — picks which `platforms.<platform>` groups to render
    *  (one of x86 | rpi5 | frite | jetson | orangepi5 | orangepizero2). */
   readonly platform = input<string>('');
+  /** The selected image's Studio role id (the ROLE_CHOICES grammar, e.g. `be`, `desktop`) —
+   *  picks the `roles[platform][role]` tier baseline when the catalog carries one. Empty or
+   *  unknown → the legacy base-gate floor behaviour. */
+  readonly role = input<string>('');
   /** A short label for the image being edited (e.g. `be.x86`) — heading context only. */
   readonly imageLabel = input<string>('');
   /** The current selection to seed the modal, so re-opening round-trips the prior choices. */
@@ -110,8 +125,8 @@ export class PackageCatalogModalComponent {
   readonly loadError = signal('');
 
   /** Working state (Sets for O(1) toggles): enabled adhoc option keys + user-added atoms +
-   *  user-dropped atoms (drops only ever arrive via a seed under the static tree — see class
-   *  doc; the modal itself does not add new drops until live tiers land). */
+   *  user-dropped atoms. On the role-tiers path drops are LIVE (un-ticking a removable-tier
+   *  atom adds one); on the legacy path they only ever arrive via a seed — see class doc. */
   private readonly chosenOptions = signal<ReadonlySet<string>>(new Set());
   private readonly addedAtoms = signal<ReadonlySet<string>>(new Set());
   private readonly droppedAtoms = signal<ReadonlySet<string>>(new Set());
@@ -164,9 +179,26 @@ export class PackageCatalogModalComponent {
       .sort((a, b) => Number(b.essential) - Number(a.essential));
   });
 
-  /** The union of atoms in every `gate:'base'` group — the declared essential floor. These are
-   *  rendered checked + disabled and are NEVER emitted (the builder always installs them). */
+  /** This entry's (platform, role) tier baseline, when the catalog carries one — null on a
+   *  legacy catalog, an empty/unknown role, or a role the map does not cover (all of which
+   *  fall back to the base-gate floor, byte-identical to the pre-tiers behaviour). */
+  readonly roleTiers = computed<PackageRoleTiers | null>(() => {
+    const c = this.catalog();
+    const plat = this.platform();
+    const role = this.role();
+    if (!c?.roles || !plat || !role) return null;
+    return c.roles[plat]?.[role] ?? null;
+  });
+
+  /** True when the role tier baseline drives the LOCK/DEFAULT state (vs the legacy floor). */
+  readonly tiersActive = computed<boolean>(() => this.roleTiers() !== null);
+
+  /** The essential floor: the role tier's `essential` list when active, else the union of
+   *  atoms in every `gate:'base'` group (the legacy declared floor). These are rendered
+   *  checked + disabled and are NEVER emitted (the builder always installs them). */
   readonly essentialAtoms = computed<ReadonlySet<string>>(() => {
+    const tiers = this.roleTiers();
+    if (tiers) return new Set(tiers.essential);
     const set = new Set<string>();
     for (const g of this.groups()) {
       if (!g.essential) continue;
@@ -174,6 +206,27 @@ export class PackageCatalogModalComponent {
     }
     return set;
   });
+
+  /** The full LOCKED set: the essential floor plus — on the role-tiers path only — every
+   *  enabled adhoc option's atoms (REQUIRED while the option is on: the generator's tiers()
+   *  treats them as floor). Locked atoms render checked + disabled and cannot be toggled or
+   *  dropped; the lock does NOT govern emission (apply() still folds enabled-option atoms
+   *  into `add` — the wire's only install channel). On the legacy path this is exactly
+   *  {@link essentialAtoms} (option atoms stay toggleable auto-adds there — the pre-tiers
+   *  behaviour). */
+  readonly lockedAtoms = computed<ReadonlySet<string>>(() => {
+    const essential = this.essentialAtoms();
+    if (!this.tiersActive()) return essential;
+    const set = new Set(essential);
+    for (const a of this.atomsForOptions(this.chosenOptions())) set.add(a);
+    return set;
+  });
+
+  /** The role tier's `removable` atoms — default-installed, default-CHECKED; un-ticking one
+   *  emits a `packages_drop`. Empty on the legacy path (no removable tier is declared). */
+  readonly removableAtoms = computed<ReadonlySet<string>>(() =>
+    new Set(this.roleTiers()?.removable ?? []),
+  );
 
   /** True when a platform is selected but the catalog publishes no tree for it. */
   readonly noPlatformTree = computed(
@@ -184,19 +237,34 @@ export class PackageCatalogModalComponent {
   readonly selectedCount = computed(() => this.addedAtoms().size + this.chosenOptions().size);
 
   // ── Checkbox state / toggles ─────────────────────────────────────────────────
-  /** An atom is checked when it is in the essential floor OR the operator added it. */
+  /** An atom is checked when it is locked floor, a default-installed (removable) atom the
+   *  operator has not dropped, or an extra the operator added. */
   atomChecked(atom: string): boolean {
-    return this.essentialAtoms().has(atom) || this.addedAtoms().has(atom);
+    if (this.lockedAtoms().has(atom)) return true;
+    if (this.removableAtoms().has(atom)) return !this.droppedAtoms().has(atom);
+    return this.addedAtoms().has(atom);
   }
 
-  /** Essential-floor atoms are locked (checked + disabled). */
+  /** Locked atoms — the essential floor, plus enabled-option atoms on the role-tiers path —
+   *  are checked + disabled. */
   atomDisabled(atom: string): boolean {
-    return this.essentialAtoms().has(atom);
+    return this.lockedAtoms().has(atom);
   }
 
-  /** Toggle an EXTRA atom into / out of `packages_add`. Locked (essential) atoms are ignored. */
+  /** Toggle an atom. Locked atoms are ignored. A REMOVABLE atom (role-tiers path only) is
+   *  default-installed, so un-ticking it emits a `packages_drop` (and re-ticking clears the
+   *  drop); any other atom is an EXTRA toggled into / out of `packages_add`. */
   toggleAtom(atom: string, checked: boolean): void {
-    if (this.essentialAtoms().has(atom)) return;
+    if (this.lockedAtoms().has(atom)) return;
+    if (this.removableAtoms().has(atom)) {
+      this.droppedAtoms.update((cur) => {
+        const next = new Set(cur);
+        if (checked) next.delete(atom);
+        else next.add(atom);
+        return next;
+      });
+      return;
+    }
     this.addedAtoms.update((cur) => {
       const next = new Set(cur);
       if (checked) next.add(atom);
@@ -219,16 +287,40 @@ export class PackageCatalogModalComponent {
   }
 
   // ── Actions ──────────────────────────────────────────────────────────────────
-  /** Compose the {@link PackageSelection} and emit it. `add` = the user's extra atoms plus the
-   *  atoms of every enabled adhoc option, minus the essential floor, filtered to valid atoms. */
+  /** Compose the {@link PackageSelection} and emit it, filtered to valid atoms.
+   *
+   *  <p>BOTH paths fold every enabled adhoc option's atoms into `add`: `packages_add` is the
+   *  ONLY wire channel that installs them (a {@link WorklistEntry} has no per-option flag
+   *  channel — `options` is round-trip-only and never reaches the builder), so the role-tiers
+   *  visual LOCK on option atoms is a UI affordance, never an emission filter.
+   *
+   *  <p>LEGACY path (no role tiers): `add` = the user's extra atoms plus the enabled options'
+   *  atoms, minus the essential floor; `drop` passes seeded drops through — byte-identical to
+   *  the pre-tiers behaviour.
+   *
+   *  <p>ROLE-TIERS path: the same fold, but `add` excludes exactly what the builder installs
+   *  regardless — the role's essential floor and its removable tier (default-installed; a
+   *  removable atom's only signal is a `drop` when un-ticked, and while an option locks it
+   *  no drop can exist). `drop` excludes anything locked or simultaneously added (defence
+   *  against a stale/contradictory seed). */
   apply(): void {
     const options = [...this.chosenOptions()].sort();
     const optionAtoms = this.atomsForOptions(this.chosenOptions());
+    const tiers = this.tiersActive();
     const essential = this.essentialAtoms();
-    const add = [...new Set([...this.addedAtoms(), ...optionAtoms])]
-      .filter((a) => !essential.has(a) && ATOM_RE.test(a))
+    const locked = this.lockedAtoms();
+    const removable = this.removableAtoms();
+    const addSource = new Set([...this.addedAtoms(), ...optionAtoms]);
+    // On the legacy path `essential` IS the locked set and `removable` is empty, so this one
+    // filter keeps the legacy emission byte-identical while letting locked-but-not-installed
+    // option atoms ride `add` on the role-tiers path.
+    const add = [...addSource]
+      .filter((a) => !essential.has(a) && !removable.has(a) && ATOM_RE.test(a))
       .sort();
-    const drop = [...this.droppedAtoms()].filter((a) => ATOM_RE.test(a)).sort();
+    const addSet = new Set(add);
+    const drop = [...this.droppedAtoms()]
+      .filter((a) => ATOM_RE.test(a) && (!tiers || (!locked.has(a) && !addSet.has(a))))
+      .sort();
     this.applied.emit({ add, drop, options });
   }
 
@@ -262,12 +354,15 @@ export class PackageCatalogModalComponent {
   }
 
   /**
-   * Remove the seeded options' atoms from {@link addedAtoms}. sel.add carries the FULL folded atom
-   * set (a prior apply() emitted addedAtoms ∪ optionAtoms), but those option-derived atoms are
-   * represented by {@link chosenOptions} — keeping them in addedAtoms too would let a later
-   * un-tick of the option FAIL to clear them (apply() would re-emit them). Runs on seed AND again
-   * once the catalog first resolves (it can arrive after seed); no user edit can occur in between
-   * because the package tree only renders after the catalog loads. No-op when no options are set.
+   * Remove the seeded options' atoms from {@link addedAtoms}. On BOTH paths sel.add carries the
+   * FULL folded atom set (a prior apply() emitted addedAtoms ∪ optionAtoms), but those
+   * option-derived atoms are represented by {@link chosenOptions} — keeping them in addedAtoms
+   * too would let a later un-tick of the option FAIL to clear them (apply() would re-emit them).
+   * This is a pure DEDUP, never a removal from the wire: apply() re-folds the enabled options'
+   * atoms from {@link chosenOptions}, so a legacy-era seed re-opened under a role-tiered catalog
+   * keeps its option packages installed. Runs on seed AND again once the catalog first resolves
+   * (it can arrive after seed); no user edit can occur in between because the package tree only
+   * renders after the catalog loads. No-op when no options are set.
    */
   private reconcileOptionAtoms(): void {
     const optionAtoms = this.atomsForOptions(this.chosenOptions());
