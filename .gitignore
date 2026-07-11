@@ -6,3 +6,4 @@
 *.log
 .DS_Store
 .env
+test-results/

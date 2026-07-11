@@ -29,7 +29,7 @@ function build(id: string, over: Partial<ImageBuild> = {}): ImageBuild {
   };
 }
 
-describe('ImageGenComponent', () => {
+describe('ImageGenComponent (worklist host shell)', () => {
   let fixture: ComponentFixture<ImageGenComponent>;
   let component: ImageGenComponent;
   let bff: jasmine.SpyObj<BffService>;
@@ -41,20 +41,16 @@ describe('ImageGenComponent', () => {
 
   function configure(caps: Partial<typeof PLATFORM_CAPABILITIES_ABSENT> = { buildNodePresent: true }) {
     bff = jasmine.createSpyObj<BffService>('BffService', [
-      'listImageBuilds', 'imageBuildDetail', 'triggerImageBuild', 'imageBuildEvents',
-      'downloadImage', 'downloadImageKeys', 'platformCapabilities',
+      'listImageBuilds', 'imageBuildDetail', 'downloadImage', 'downloadImageKeys',
+      'platformCapabilities', 'listDomains', 'submitWorklistBatch', 'imageBuildEvents',
     ]);
     bff.listImageBuilds.and.resolveTo({ builds: [withKeys, noKeys], launchReal: true });
     bff.imageBuildDetail.and.resolveTo(withKeys);
-    bff.triggerImageBuild.and.resolveTo({
-      id: 'b2', status: 'QUEUED', imageType: 'primary', domain: 'brand', sshKeysAllowed: true,
-    });
     bff.downloadImage.and.resolveTo(true);
     bff.downloadImageKeys.and.resolveTo(true);
-    bff.imageBuildEvents.and.callFake(async (_id, onEvent) => {
-      onEvent({ buildId: 'b2', phase: 'running', percent: 40, message: 'debootstrap', imageRef: null, keysRef: null, done: false, error: null });
-      onEvent({ buildId: 'b2', phase: 'complete', percent: 100, message: 'done', imageRef: 'builds/b2/image.img', keysRef: null, done: true, error: null });
-    });
+    bff.listDomains.and.resolveTo([]);
+    bff.submitWorklistBatch.and.resolveTo({ batchId: 'x', builds: [] });
+    bff.imageBuildEvents.and.returnValue(new Promise<void>(() => { /* pending */ }));
     bff.platformCapabilities.and.resolveTo({ ...PLATFORM_CAPABILITIES_ABSENT, ...caps });
 
     TestBed.configureTestingModule({
@@ -67,7 +63,7 @@ describe('ImageGenComponent', () => {
 
   async function init() {
     fixture.detectChanges();
-    // ngOnInit chains platform.load() -> store refresh (two async hops); flush BOTH.
+    // ngOnInit chains platform.load() -> store refresh (async hops); flush.
     await fixture.whenStable();
     await fixture.whenStable();
     fixture.detectChanges();
@@ -75,7 +71,7 @@ describe('ImageGenComponent', () => {
 
   // ── CAPABILITY-GATE (image generation needs an x86 build node) ────────────
   describe('CAPABILITY-GATE', () => {
-    it('greys out the console (gate notice, no form) when the build node is absent', async () => {
+    it('greys out the console (gate notice, no wizard, no table) when the build node is absent', async () => {
       configure({ buildNodePresent: false });
       await init();
       const el: HTMLElement = fixture.nativeElement;
@@ -83,140 +79,43 @@ describe('ImageGenComponent', () => {
       expect(gate).not.toBeNull();
       expect(gate.getAttribute('data-capability')).toBe('buildNode');
       expect(gate.getAttribute('data-state')).toBe('absent');
-      // The trigger form + history are suppressed entirely.
-      expect(el.querySelector('[data-testid="ig-trigger-form"]')).toBeNull();
+      expect(el.querySelector('[data-testid="ig-wizard"]')).toBeNull();
       expect(el.querySelector('[data-testid="ig-table"]')).toBeNull();
-      // History is NOT fetched when the console is dark.
       expect(bff.listImageBuilds).not.toHaveBeenCalled();
     });
 
     it('switches to the "could not determine" state + surfaces the warning when undetectable', async () => {
       configure({ buildNodePresent: false, warnings: ['x86 build-node presence could not be detected.'] });
       await init();
-      const el: HTMLElement = fixture.nativeElement;
-      const gate = el.querySelector('[data-testid="capability-gate"]')!;
+      const gate = fixture.nativeElement.querySelector('[data-testid="capability-gate"]')!;
       expect(gate.getAttribute('data-state')).toBe('undetectable');
-      expect(gate.querySelector('[data-testid="capability-gate-warning"]')!.textContent)
-        .toContain('build-node');
+      expect(gate.querySelector('[data-testid="capability-gate-warning"]')!.textContent).toContain('build-node');
     });
 
-    it('shows the console (no gate) when the build node is present', async () => {
+    it('shows the wizard + history table (no gate) when the build node is present', async () => {
       configure({ buildNodePresent: true });
       await init();
       const el: HTMLElement = fixture.nativeElement;
       expect(el.querySelector('[data-testid="capability-gate"]')).toBeNull();
-      expect(el.querySelector('[data-testid="ig-trigger-form"]')).not.toBeNull();
+      expect(el.querySelector('[data-testid="ig-wizard"]')).not.toBeNull();
+      expect(el.querySelector('[data-testid="ig-table"]')).not.toBeNull();
       expect(bff.listImageBuilds).toHaveBeenCalled();
     });
   });
 
-  // ── USER-SITUATIONAL (the admin's allowed actions + the disabled states) ──
-  describe('USER-SITUATIONAL', () => {
-    beforeEach(() => configure({ buildNodePresent: true }));
-
-    it('renders a radio per image type with its hint (not colour alone)', async () => {
-      await init();
-      const el: HTMLElement = fixture.nativeElement;
-      for (const it of component.store.imageTypes) {
-        expect(el.querySelector(`[data-image-type="${it.value}"]`)).withContext(it.value).not.toBeNull();
-      }
-    });
-
-    it('rejects an empty target user without calling the BFF', async () => {
-      await init();
-      component.targetUser = '   ';
-      component.stepUpToken = 'tok';
-      await component.triggerBuild();
-      expect(bff.triggerImageBuild).not.toHaveBeenCalled();
-      expect(component.error()).toContain('target user');
-    });
-
-    it('triggers with no step-up token entered (the BFF, not the client, is the step-up gate)', async () => {
-      await init();
-      component.targetUser = 'alice@brand';
-      component.stepUpToken = '';
-      await component.triggerBuild();
-      expect(bff.triggerImageBuild).toHaveBeenCalledWith(jasmine.any(Object), undefined);
-    });
-
-    it('offers the inline MFA step-up dialog when the trigger 403s "requires step-up", then retries on satisfied', async () => {
-      bff.triggerImageBuild.and.rejectWith(
-        new Error('image build requires step-up re-authentication (present X-ImageGen-StepUp)'),
-      );
-      await init();
-      component.targetUser = 'alice@brand';
-      component.stepUpToken = '';
-      await component.triggerBuild();
-      fixture.detectChanges();
-      expect(component.stepUpChallenge()).not.toBeNull();
-      expect(fixture.nativeElement.querySelector('[data-testid="mfa-stepup-dialog"]')).not.toBeNull();
-      expect(component.error()).toBe('');
-
-      // Once the dialog reports success, the SAME trigger is retried and now succeeds.
-      bff.triggerImageBuild.and.resolveTo({
-        id: 'b3', status: 'QUEUED', imageType: 'primary', domain: 'brand', sshKeysAllowed: false,
-      });
-      await component.onStepUpSatisfied();
-      expect(component.stepUpChallenge()).toBeNull();
-      expect(bff.triggerImageBuild).toHaveBeenCalledTimes(2);
-    });
-
-    it('dismissing the step-up dialog drops the pending retry', async () => {
-      bff.triggerImageBuild.and.rejectWith(new Error('image build requires step-up re-authentication'));
-      await init();
-      component.targetUser = 'alice@brand';
-      await component.triggerBuild();
-      expect(component.stepUpChallenge()).not.toBeNull();
-      component.onStepUpDismissed();
-      expect(component.stepUpChallenge()).toBeNull();
-      expect(bff.triggerImageBuild).toHaveBeenCalledTimes(1);
-    });
-
-    it('triggers a build with the exact contract body + step-up header token', async () => {
-      await init();
-      component.targetUser = 'alice@brand';
-      component.imageType = 'mesh-extension';
-      component.hardwareClass = 'x86-64';
-      component.sshKeysAllowed = true;
-      component.stepUpToken = 'step-up-123';
-      await component.triggerBuild();
-      expect(bff.triggerImageBuild).toHaveBeenCalledWith(
-        { targetUser: 'alice@brand', imageType: 'mesh-extension', hardwareClass: 'x86-64', sshKeysAllowed: true },
-        'step-up-123',
-      );
-    });
-
-    it('renders live SSE progress + a done message when a build completes', async () => {
-      await init();
-      component.targetUser = 'alice@brand';
-      component.stepUpToken = 'tok';
-      await component.triggerBuild();
-      await fixture.whenStable();
-      fixture.detectChanges();
-      const el: HTMLElement = fixture.nativeElement;
-      expect(el.querySelector('[data-testid="ig-progressbar"]')).not.toBeNull();
-      // Both streamed events rendered into the aria-live list.
-      expect(el.querySelectorAll('[data-testid="ig-events"] li').length).toBe(2);
-      expect(el.querySelector('[data-testid="ig-events"]')!.textContent).toContain('debootstrap');
-      expect(el.querySelector('[data-testid="ig-done"]')).not.toBeNull();
-      // Live status reaches COMPLETED.
-      expect(component.store.liveStatus()).toBe('COMPLETED');
-    });
-
-    it('surfaces a 503/dark trigger failure as an error, not a crash', async () => {
-      bff.triggerImageBuild.and.rejectWith(new Error('image generation is disabled on this deployment'));
-      await init();
-      component.targetUser = 'alice@brand';
-      component.stepUpToken = 'tok';
-      await component.triggerBuild();
-      expect(component.error()).toContain('disabled');
-    });
-
+  // ── DARK-SHIPS notice ─────────────────────────────────────────────────────
+  describe('SHIPS-DARK', () => {
     it('announces the dark/stub seam when the launcher is not real', async () => {
+      configure({ buildNodePresent: true });
       bff.listImageBuilds.and.resolveTo({ builds: [], launchReal: false });
       await init();
       expect(fixture.nativeElement.querySelector('[data-testid="ig-launch-stub"]')).not.toBeNull();
     });
+  });
+
+  // ── HISTORY table + detail + downloads ────────────────────────────────────
+  describe('HISTORY', () => {
+    beforeEach(() => configure({ buildNodePresent: true }));
 
     it('invokes the image-download bff method for a completed build', async () => {
       await init();
@@ -238,10 +137,9 @@ describe('ImageGenComponent', () => {
       const el: HTMLElement = fixture.nativeElement;
       expect(el.querySelector('[data-testid="ig-detail"]')).not.toBeNull();
       expect(el.querySelector('[data-testid="ig-detail-keys-allowed"]')!.textContent).toContain('yes');
-      // The key-safety note is always present in detail (never displays a key).
       expect(el.querySelector('[data-testid="ig-key-safety"]')).not.toBeNull();
 
-      await component.toggleDetail(withKeys); // toggle off
+      await component.toggleDetail(withKeys);
       fixture.detectChanges();
       expect(fixture.nativeElement.querySelector('[data-testid="ig-detail"]')).toBeNull();
     });
@@ -253,46 +151,47 @@ describe('ImageGenComponent', () => {
 
     it('HIDES the keys-download control when ssh_keys_allowed is false', async () => {
       await init();
-      const el: HTMLElement = fixture.nativeElement;
-      expect(el.querySelector(`[data-download-keys="${noKeys.id}"]`)).toBeNull();
+      expect(fixture.nativeElement.querySelector(`[data-download-keys="${noKeys.id}"]`)).toBeNull();
     });
 
-    it('SHOWS the keys-download control when ssh_keys_allowed is true (completed + keysRef)', async () => {
+    it('SHOWS the keys-download control (a11y: names step-up + non-secret) when allowed + completed', async () => {
       await init();
-      const el: HTMLElement = fixture.nativeElement;
-      const ctrl = el.querySelector(`[data-download-keys="${withKeys.id}"]`)!;
+      const ctrl = fixture.nativeElement.querySelector(`[data-download-keys="${withKeys.id}"]`)!;
       expect(ctrl).not.toBeNull();
-      // a11y: the control names that it is the non-secret bundle + step-up gated.
       expect(ctrl.getAttribute('aria-label')).toContain('step-up');
     });
 
-    it('attempts the keys download with no token entered (the BFF is the step-up gate)', async () => {
+    it('attempts the keys download (the BFF is the step-up gate; no client token)', async () => {
       await init();
-      component.stepUpToken = '';
       await component.downloadKeys(withKeys);
       expect(bff.downloadImageKeys).toHaveBeenCalledWith(withKeys.id, undefined);
     });
 
-    it('passes the step-up token to the keys-download bff method when present', async () => {
-      await init();
-      component.stepUpToken = 'step-up-xyz';
-      await component.downloadKeys(withKeys);
-      expect(bff.downloadImageKeys).toHaveBeenCalledWith(withKeys.id, 'step-up-xyz');
-    });
-
-    it('offers the inline MFA step-up dialog when a keys download 403s "requires step-up"', async () => {
+    it('offers the inline MFA step-up dialog when a keys download 403s "requires step-up", then retries', async () => {
       bff.downloadImageKeys.and.rejectWith(
         new Error('keys download requires step-up re-authentication (present X-ImageGen-StepUp)'),
       );
       await init();
       await component.downloadKeys(withKeys);
+      fixture.detectChanges();
       expect(component.stepUpChallenge()).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('[data-testid="mfa-stepup-dialog"]')).not.toBeNull();
       expect(component.downloadNote()).toBe('');
 
       bff.downloadImageKeys.and.resolveTo(true);
       await component.onStepUpSatisfied();
       expect(component.stepUpChallenge()).toBeNull();
       expect(bff.downloadImageKeys).toHaveBeenCalledTimes(2);
+    });
+
+    it('dismissing the step-up dialog drops the pending retry', async () => {
+      bff.downloadImageKeys.and.rejectWith(new Error('keys download requires step-up re-authentication'));
+      await init();
+      await component.downloadKeys(withKeys);
+      expect(component.stepUpChallenge()).not.toBeNull();
+      component.onStepUpDismissed();
+      expect(component.stepUpChallenge()).toBeNull();
+      expect(bff.downloadImageKeys).toHaveBeenCalledTimes(1);
     });
 
     it('surfaces a non-step-up download failure as a note, not a crash', async () => {
@@ -304,59 +203,53 @@ describe('ImageGenComponent', () => {
     });
 
     it('canDownloadKeys is false for a build that did not allow keys', () => {
+      // Uses the component configured in beforeEach (a pure method — no init needed).
       expect(component.canDownloadKeys(noKeys)).toBe(false);
       expect(component.canDownloadKeys(withKeys)).toBe(true);
     });
   });
 
-  // ── A11Y (accessible names, disabled+helptext) ────────────────────────────
-  describe('A11Y', () => {
-    beforeEach(() => configure({ buildNodePresent: true }));
-
-    it('labels every trigger field + ties helptext via aria-describedby', async () => {
-      await init();
-      const el: HTMLElement = fixture.nativeElement;
-      const target = el.querySelector('#ig-target')!;
-      expect(el.querySelector('label[for="ig-target"]')).not.toBeNull();
-      expect(target.getAttribute('aria-describedby')).toBe('ig-target-help');
-      const ssh = el.querySelector('#ig-ssh-keys')!;
-      expect(ssh.getAttribute('aria-describedby')).toBe('ig-ssh-keys-help');
-      const stepup = el.querySelector('#ig-stepup')!;
-      expect(stepup.getAttribute('type')).toBe('password');
-      expect(stepup.getAttribute('aria-describedby')).toBe('ig-stepup-help');
-    });
-
-    it('disables the trigger button + announces busy while triggering', async () => {
-      await init();
-      component.triggering.set(true);
-      fixture.detectChanges();
-      const el: HTMLElement = fixture.nativeElement;
-      const btn = el.querySelector('[data-testid="ig-trigger"]') as HTMLButtonElement;
-      expect(btn.disabled).toBe(true);
-      expect(btn.getAttribute('aria-describedby')).toBe('ig-trigger-busy');
-    });
-
-    it('surfaces a validation error in an assertive live region', async () => {
-      await init();
-      component.error.set('A target user is required.');
-      fixture.detectChanges();
-      const err = fixture.nativeElement.querySelector('[data-testid="ig-trigger-error"]')!;
-      expect(err.getAttribute('role')).toBe('alert');
-      expect(err.getAttribute('aria-live')).toBe('assertive');
-    });
-  });
-
-  // ── CONCURRENT (teardown aborts the live stream) ──────────────────────────
+  // ── CONCURRENT (teardown resets the N-stream store) ───────────────────────
   describe('CONCURRENT', () => {
-    it('resets the live-build stream on destroy', async () => {
+    it('resets the live-batch streams on destroy', async () => {
       configure({ buildNodePresent: true });
       await init();
-      component.targetUser = 'alice@brand';
-      component.stepUpToken = 'tok';
-      await component.triggerBuild();
       const spy = spyOn(component.store, 'reset').and.callThrough();
       component.ngOnDestroy();
       expect(spy).toHaveBeenCalled();
+    });
+  });
+
+  // ── item 9: host mediates the package-catalog modal (the WIZARD↔MODAL seam) ─
+  describe('PACKAGE MODAL', () => {
+    beforeEach(async () => {
+      configure({ buildNodePresent: true });
+      await init();
+    });
+
+    it('seeds the modal from an entry and folds the applied selection back onto it', () => {
+      const wiz = component['wizard']()!;
+      expect(wiz).withContext('wizard must render under the capability gate').toBeTruthy();
+      const key = wiz.entries()[0].key;
+      wiz.patchEntry(key, { packagesAdd: 'app-editors/vim', packagesDrop: '' });
+
+      component.onEditPackages(key);
+      expect(component.pkgModalOpen()).toBeTrue();
+      expect(component.pkgModalPlatform()).toBe(wiz.entries()[0].platform);
+      // atoms round-trip string -> array for the modal
+      expect(component.pkgModalSelection()!.add).toEqual(['app-editors/vim']);
+
+      // modal applies atom ARRAYS; the host adapts to space-joined strings on the entry
+      component.onPackagesApplied({ add: ['app-misc/tmux'], drop: ['games-util/steam'], options: [] });
+      expect(component.pkgModalOpen()).toBeFalse();
+      const e = wiz.entries()[0];
+      expect(e.packagesAdd).toBe('app-misc/tmux');
+      expect(e.packagesDrop).toBe('games-util/steam');
+    });
+
+    it('ignores an edit request for an unknown entry key (no throw, stays closed)', () => {
+      expect(() => component.onEditPackages('nope.nope')).not.toThrow();
+      expect(component.pkgModalOpen()).toBeFalse();
     });
   });
 });

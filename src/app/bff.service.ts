@@ -519,6 +519,29 @@ export class BffService {
   }
 
   /**
+   * Trigger a WORKLIST BATCH — up to 16 images from one worklist envelope
+   * ({@code {schema:'snapdragon-worklist/v1', base, entries, maxConcurrent}}) in a SINGLE
+   * step-up-authorised POST to {@code /bff/admin/image-builds/batch}. Plumbing is byte-identical
+   * to {@link triggerImageBuild}: the optional step-up token rides the X-ImageGen-StepUp header
+   * (ONE step-up authorises the whole batch, mirroring the BFF's single {@code mfaStepUp.consume()}
+   * per batch), the HttpOnly bff_ cookie rides via credentials:'include', and the BFF stamps every
+   * build's domain server-side (there is intentionally NO domain field on the wire — a client can
+   * never pick a tenant). Returns {@code {batchId, builds:[…]}} (each build's shape identical to the
+   * single trigger's projection), or throws the BFF {error} (403 "requires step-up", 400 on a
+   * malformed/oversized envelope, 503 when the feature ships dark).
+   */
+  async submitWorklistBatch(req: WorklistEnvelope, stepUpToken?: string): Promise<ImageBuildBatchResult> {
+    const headers: Record<string, string> = { 'content-type': 'application/json' };
+    if (stepUpToken) headers['X-ImageGen-StepUp'] = stepUpToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/image-builds/batch`, {
+      method: 'POST', headers, credentials: 'include', body: JSON.stringify(req),
+    });
+    if (r.ok) return r.json();
+    const err = (await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`;
+    throw new Error(err);
+  }
+
+  /**
    * Subscribe to the SSE progress stream for a build id. Like {@link streamTestRunEvents}
    * this uses a credentialed fetch + ReadableStream reader (NOT raw EventSource, which cannot
    * be aborted on teardown); the HttpOnly bff_ cookie rides via credentials:'include'. Parses
@@ -581,6 +604,22 @@ export class BffService {
     const r = await fetch(`${CFG.bff}/bff/admin/image-builds/${encodeURIComponent(id)}/keys`, { headers, credentials: 'include' });
     if (!r.ok) throw new Error(await this.errorOf(r));
     return this.saveBlob(await r.blob(), `snapdragon-keys-${id.replace(/[^A-Za-z0-9._-]/g, '_')}.tar.gz`);
+  }
+
+  /**
+   * The image-build package + image catalog, served VERBATIM by the admin-bff
+   * ({@code imagegen/ImageCatalogController} GET /bff/admin/image-builds/catalog) from the
+   * generator's vendored `packages-catalog.json` + `image-catalog.json`. Feeds the
+   * package-selection modal (the per-platform package tree + adhoc add-on options) and the
+   * wizard's role/platform/desktop-class gating. ADMIN/SUPERADMIN + own-domain scoped by the
+   * BFF. Returns null (no throw) when the catalog is unavailable so a caller can degrade
+   * honestly (a dark/denied console shows an empty tree, never a crash). The LIVE tier split
+   * (essential / default-removable / available) is NOT in this payload — only the `gate:'base'`
+   * always-on floor is declared; the builder resolves the rest at image-build time.
+   */
+  async imageBuildCatalog(): Promise<ImageBuildCatalog | null> {
+    const r = await fetch(`${CFG.bff}/bff/admin/image-builds/catalog`, { credentials: 'include' });
+    return r.ok ? r.json() : null;
   }
 
   /** Hand a Blob to a synthetic, object-URL-backed anchor so the browser saves the file. */
@@ -1977,6 +2016,111 @@ export interface ImageBuildEvent {
   done: boolean;
   error: string | null;
 }
+
+// ── Worklist batch DTOs (admin-bff imagegen batch trigger, item 1) ────────────
+/** The six ENUMERATED generator platforms (worklist WorklistEntry.platform), which REPLACE
+ *  the old free-text hardware class. Mirrors BatchImageSpec.hardwareClass @Pattern + the
+ *  worklist.v1 schema enum — a build is rejected 400 for anything off this list. */
+export const IMAGE_PLATFORMS = ['x86', 'rpi5', 'frite', 'jetson', 'orangepi5', 'orangepizero2'] as const;
+export type ImagePlatform = (typeof IMAGE_PLATFORMS)[number];
+
+/** One entry of a worklist batch — a single image (one per role × platform). Mirrors the
+ *  admin-bff {@code BatchImageSpec} record VERBATIM. There is intentionally NO domain field:
+ *  the BFF derives every build's tenancy server-side (a caller can never pick a tenant). The
+ *  optional {@code imageSpec} is the per-image CONTENT (the IMAGE_SPEC_JSON channel, item 1b);
+ *  {@code null}/absent keeps the legacy 6-env path. It is deep-validated (no secrets, valid
+ *  atoms/domain names) by the BFF's fail-closed worklist.v1 validator BEFORE any write. */
+export interface BatchImageSpec {
+  targetUser: string;
+  imageType: ImageType;
+  /** The ENUMERATED platform (replaces free-text hardwareClass). */
+  hardwareClass: ImagePlatform;
+  sshKeysAllowed?: boolean | null;
+  imageSpec?: Record<string, unknown> | null;
+}
+
+/** Body for {@code POST /bff/admin/image-builds/batch} — the frozen worklist v1 ENVELOPE
+ *  wrapped with a bounded-concurrency knob. Mirrors admin-bff {@code BatchTriggerImageBuildRequest}:
+ *  {@code schema} is the mandatory discriminator, {@code base} is the shared ImageConfig CONTENT
+ *  (domains/users; brand/org/superdomain are server-derived, never sent), {@code entries} is 1..16
+ *  {@link BatchImageSpec}s (ONE step-up authorises the whole batch, so the cap is a security
+ *  invariant), {@code maxConcurrent} bounds launch fan-out (default 1 = sequential). */
+export interface WorklistEnvelope {
+  schema: 'snapdragon-worklist/v1';
+  base?: Record<string, unknown> | null;
+  entries: BatchImageSpec[];
+  maxConcurrent?: number | null;
+}
+
+/** One build of a batch result — identical shape to the single trigger's projection. */
+export interface ImageBuildBatchBuild {
+  id: string;
+  status: ImageBuildStatus;
+  imageType: ImageType;
+  domain: string;
+  sshKeysAllowed: boolean;
+}
+
+/** {@code POST /bff/admin/image-builds/batch} → {@code {batchId, builds:[…]}}. */
+export interface ImageBuildBatchResult {
+  batchId: string;
+  builds: ImageBuildBatchBuild[];
+}
+
+// ── Image-build package/image catalog DTOs (admin-bff imagegen/ImageCatalogController) ──
+// The BFF serves the generator's `packages-catalog.json` + `image-catalog.json` VERBATIM
+// (redesign/docs/catalog/*.json). These interfaces pin ONLY the load-bearing shape the
+// package-selection modal reads; the JSON is otherwise treated as opaque pass-through.
+
+/** One adhoc add-on option (packages-catalog.json `adhoc_adds[key]`): a human label + the
+ *  Portage atoms it pulls in (e.g. tor → net-vpn/tor). A WorklistEntry has no per-option flag
+ *  channel, so an enabled option's atoms fold into the entry's `packages_add`. */
+export interface PackageAdhocAdd { atoms: string[]; label: string; }
+
+/** One titled package section within a platform group: a section title + its Portage atoms. */
+export interface PackageSection { title: string; atoms: string[]; }
+
+/** One platform package group (the base list, a desktop list, a GPU list, …): its builder
+ *  GATE name + the sections it holds. `gate === 'base'` is the always-on ESSENTIAL FLOOR —
+ *  the only tier the catalog declares; the rest of the tier split (default-removable vs
+ *  available) is resolved LIVE by the builder at image-build time, not here. */
+export interface PackageGroup { gate: string; sections: PackageSection[]; }
+
+/** packages-catalog.json — the flat adhoc add-on options + the per-platform package tree
+ *  (platform → group-key → {@link PackageGroup}). */
+export interface PackageCatalog {
+  adhoc_adds: Record<string, PackageAdhocAdd>;
+  platforms: Record<string, Record<string, PackageGroup>>;
+}
+
+/** One image-catalog role: a role × its per-platform axes, plus its class + label. */
+export interface ImageCatalogRole {
+  role: string;
+  label: string;
+  image_class: 'desktop' | 'node';
+  platforms: { platform: string; axes: Record<string, string[]> }[];
+}
+
+/** image-catalog.json — the platform labels, the desktop/node `role_class` split, and the
+ *  per-mode (cloud | mesh | standalone) role list. Consumed by the wizard's gating; carried
+ *  here so the single catalog fetch feeds both surfaces. */
+export interface ImageCatalog {
+  platform_labels: Record<string, string>;
+  role_class: { desktop: string[]; node: string[] };
+  roles: Record<string, ImageCatalogRole[]>;
+}
+
+/** GET /bff/admin/image-builds/catalog → {@code { packages, images }} (verbatim pass-through
+ *  of the generator's packages-catalog.json + image-catalog.json). */
+export interface ImageBuildCatalog { packages: PackageCatalog; images: ImageCatalog; }
+
+/** A per-image package selection the {@code PackageCatalogModalComponent} emits for the wizard
+ *  to fold into a worklist entry's per-image CONTENT (`packages_add` / `packages_drop`,
+ *  space-joined Portage atoms; see worklist.v1 worklistEntry). `add`/`drop` are the
+ *  load-bearing WIRE fields; `options` carries the enabled adhoc-add KEYS for round-trip +
+ *  display (their atoms are already folded into `add`, since a WorklistEntry has no per-option
+ *  flag). The always-on essential floor is NEVER emitted (the builder always installs it). */
+export interface PackageSelection { add: string[]; drop: string[]; options: string[]; }
 
 // ── Anubis bot-challenge sidecar DTOs ────────────────────────────────────────
 /** Status + configured settings from GET /bff/admin/anubis/status. Settings come from

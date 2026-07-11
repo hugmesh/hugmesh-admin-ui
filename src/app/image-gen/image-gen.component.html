@@ -1,9 +1,9 @@
 <section class="snap-image-gen" data-testid="image-gen-view" aria-labelledby="ig-heading">
   <h2 id="ig-heading">Image generation</h2>
   <p class="intro">
-    Build a device image for a user — a full primary node, a mesh-extension, or a laptop /
-    Chromebook client. Trigger a build, watch live progress, then download the built image and,
-    when the build allowed it, the (non-secret) SSH-keys bundle.
+    Build device images for a mesh of users — full primary nodes, mesh extensions, and laptop /
+    Chromebook clients — in one worklist batch. Watch live progress per build, then download each
+    built image and, when the build allowed it, the (non-secret) SSH-keys bundle.
   </p>
 
   <!-- ── CAPABILITY GATE: image generation needs an x86 build node ──────────── -->
@@ -26,176 +26,21 @@
       recorded but no image is produced until the generator is enabled.
     </p>
 
-    <!-- ── Trigger a build ──────────────────────────────────────── -->
-    <form
-      class="trigger-form"
-      data-testid="ig-trigger-form"
-      (ngSubmit)="triggerBuild()"
-      novalidate
-      aria-labelledby="ig-trigger-heading"
-    >
-      <h3 id="ig-trigger-heading">Trigger a build</h3>
+    <!-- ── Worklist BATCH wizard (the build surface) ──────────── -->
+    <snap-image-gen-worklist-wizard
+      data-testid="ig-wizard"
+      (editPackages)="onEditPackages($event)"
+    ></snap-image-gen-worklist-wizard>
 
-      <div class="field">
-        <label for="ig-target">Target user</label>
-        <input
-          id="ig-target"
-          data-testid="ig-target"
-          name="targetUser"
-          [(ngModel)]="targetUser"
-          required
-          maxlength="400"
-          autocomplete="off"
-          [attr.aria-invalid]="error() ? 'true' : null"
-          aria-describedby="ig-target-help"
-        />
-        <span id="ig-target-help" class="hint">
-          The subject the image is for (must be a user in your own domain unless you are superadmin).
-        </span>
-      </div>
-
-      <fieldset class="image-type-field">
-        <legend>Image type</legend>
-        <label
-          *ngFor="let it of store.imageTypes"
-          class="image-type-option"
-          [attr.data-image-type]="it.value"
-        >
-          <input type="radio" name="imageType" [value]="it.value" [(ngModel)]="imageType" />
-          <span class="type-label">{{ it.label }}</span>
-          <span class="hint type-hint">{{ it.hint }}</span>
-        </label>
-      </fieldset>
-
-      <div class="field">
-        <label for="ig-hardware">Hardware class (optional)</label>
-        <input
-          id="ig-hardware"
-          data-testid="ig-hardware"
-          name="hardwareClass"
-          [(ngModel)]="hardwareClass"
-          maxlength="64"
-          placeholder="e.g. rpi5, x86-64"
-          autocomplete="off"
-          aria-describedby="ig-hardware-help"
-        />
-        <span id="ig-hardware-help" class="hint">Optional target hardware for the build.</span>
-      </div>
-
-      <div class="field checkbox-field">
-        <label for="ig-ssh-keys">
-          <input
-            id="ig-ssh-keys"
-            type="checkbox"
-            name="sshKeysAllowed"
-            [(ngModel)]="sshKeysAllowed"
-            data-testid="ig-ssh-keys"
-            aria-describedby="ig-ssh-keys-help"
-          />
-          Allow a downloadable SSH-keys bundle
-        </label>
-        <span id="ig-ssh-keys-help" class="hint">
-          When enabled, the build may emit a NON-SECRET keys bundle you can download after it
-          completes (still step-up gated). Off by default (fail-closed). No private key is ever
-          shown in this console.
-        </span>
-      </div>
-
-      <div class="field">
-        <label for="ig-stepup">Step-up confirmation token (optional)</label>
-        <input
-          id="ig-stepup"
-          data-testid="ig-stepup"
-          name="stepUpToken"
-          type="password"
-          [(ngModel)]="stepUpToken"
-          autocomplete="off"
-          aria-describedby="ig-stepup-help"
-        />
-        <span id="ig-stepup-help" class="hint">
-          Triggering a build (and downloading the keys bundle) needs a fresh step-up
-          confirmation, sent to the BFF in the X-ImageGen-StepUp header. If you have no token,
-          leave this blank and submit — you will be asked to verify with your authenticator app,
-          a passkey, or a recovery code instead. Never stored.
-        </span>
-      </div>
-
-      <!-- ── Inline MFA step-up dialog: shown when the trigger or a keys download 403s
-           with the platform's "requires step-up" contract. On success the SAME action is
-           retried automatically. ── -->
-      <snap-mfa-step-up-dialog
-        *ngIf="stepUpChallenge() as challenge"
-        [action]="challenge.action"
-        (satisfied)="onStepUpSatisfied()"
-        (dismissed)="onStepUpDismissed()"
-      ></snap-mfa-step-up-dialog>
-
-      <button
-        type="submit"
-        data-testid="ig-trigger"
-        [disabled]="triggering()"
-        [attr.aria-describedby]="triggering() ? 'ig-trigger-busy' : null"
-      >
-        {{ triggering() ? 'Starting…' : 'Trigger build' }}
-      </button>
-      <span *ngIf="triggering()" id="ig-trigger-busy" class="sr">Starting the build…</span>
-
-      <span
-        *ngIf="error()"
-        id="ig-trigger-error"
-        class="field-error"
-        data-testid="ig-trigger-error"
-        role="alert"
-        aria-live="assertive"
-      >{{ error() }}</span>
-    </form>
-
-    <!-- ── Live progress for the in-flight build ──────────────────── -->
-    <section
-      *ngIf="store.activeBuildId() as buildId"
-      class="progress"
-      data-testid="ig-progress"
-      aria-labelledby="ig-progress-heading"
-    >
-      <h3 id="ig-progress-heading">Build progress</h3>
-
-      <p class="live-status" data-testid="ig-status" role="status" aria-live="polite">
-        {{ activeTypeLabel() }} build — status:
-        <span class="status-badge" [attr.data-status]="store.liveStatus()">{{ store.liveStatus() }}</span>
-      </p>
-
-      <div
-        class="bar"
-        role="progressbar"
-        data-testid="ig-progressbar"
-        [attr.aria-valuenow]="store.progress()"
-        aria-valuemin="0"
-        aria-valuemax="100"
-        [attr.aria-label]="'Build ' + buildId + ' progress'"
-      >
-        <span class="bar-fill" [style.width.%]="store.progress()"></span>
-      </div>
-
-      <ul class="events" data-testid="ig-events" role="status" aria-live="polite">
-        <li *ngFor="let e of store.buildEvents()" [attr.data-phase]="e.phase">
-          <strong>{{ e.percent }}%</strong>
-          <span class="ev-phase">{{ e.phase }}</span>
-          {{ e.message }}
-        </li>
-      </ul>
-
-      <p
-        *ngIf="store.buildError()"
-        class="field-error"
-        data-testid="ig-stream-error"
-        role="alert"
-        aria-live="assertive"
-      >{{ store.buildError() }}</p>
-
-      <p *ngIf="store.finished() && !store.buildError()" class="done" data-testid="ig-done" role="status">
-        Build complete.
-      </p>
-    </section>
+    <!-- ── item 9: per-image package-catalog modal (host-mediated) ── -->
+    <snap-package-catalog-modal
+      [open]="pkgModalOpen()"
+      [platform]="pkgModalPlatform()"
+      [imageLabel]="pkgModalImageLabel()"
+      [selection]="pkgModalSelection()"
+      (applied)="onPackagesApplied($event)"
+      (dismissed)="onPackagesDismissed()"
+    ></snap-package-catalog-modal>
 
     <!-- ── Build history ──────────────────────────────────────────── -->
     <h3 id="ig-history-heading">Recent builds</h3>
@@ -206,6 +51,14 @@
       role="status"
       aria-live="polite"
     >{{ downloadNote() }}</p>
+
+    <!-- Inline MFA step-up dialog for a keys download that 403s "requires step-up". -->
+    <snap-mfa-step-up-dialog
+      *ngIf="stepUpChallenge() as challenge"
+      [action]="challenge.action"
+      (satisfied)="onStepUpSatisfied()"
+      (dismissed)="onStepUpDismissed()"
+    ></snap-mfa-step-up-dialog>
 
     <table class="ig-table" data-testid="ig-table" aria-labelledby="ig-history-heading">
       <caption class="sr">Recent image builds with target user, type, timestamp, status and actions.</caption>
@@ -297,7 +150,7 @@
 
         <tr *ngIf="store.builds().length === 0">
           <td colspan="6" class="empty" data-testid="ig-empty">
-            No builds yet. Trigger one with “Trigger build”.
+            No builds yet. Trigger one with the worklist wizard above.
           </td>
         </tr>
       </tbody>

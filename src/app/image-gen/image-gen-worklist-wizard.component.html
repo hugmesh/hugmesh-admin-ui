@@ -1,0 +1,548 @@
+<section class="snap-worklist-wizard" data-testid="wl-wizard-view" aria-labelledby="wl-heading">
+  <h3 id="wl-heading">Build a worklist</h3>
+  <p class="intro">
+    Build up to {{ maxEntries }} device images in one batch — a mesh of nodes, desktops and
+    clients. One step-up authorises the whole worklist. Tenancy (domain, superdomain) is derived
+    server-side; you never pick a tenant here.
+  </p>
+
+  <!-- ════════════════ WIZARD (before submit) ════════════════ -->
+  @if (!submitted()) {
+    <!-- a11y progress line + visual step rail (reused from the admin-task-wizard UX). -->
+    <p class="progress" data-testid="wl-progress" role="status" aria-live="polite">
+      Step {{ stepIndex() + 1 }} of {{ steps.length }}: {{ steps[stepIndex()].title }}
+    </p>
+    <ol class="step-rail" data-testid="wl-step-rail" aria-hidden="true">
+      @for (s of steps; track s.id; let i = $index) {
+        <li [class.active]="i === stepIndex()" [class.done]="i < stepIndex()">{{ s.title }}</li>
+      }
+    </ol>
+
+    <!-- ── STEP: Images ──────────────────────────────────────── -->
+    @if (currentStep() === 'images') {
+      <div class="step-body" data-testid="wl-step-images">
+        <ul class="entries" data-testid="wl-entries">
+          @for (e of entries(); track e.key) {
+            <li class="entry-card" [attr.data-entry]="e.key">
+              <div class="entry-head">
+                <h4 class="entry-title">Image {{ wireId(e) }}</h4>
+                <button
+                  type="button"
+                  class="link remove-entry"
+                  [attr.data-remove-entry]="e.key"
+                  [disabled]="entries().length <= 1"
+                  (click)="removeEntry(e.key)"
+                  aria-label="Remove this image from the worklist"
+                >Remove</button>
+              </div>
+
+              <div class="field">
+                <label [attr.for]="'wl-target-' + e.key">Target user</label>
+                <input
+                  [id]="'wl-target-' + e.key"
+                  [attr.data-target]="e.key"
+                  [ngModel]="e.targetUser"
+                  (ngModelChange)="patchEntry(e.key, { targetUser: $event })"
+                  [name]="'target-' + e.key"
+                  maxlength="400"
+                  autocomplete="off"
+                />
+                <span class="hint">The subject the image is for (own-domain unless superadmin).</span>
+              </div>
+
+              <div class="field-row">
+                <div class="field">
+                  <label [attr.for]="'wl-role-' + e.key">Role</label>
+                  <input
+                    [id]="'wl-role-' + e.key"
+                    [attr.data-role]="e.key"
+                    [ngModel]="e.role"
+                    (ngModelChange)="patchEntry(e.key, { role: $event })"
+                    [name]="'role-' + e.key"
+                    autocomplete="off"
+                    placeholder="e.g. laptop, be, pki"
+                  />
+                </div>
+
+                <div class="field">
+                  <label [attr.for]="'wl-platform-' + e.key">Platform</label>
+                  <select
+                    [id]="'wl-platform-' + e.key"
+                    [attr.data-platform]="e.key"
+                    [ngModel]="e.platform"
+                    (ngModelChange)="setEntryPlatform(e.key, $event)"
+                    [name]="'platform-' + e.key"
+                  >
+                    @for (p of platformOptions; track p.value) {
+                      <option [value]="p.value">{{ p.label }}</option>
+                    }
+                  </select>
+                </div>
+
+                <div class="field">
+                  <label [attr.for]="'wl-class-' + e.key">Image class</label>
+                  <select
+                    [id]="'wl-class-' + e.key"
+                    [attr.data-class]="e.key"
+                    [ngModel]="e.imageClass"
+                    (ngModelChange)="setEntryImageClass(e.key, $event)"
+                    [name]="'class-' + e.key"
+                  >
+                    <option value="node">Node (headless)</option>
+                    <option value="desktop">Desktop</option>
+                  </select>
+                  <span class="hint">Set automatically when you pick a role in the package catalog.</span>
+                </div>
+              </div>
+
+              <fieldset class="image-type-field">
+                <legend>Image type</legend>
+                @for (it of imageTypeOptions; track it.value) {
+                  <label class="image-type-option" [attr.data-image-type]="it.value">
+                    <input
+                      type="radio"
+                      [name]="'imgtype-' + e.key"
+                      [value]="it.value"
+                      [ngModel]="e.imageType"
+                      (ngModelChange)="setEntryImageType(e.key, $event)"
+                    />
+                    <span>{{ it.label }}</span>
+                  </label>
+                }
+              </fieldset>
+
+              <div class="field checkbox-field">
+                <label>
+                  <input
+                    type="checkbox"
+                    [attr.data-ssh-keys]="e.key"
+                    [ngModel]="e.sshKeysAllowed"
+                    (ngModelChange)="patchEntry(e.key, { sshKeysAllowed: $event })"
+                    [name]="'ssh-' + e.key"
+                  />
+                  Allow a downloadable (non-secret) SSH-keys bundle
+                </label>
+              </div>
+
+              <!-- Packages (item 9): inline fallback + a hook to the catalog modal. -->
+              <div class="field-row packages">
+                <div class="field">
+                  <label [attr.for]="'wl-pkg-add-' + e.key">Packages add</label>
+                  <input
+                    [id]="'wl-pkg-add-' + e.key"
+                    [attr.data-pkg-add]="e.key"
+                    [ngModel]="e.packagesAdd"
+                    (ngModelChange)="patchEntry(e.key, { packagesAdd: $event })"
+                    [name]="'pkgadd-' + e.key"
+                    autocomplete="off"
+                    placeholder="space-separated Portage atoms"
+                  />
+                </div>
+                <div class="field">
+                  <label [attr.for]="'wl-pkg-drop-' + e.key">Packages drop</label>
+                  <input
+                    [id]="'wl-pkg-drop-' + e.key"
+                    [attr.data-pkg-drop]="e.key"
+                    [ngModel]="e.packagesDrop"
+                    (ngModelChange)="patchEntry(e.key, { packagesDrop: $event })"
+                    [name]="'pkgdrop-' + e.key"
+                    autocomplete="off"
+                  />
+                </div>
+                <button
+                  type="button"
+                  class="link edit-packages"
+                  [attr.data-edit-packages]="e.key"
+                  (click)="requestEditPackages(e.key)"
+                >Browse catalog…</button>
+              </div>
+
+              <!-- ── DESKTOP-ONLY sub-forms (items 2/3/7), gated on image class ── -->
+              @if (isDesktop(e)) {
+                <div class="desktop-subform" [attr.data-desktop-subform]="e.key">
+                  <h5 class="subform-title">Desktop options</h5>
+
+                  <!-- item 2: branding preset XOR custom -->
+                  <fieldset class="branding-field">
+                    <legend>Branding</legend>
+                    <label class="radio-inline">
+                      <input
+                        type="radio"
+                        [name]="'brandmode-' + e.key"
+                        value="preset"
+                        [attr.data-branding-preset-radio]="e.key"
+                        [ngModel]="e.brandingMode"
+                        (ngModelChange)="patchEntry(e.key, { brandingMode: $event })"
+                      />
+                      Named preset
+                    </label>
+                    <label class="radio-inline">
+                      <input
+                        type="radio"
+                        [name]="'brandmode-' + e.key"
+                        value="custom"
+                        [attr.data-branding-custom-radio]="e.key"
+                        [ngModel]="e.brandingMode"
+                        (ngModelChange)="patchEntry(e.key, { brandingMode: $event })"
+                      />
+                      Custom theme
+                    </label>
+
+                    @if (e.brandingMode === 'preset') {
+                      <div class="field" [attr.data-branding-preset]="e.key">
+                        <label [attr.for]="'wl-preset-' + e.key">Preset</label>
+                        <input
+                          [id]="'wl-preset-' + e.key"
+                          [ngModel]="e.brandingPreset"
+                          (ngModelChange)="patchEntry(e.key, { brandingPreset: $event })"
+                          [name]="'preset-' + e.key"
+                          autocomplete="off"
+                          placeholder="e.g. snapdragon-dark"
+                        />
+                      </div>
+                    } @else {
+                      <div class="field-row" [attr.data-branding-custom]="e.key">
+                        <div class="field">
+                          <label [attr.for]="'wl-brandtitle-' + e.key">Brand title</label>
+                          <input
+                            [id]="'wl-brandtitle-' + e.key"
+                            [ngModel]="e.customBrandTitle"
+                            (ngModelChange)="patchEntry(e.key, { customBrandTitle: $event })"
+                            [name]="'brandtitle-' + e.key"
+                            autocomplete="off"
+                          />
+                        </div>
+                        <div class="field">
+                          <label [attr.for]="'wl-color-' + e.key">Primary colour</label>
+                          <input
+                            [id]="'wl-color-' + e.key"
+                            [ngModel]="e.customPrimaryColor"
+                            (ngModelChange)="patchEntry(e.key, { customPrimaryColor: $event })"
+                            [name]="'color-' + e.key"
+                            autocomplete="off"
+                            placeholder="#rrggbb"
+                          />
+                        </div>
+                      </div>
+                    }
+                  </fieldset>
+
+                  <!-- item 3: tailnet / SSO — branded desktop only, SUPERADMIN-gated -->
+                  @if (showTailnetSso(e)) {
+                    <fieldset class="tailnet-field" [attr.data-tailnet-subform]="e.key">
+                      <legend>Tailnet &amp; SSO (branded desktop)</legend>
+                      <label class="check-inline">
+                        <input
+                          type="checkbox"
+                          [attr.data-tailnet]="e.key"
+                          [ngModel]="e.tailnetJoin"
+                          (ngModelChange)="patchEntry(e.key, { tailnetJoin: $event })"
+                          [name]="'tailnet-' + e.key"
+                        />
+                        Join the tailnet
+                      </label>
+                      <label class="check-inline">
+                        <input
+                          type="checkbox"
+                          [attr.data-sso]="e.key"
+                          [ngModel]="e.sso"
+                          (ngModelChange)="patchEntry(e.key, { sso: $event })"
+                          [name]="'sso-' + e.key"
+                        />
+                        Enterprise SSO login
+                      </label>
+                    </fieldset>
+                  }
+
+                  <!-- item 7: home / home-encryption -->
+                  <fieldset class="home-field">
+                    <legend>Home</legend>
+                    <label class="check-inline">
+                      <input
+                        type="checkbox"
+                        [attr.data-home]="e.key"
+                        [ngModel]="e.homeEnabled"
+                        (ngModelChange)="patchEntry(e.key, { homeEnabled: $event })"
+                        [name]="'home-' + e.key"
+                      />
+                      Provision a home partition
+                    </label>
+                    <div class="field">
+                      <label [attr.for]="'wl-encrypt-' + e.key">Root / home encryption</label>
+                      <select
+                        [id]="'wl-encrypt-' + e.key"
+                        [attr.data-encrypt-root]="e.key"
+                        [ngModel]="e.encryptRoot"
+                        (ngModelChange)="setEntryEncryptRoot(e.key, $event)"
+                        [name]="'encrypt-' + e.key"
+                      >
+                        @for (opt of encryptRootOptions; track opt) {
+                          <option [value]="opt">{{ opt }}</option>
+                        }
+                      </select>
+                    </div>
+                  </fieldset>
+                </div>
+              }
+            </li>
+          }
+        </ul>
+
+        <button
+          type="button"
+          class="add-entry"
+          data-testid="wl-add-entry"
+          [disabled]="!canAddEntry()"
+          (click)="addEntry()"
+        >+ Add image ({{ entries().length }}/{{ maxEntries }})</button>
+      </div>
+    }
+
+    <!-- ── STEP: Domains (item 4) ────────────────────────────── -->
+    @if (currentStep() === 'domains') {
+      <div class="step-body" data-testid="wl-step-domains">
+        <p class="hint">
+          Attach registered domains to each image. Sourced from the domain registry (enabled only) —
+          never the games surface.
+          @if (!isSuperadmin()) {
+            <span data-testid="wl-domains-owndomain-note">
+              You may only compose within your own brand; other-brand selections are rejected server-side.
+            </span>
+          }
+        </p>
+        @if (enabledDomains().length === 0) {
+          <p class="empty" data-testid="wl-domains-empty">No enabled domains are registered.</p>
+        }
+        <ul class="entries" data-testid="wl-domain-attach">
+          @for (e of entries(); track e.key) {
+            <li class="entry-card" [attr.data-domain-entry]="e.key">
+              <h4 class="entry-title">{{ wireId(e) }}</h4>
+              <div class="domain-grid">
+                @for (d of enabledDomains(); track d.id) {
+                  <label class="check-inline">
+                    <input
+                      type="checkbox"
+                      [attr.data-attach]="e.key + '::' + d.clusterDomain"
+                      [checked]="entryHasDomain(e, d.clusterDomain)"
+                      (change)="toggleEntryDomain(e.key, d.clusterDomain, $any($event.target).checked)"
+                    />
+                    {{ d.clusterDomain }} <span class="hint">({{ d.brand }})</span>
+                  </label>
+                }
+              </div>
+            </li>
+          }
+        </ul>
+      </div>
+    }
+
+    <!-- ── STEP: Users (item 6) ──────────────────────────────── -->
+    @if (currentStep() === 'users') {
+      <div class="step-body" data-testid="wl-step-users">
+        <p class="hint">
+          Mesh users seeded into the manifest. Each user's domain comes from the same registry.
+        </p>
+        <ul class="users" data-testid="wl-users">
+          @for (u of users(); track $index) {
+            <li class="user-row" [attr.data-user]="$index">
+              <div class="field">
+                <label [attr.for]="'wl-username-' + $index">Username</label>
+                <input
+                  [id]="'wl-username-' + $index"
+                  [attr.data-username]="$index"
+                  [ngModel]="u.username"
+                  (ngModelChange)="patchUser($index, { username: $event })"
+                  [name]="'username-' + $index"
+                  autocomplete="off"
+                />
+              </div>
+              <div class="field">
+                <label [attr.for]="'wl-userdomain-' + $index">Domain</label>
+                <select
+                  [id]="'wl-userdomain-' + $index"
+                  [attr.data-user-domain]="$index"
+                  [ngModel]="u.domain"
+                  (ngModelChange)="patchUser($index, { domain: $event })"
+                  [name]="'userdomain-' + $index"
+                >
+                  <option value="">— select —</option>
+                  @for (d of enabledDomains(); track d.id) {
+                    <option [value]="d.clusterDomain">{{ d.clusterDomain }}</option>
+                  }
+                </select>
+              </div>
+              <div class="field">
+                <label [attr.for]="'wl-userrole-' + $index">Role</label>
+                <input
+                  [id]="'wl-userrole-' + $index"
+                  [ngModel]="u.role"
+                  (ngModelChange)="patchUser($index, { role: $event })"
+                  [name]="'userrole-' + $index"
+                  autocomplete="off"
+                />
+              </div>
+              <div class="field">
+                <label [attr.for]="'wl-useremail-' + $index">Email</label>
+                <input
+                  [id]="'wl-useremail-' + $index"
+                  [ngModel]="u.email"
+                  (ngModelChange)="patchUser($index, { email: $event })"
+                  [name]="'useremail-' + $index"
+                  autocomplete="off"
+                />
+              </div>
+              <button
+                type="button"
+                class="link"
+                [attr.data-remove-user]="$index"
+                (click)="removeUser($index)"
+                aria-label="Remove this user"
+              >Remove</button>
+            </li>
+          }
+          @if (users().length === 0) {
+            <li class="empty" data-testid="wl-users-empty">No users yet.</li>
+          }
+        </ul>
+        <button type="button" class="add-entry" data-testid="wl-add-user" (click)="addUser()">
+          + Add user
+        </button>
+      </div>
+    }
+
+    <!-- ── STEP: Review & build ──────────────────────────────── -->
+    @if (currentStep() === 'review') {
+      <div class="step-body" data-testid="wl-step-review">
+        <dl class="review-list">
+          <dt>Images</dt><dd data-testid="wl-review-count">{{ entries().length }}</dd>
+          <dt>Users</dt><dd>{{ users().length }}</dd>
+        </dl>
+
+        <p class="hint" data-testid="wl-superdomain-note">
+          The mesh superdomain is derived server-side (&lt;brand&gt;.internal) and is permanently
+          internal — it is never set from this console.
+        </p>
+
+        <div class="field">
+          <label for="wl-maxconcurrent">Max concurrent builds</label>
+          <input
+            id="wl-maxconcurrent"
+            data-testid="wl-maxconcurrent"
+            type="number"
+            min="1"
+            [max]="maxEntries"
+            [(ngModel)]="maxConcurrent"
+            name="maxConcurrent"
+          />
+          <span class="hint">How many images launch at once (1 = sequential). Bounds blast radius.</span>
+        </div>
+
+        <div class="field">
+          <label for="wl-stepup">Step-up confirmation token (optional)</label>
+          <input
+            id="wl-stepup"
+            data-testid="wl-stepup"
+            type="password"
+            [(ngModel)]="stepUpToken"
+            name="stepUpToken"
+            autocomplete="off"
+          />
+          <span class="hint">
+            One step-up authorises the whole batch (X-ImageGen-StepUp). Leave blank to be prompted.
+            Never stored.
+          </span>
+        </div>
+
+        @if (stepUpChallenge(); as challenge) {
+          <snap-mfa-step-up-dialog
+            [action]="challenge.action"
+            (satisfied)="onStepUpSatisfied()"
+            (dismissed)="onStepUpDismissed()"
+          ></snap-mfa-step-up-dialog>
+        }
+
+        <button
+          type="button"
+          class="build"
+          data-testid="wl-build"
+          [disabled]="!canBuild()"
+          (click)="build()"
+        >{{ submitting() ? 'Submitting…' : 'Build worklist (' + entries().length + ')' }}</button>
+      </div>
+    }
+
+    <!-- error region (shared across steps) -->
+    @if (error()) {
+      <p class="field-error" data-testid="wl-error" role="alert" aria-live="assertive">{{ error() }}</p>
+    }
+
+    <!-- step navigation -->
+    <div class="wizard-actions">
+      <button
+        type="button"
+        data-testid="wl-back"
+        [disabled]="stepIndex() === 0"
+        (click)="back()"
+      >Back</button>
+      @if (!isLastStep()) {
+        <button type="button" data-testid="wl-next" (click)="next()">Next</button>
+      }
+    </div>
+  }
+
+  <!-- ════════════════ PROGRESS SCREEN (after submit, item 8) ════════════════ -->
+  @if (submitted()) {
+    <section class="progress-screen" data-testid="wl-progress-screen" aria-labelledby="wl-progress-h">
+      <h4 id="wl-progress-h">
+        Building {{ store.buildIds().length }} image(s)
+        <span class="hint">— {{ store.finishedCount() }} of {{ store.buildIds().length }} finished</span>
+      </h4>
+
+      @if (store.allFinished()) {
+        <p class="done" data-testid="wl-batch-done" role="status">All builds finished.</p>
+      }
+
+      <ul class="build-cards" data-testid="wl-build-cards">
+        @for (s of store.streamList(); track s.build.id) {
+          <li class="build-card" [attr.data-build]="s.build.id">
+            <p class="live-status" role="status" aria-live="polite">
+              {{ typeLabel(store.imageTypeFor(s.build.id)) }} · {{ s.build.domain }} —
+              <span class="status-badge" [attr.data-status]="store.liveStatusFor(s.build.id)">
+                {{ liveStatusText(store.liveStatusFor(s.build.id)) }}
+              </span>
+            </p>
+            <div
+              class="bar"
+              role="progressbar"
+              [attr.data-progressbar]="s.build.id"
+              [attr.aria-valuenow]="store.progressFor(s.build.id)"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              [attr.aria-label]="'Build ' + s.build.id + ' progress'"
+            >
+              <span class="bar-fill" [style.width.%]="store.progressFor(s.build.id)"></span>
+            </div>
+            <ul class="events" [attr.data-events]="s.build.id" role="status" aria-live="polite">
+              @for (ev of store.eventsFor(s.build.id); track $index) {
+                <li [attr.data-phase]="ev.phase">
+                  <strong>{{ ev.percent }}%</strong> <span class="ev-phase">{{ ev.phase }}</span>
+                  {{ ev.message }}
+                </li>
+              }
+            </ul>
+            @if (store.buildErrorFor(s.build.id); as be) {
+              <p class="field-error" [attr.data-build-error]="s.build.id" role="alert" aria-live="assertive">{{ be }}</p>
+            }
+            @if (store.finishedFor(s.build.id) && !store.buildErrorFor(s.build.id)) {
+              <p class="done" [attr.data-build-done]="s.build.id" role="status">Complete.</p>
+            }
+          </li>
+        }
+      </ul>
+
+      <button type="button" class="add-entry" data-testid="wl-build-another" (click)="buildAnother()">
+        Build another worklist
+      </button>
+    </section>
+  }
+</section>

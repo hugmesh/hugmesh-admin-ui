@@ -1,0 +1,133 @@
+@if (open()) {
+  <div
+    class="pkg-backdrop"
+    data-testid="pkg-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="pkg-modal-heading"
+    aria-describedby="pkg-modal-note"
+    tabindex="-1"
+    snapFocusTrap
+    (dismiss)="cancel()"
+  >
+    <div class="pkg-dialog">
+      <header class="pkg-head">
+        <h3 id="pkg-modal-heading">
+          Packages
+          @if (imageLabel()) {
+            <span class="pkg-image">for {{ imageLabel() }}</span>
+          }
+        </h3>
+        <button
+          type="button"
+          class="pkg-close"
+          data-testid="pkg-close"
+          aria-label="Close package selection"
+          (click)="cancel()"
+        >×</button>
+      </header>
+
+      <p id="pkg-modal-note" class="pkg-note" data-testid="pkg-essential-note">
+        Base packages (the always-on floor for
+        <strong>{{ platform() || 'this platform' }}</strong>) are locked on. Which default
+        packages are removable, and which extras your role auto-installs, are resolved by the
+        builder at image-build time — here you add extra packages and enable add-on options.
+      </p>
+
+      <div class="pkg-body" data-testid="pkg-body">
+        @if (loading()) {
+          <p class="pkg-loading" role="status">Loading the package catalog…</p>
+        }
+        @if (loadError()) {
+          <p class="pkg-error" role="alert" data-testid="pkg-error">{{ loadError() }}</p>
+        }
+
+        @if (catalog() && !loading()) {
+          <!-- Add-on options (adhoc_adds) — platform-independent. -->
+          @if (adhocOptions().length) {
+            <section class="pkg-section" data-testid="pkg-adhoc">
+              <h4>Add-on options</h4>
+              <ul class="pkg-atoms">
+                @for (opt of adhocOptions(); track opt.key) {
+                  <li>
+                    <label>
+                      <input
+                        type="checkbox"
+                        [checked]="optionChecked(opt.key)"
+                        (change)="toggleOption(opt.key, $any($event.target).checked)"
+                        [attr.data-testid]="'pkg-opt-' + opt.key"
+                      />
+                      <span class="pkg-atom-label">{{ opt.label }}</span>
+                      <span class="pkg-atom-atoms">{{ opt.atoms.join(', ') }}</span>
+                    </label>
+                  </li>
+                }
+              </ul>
+            </section>
+          }
+
+          <!-- Per-platform package groups. -->
+          @if (noPlatformTree()) {
+            <p class="pkg-empty" data-testid="pkg-no-platform">
+              No package tree is published for platform “{{ platform() }}”.
+            </p>
+          }
+
+          @for (g of groups(); track g.key) {
+            <section
+              class="pkg-group"
+              [class.essential]="g.essential"
+              [attr.data-testid]="'pkg-group-' + g.key"
+              [attr.data-gate]="g.gate"
+            >
+              <h4>
+                {{ g.title }}
+                <span class="pkg-gate">gate: {{ g.gate }}</span>
+                @if (g.essential) {
+                  <span class="pkg-locked" data-testid="pkg-locked-badge">locked · always installed</span>
+                }
+              </h4>
+              @for (s of g.sections; track $index) {
+                <div class="pkg-subsection">
+                  @if (s.title) {
+                    <h5>{{ s.title }}</h5>
+                  }
+                  <ul class="pkg-atoms">
+                    @for (atom of s.atoms; track atom) {
+                      <li>
+                        <label [class.locked]="atomDisabled(atom)">
+                          <input
+                            type="checkbox"
+                            [checked]="atomChecked(atom)"
+                            [disabled]="atomDisabled(atom)"
+                            (change)="toggleAtom(atom, $any($event.target).checked)"
+                            [attr.data-testid]="'pkg-atom-' + atom"
+                          />
+                          <span class="pkg-atom-label">{{ atom }}</span>
+                        </label>
+                      </li>
+                    }
+                  </ul>
+                </div>
+              }
+            </section>
+          }
+        }
+      </div>
+
+      <footer class="pkg-actions">
+        <span class="pkg-count" data-testid="pkg-count" aria-live="polite">
+          {{ selectedCount() }} selected
+        </span>
+        <button type="button" data-testid="pkg-cancel" (click)="cancel()">Cancel</button>
+        <button
+          type="button"
+          class="primary"
+          data-testid="pkg-apply"
+          [disabled]="!catalog()"
+          (click)="apply()"
+        >Apply selection</button>
+      </footer>
+    </div>
+  </div>
+}

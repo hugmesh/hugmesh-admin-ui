@@ -1,0 +1,226 @@
+@use '../../styles/tokens' as t;
+
+:host {
+  display: block;
+}
+
+.snap-worklist-wizard {
+  display: block;
+
+  .intro {
+    color: var(--sd-text-muted, #{t.$light});
+    max-width: 60ch;
+  }
+
+  .progress {
+    color: var(--sd-text, #{t.$light});
+    font-weight: 600;
+  }
+
+  // Step rail (visual only; the role=status line carries the a11y progress text).
+  .step-rail {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    list-style: none;
+    margin: 0.5rem 0 1rem;
+    padding: 0;
+    counter-reset: step;
+
+    li {
+      counter-increment: step;
+      padding: 0.25rem 0.7rem;
+      border-radius: 999px;
+      border: 1px solid var(--sd-border, #{t.$mid});
+      color: var(--sd-text-muted, #{t.$muted});
+      font-size: 0.82rem;
+
+      &::before { content: counter(step) '. '; }
+      &.active { border-color: t.$neon; color: var(--sd-text, #{t.$offwhite}); }
+      &.done { color: var(--sd-success, #{t.$pastel-mint}); border-color: var(--sd-success, #{t.$pastel-mint}); }
+    }
+  }
+
+  .step-body { margin-block: 0.5rem 1rem; }
+
+  .entries,
+  .users {
+    list-style: none;
+    margin: 0.5rem 0;
+    padding: 0;
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .entry-card {
+    border: 1px solid var(--sd-border, #{t.$mid});
+    border-radius: t.$radius-card;
+    background: var(--sd-bg-1, #{t.$surface});
+    padding: 0.9rem;
+
+    .entry-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 0.5rem;
+    }
+    .entry-title { font-weight: 700; margin: 0 0 0.5rem; }
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    margin-block: 0.5rem;
+
+    label { font-weight: 600; color: var(--sd-text, #{t.$offwhite}); }
+
+    input,
+    select {
+      background: var(--sd-bg-1, #{t.$surface});
+      color: var(--sd-text, #{t.$offwhite});
+      border: 1px solid var(--sd-border, #{t.$mid});
+      border-radius: t.$radius-sm;
+      padding: 0.45rem 0.7rem;
+      max-width: 36rem;
+
+      &[type='checkbox'] { width: auto; }
+    }
+  }
+
+  .field-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    .field { flex: 1 1 12rem; margin-block: 0.3rem; }
+  }
+
+  .checkbox-field label,
+  .check-inline,
+  .radio-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: 400;
+    color: var(--sd-text, #{t.$offwhite});
+    margin-right: 0.75rem;
+  }
+
+  .image-type-field,
+  .branding-field,
+  .tailnet-field,
+  .home-field {
+    border: 1px solid var(--sd-border, #{t.$mid});
+    border-radius: t.$radius-sm;
+    padding: 0.5rem 0.75rem;
+    margin-block: 0.5rem;
+
+    legend { font-weight: 600; padding-inline: 0.3rem; }
+  }
+  .image-type-option { display: inline-flex; gap: 0.35rem; margin-right: 0.9rem; }
+
+  .desktop-subform {
+    margin-top: 0.75rem;
+    padding-top: 0.5rem;
+    border-top: 1px dashed var(--sd-border, #{t.$mid});
+    .subform-title { margin: 0.25rem 0; font-size: 0.9rem; color: var(--sd-accent-soft, #{t.$neon}); }
+  }
+
+  .domain-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 0.35rem;
+  }
+
+  .user-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    align-items: flex-end;
+    border: 1px solid var(--sd-border, #{t.$mid});
+    border-radius: t.$radius-sm;
+    padding: 0.6rem;
+    .field { flex: 1 1 10rem; }
+  }
+
+  .link {
+    all: unset;
+    cursor: pointer;
+    color: var(--sd-accent-soft, #{t.$neon});
+    text-decoration: underline;
+    &:focus-visible { outline: 2px solid t.$neon; outline-offset: 2px; }
+    &:disabled { opacity: t.$opacity-muted; cursor: not-allowed; text-decoration: none; }
+  }
+
+  .hint { color: var(--sd-text-muted, #{t.$muted}); font-size: 0.82rem; }
+  .empty { color: var(--sd-text-muted, #{t.$muted}); }
+  .field-error { color: var(--sd-error, #{t.$pastel-rose}); font-weight: 600; }
+  .done { color: var(--sd-success, #{t.$pastel-mint}); font-weight: 600; }
+
+  .add-entry,
+  .build,
+  .wizard-actions button {
+    background: var(--sd-bg-2, #{t.$surface});
+    color: var(--sd-text, #{t.$offwhite});
+    border: 1px solid var(--sd-border, #{t.$mid});
+    border-radius: t.$radius-sm;
+    padding: 0.5rem 0.9rem;
+    cursor: pointer;
+    &:disabled { opacity: t.$opacity-muted; cursor: not-allowed; }
+    &:focus-visible { outline: 2px solid t.$offwhite; outline-offset: 2px; }
+  }
+  .build { background: var(--sd-accent, #{t.$neon}); color: t.$black; border: none; margin-top: 0.75rem; }
+
+  .wizard-actions {
+    display: flex;
+    gap: 0.6rem;
+    margin-top: 1rem;
+    button[data-testid='wl-next'] { background: var(--sd-accent, #{t.$neon}); color: t.$black; border: none; }
+  }
+
+  .review-list {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.2rem 1rem;
+    dt { font-weight: 600; }
+  }
+
+  // ── progress screen ──
+  .progress-screen { margin-top: 0.5rem; }
+  .build-cards { list-style: none; margin: 0.75rem 0; padding: 0; display: grid; gap: 0.75rem; }
+  .build-card {
+    border: 1px solid var(--sd-border, #{t.$mid});
+    border-radius: t.$radius-card;
+    background: var(--sd-bg-1, #{t.$surface});
+    padding: 0.8rem;
+
+    .live-status { margin: 0 0 0.5rem; }
+  }
+
+  .status-badge {
+    display: inline-block;
+    padding: 0.05rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid var(--sd-border, #{t.$mid});
+    font-size: 0.8rem;
+    &[data-status='COMPLETED'] { border-color: var(--sd-success, #{t.$pastel-mint}); color: var(--sd-success, #{t.$pastel-mint}); }
+    &[data-status='ERROR'] { border-color: var(--sd-error, #{t.$pastel-rose}); color: var(--sd-error, #{t.$pastel-rose}); }
+  }
+
+  .bar {
+    height: 0.55rem;
+    border-radius: 999px;
+    background: var(--sd-bg-2, #{t.$mid});
+    overflow: hidden;
+    .bar-fill { display: block; height: 100%; background: var(--sd-accent, #{t.$neon}); transition: width 0.2s ease; }
+  }
+
+  .events {
+    list-style: none;
+    margin: 0.5rem 0 0;
+    padding: 0;
+    font-size: 0.82rem;
+    color: var(--sd-text-muted, #{t.$light});
+    .ev-phase { color: var(--sd-accent-soft, #{t.$neon}); margin-inline: 0.3rem; }
+  }
+}
