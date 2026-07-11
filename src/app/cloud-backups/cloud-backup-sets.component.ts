@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
 import { SessionService } from '../session.service';
+import { MfaStepUpDialogComponent } from '../mfa/mfa-step-up-dialog.component';
 import {
   BackupArtifact,
   BackupSet,
@@ -21,9 +22,12 @@ import {
  *
  * Each row shows the scope BADGE (DOMAIN / TOTAL) and version. Expanding a set
  * loads its version chain + per-service artifacts. Restore is destructive, so it
- * is a deliberate two-step: a confirm panel that requires the admin to paste a
- * step-up token (sent in X-Backup-StepUp); a 403 whose message names step-up is
- * surfaced as "needs a fresh step-up", a plain role-403 as a graceful deny.
+ * is a deliberate two-step: a confirm panel, then a 403 whose message names
+ * step-up ({@link CloudBackupApiError#isStepUpRequired}) opens the inline
+ * {@link MfaStepUpDialogComponent} and the SAME restore is retried automatically
+ * once the dialog reports success — no token on the retry, since the A5-unified
+ * BackupStepUpGate reads the fresh MFA stamp off this session. A plain role-403 is
+ * still a graceful deny.
  *
  * The `domain` filter input is shown ONLY to a superadmin (the bff ignores it for
  * a scoped admin — an admin always reads their own brand).
@@ -33,7 +37,7 @@ import {
 @Component({
   selector: 'snap-cloud-backup-sets',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MfaStepUpDialogComponent],
   templateUrl: './cloud-backup-sets.component.html',
   styleUrl: './cloud-backups.scss',
 })
@@ -59,12 +63,14 @@ export class CloudBackupSetsComponent implements OnInit {
   // ── restore confirm ──
   /** The set id pending restore confirmation, or '' when no confirm is open. */
   readonly restoreTargetId = signal('');
-  /** The step-up token the admin pastes (sent in X-Backup-StepUp; never stored). */
-  stepUpToken = '';
   readonly restoring = signal(false);
   readonly restoreError = signal('');
-  readonly restoreStepUpNeeded = signal(false);
   readonly notice = signal('');
+
+  /** A pending step-up challenge for the restore, or null when none is in flight.
+   *  `retry` re-attempts the SAME restore once the inline
+   *  {@link MfaStepUpDialogComponent} reports the challenge satisfied. */
+  readonly stepUpChallenge = signal<null | { action: string; retry: () => Promise<void> }>(null);
 
   /** Sorted: newest createdAt first. */
   readonly sortedRows = computed(() => {
@@ -132,34 +138,32 @@ export class CloudBackupSetsComponent implements OnInit {
   /** Open the destructive-restore confirm panel for a set. */
   askRestore(set: BackupSet): void {
     this.restoreTargetId.set(set.id);
-    this.stepUpToken = '';
     this.restoreError.set('');
-    this.restoreStepUpNeeded.set(false);
     this.notice.set('');
   }
 
   cancelRestore(): void {
     this.restoreTargetId.set('');
-    this.stepUpToken = '';
     this.restoreError.set('');
-    this.restoreStepUpNeeded.set(false);
+    this.stepUpChallenge.set(null);
   }
 
   canRestore(): boolean {
-    return this.restoreTargetId().length > 0 && this.stepUpToken.trim().length > 0 && !this.restoring();
+    return this.restoreTargetId().length > 0 && !this.restoring();
   }
 
-  /** Confirm the restore: POST .../restore with the X-Backup-StepUp token. A
-   *  missing/invalid token is a 403 naming step-up; we keep the panel open and
-   *  prompt for a fresh token rather than say "you lack the role". */
+  /** Confirm the restore: POST .../restore. No token is sent — the A5-unified
+   *  BackupStepUpGate is satisfied by a fresh MFA stamp on this session. A 403
+   *  naming step-up ({@link CloudBackupApiError#isStepUpRequired}) opens the inline
+   *  MFA dialog and the SAME restore is retried on success; a plain role-403 is a
+   *  graceful deny. */
   async confirmRestore(): Promise<void> {
     if (!this.canRestore()) return;
     const id = this.restoreTargetId();
     this.restoring.set(true);
     this.restoreError.set('');
-    this.restoreStepUpNeeded.set(false);
     try {
-      const res = await this.api.restore(id, this.stepUpToken.trim());
+      const res = await this.api.restore(id);
       this.notice.set(
         `Restore queued for version ${res.version} (status: ${res.status}). ` +
           `Restore overwrites live state — monitor its progress in the cluster.`,
@@ -168,10 +172,7 @@ export class CloudBackupSetsComponent implements OnInit {
       await this.load();
     } catch (e) {
       if (e instanceof CloudBackupApiError && e.isStepUpRequired) {
-        this.restoreStepUpNeeded.set(true);
-        this.restoreError.set(
-          'This restore needs a fresh step-up. Obtain a valid step-up token and paste it to confirm.',
-        );
+        this.offerStepUp('Restoring this backup', () => this.confirmRestore());
       } else if (e instanceof CloudBackupApiError && e.isForbidden) {
         this.restoreError.set('The server denied the restore — an admin or superadmin role is required.');
       } else if (e instanceof CloudBackupApiError && e.isNotFound) {
@@ -182,5 +183,24 @@ export class CloudBackupSetsComponent implements OnInit {
     } finally {
       this.restoring.set(false);
     }
+  }
+
+  /** Offer the inline MFA step-up dialog for a restore that just 403'd with the
+   *  "requires step-up" contract. `retry` is invoked once the dialog reports success. */
+  private offerStepUp(action: string, retry: () => Promise<void>): void {
+    this.stepUpChallenge.set({ action, retry });
+  }
+
+  /** The inline step-up dialog reported success — retry the restore it was blocking
+   *  (the BFF now reads a fresh MFA stamp off this session; no token is needed). */
+  async onStepUpSatisfied(): Promise<void> {
+    const challenge = this.stepUpChallenge();
+    this.stepUpChallenge.set(null);
+    if (challenge) await challenge.retry();
+  }
+
+  /** The user cancelled the step-up dialog — drop the pending retry. */
+  onStepUpDismissed(): void {
+    this.stepUpChallenge.set(null);
   }
 }

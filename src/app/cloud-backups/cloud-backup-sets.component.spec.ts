@@ -87,42 +87,62 @@ describe('CloudBackupSetsComponent', () => {
     expect(el().querySelector('[data-testid="cloud-backup-artifacts"]')!.textContent).toContain('postgres');
   });
 
-  it('restore is a deliberate two-step: confirm panel requires a step-up token', async () => {
+  it('restore is a deliberate two-step: a confirm panel opens, enabled without a pasted token', async () => {
     await mount();
     expect(el().querySelector('[data-testid="cloud-backup-restore-confirm"]')).toBeNull();
     (el().querySelector('[data-testid="cloud-backup-restore-set-1"]') as HTMLElement).click();
     fixture.detectChanges();
-    const confirm = el().querySelector('[data-testid="cloud-backup-restore-confirm"]');
-    expect(confirm).not.toBeNull();
-    // the confirm button is disabled until a token is pasted
+    expect(el().querySelector('[data-testid="cloud-backup-restore-confirm"]')).not.toBeNull();
+    // The manual paste-token field is gone; the confirm button is enabled straight away.
+    expect(el().querySelector('[data-testid="cloud-backup-restore-stepup"]')).toBeNull();
     const btn = el().querySelector('[data-testid="cloud-backup-restore-confirm-btn"]') as HTMLButtonElement;
-    expect(btn.disabled).toBeTrue();
-    expect(component.canRestore()).toBeFalse();
+    expect(btn.disabled).toBeFalse();
+    expect(component.canRestore()).toBeTrue();
   });
 
-  it('a satisfied step-up restore sends the token and queues the restore', async () => {
+  it('a restore with a fresh session queues token-less (no X-Backup-StepUp on the call)', async () => {
     await mount();
     api.restore.and.resolveTo({ id: 'set-1', version: 2, status: 'RESTORE_QUEUED' });
     component.askRestore(set());
-    component.stepUpToken = 'good-token';
     fixture.detectChanges();
     await component.confirmRestore();
     fixture.detectChanges();
-    expect(api.restore).toHaveBeenCalledWith('set-1', 'good-token');
+    // No token argument — the A5-unified gate reads the fresh MFA stamp off the session.
+    expect(api.restore).toHaveBeenCalledWith('set-1');
     expect(el().querySelector('[data-testid="cloud-backup-sets-notice"]')!.textContent).toContain('Restore queued');
   });
 
-  it('a step-up 403 keeps the panel open and prompts for a fresh token (restore-needs-step-up)', async () => {
+  it('a step-up 403 opens the inline MFA dialog (panel stays open), then satisfied retries token-less', async () => {
     await mount();
     api.restore.and.rejectWith(new CloudBackupApiError(403, 'restore requires step-up: present a valid step-up token in the X-Backup-StepUp header'));
     component.askRestore(set());
-    component.stepUpToken = 'stale';
     await component.confirmRestore();
     fixture.detectChanges();
-    expect(component.restoreStepUpNeeded()).toBeTrue();
-    // panel still open, not dismissed
+    // the inline dialog is offered and the destructive confirm panel stays open
+    expect(component.stepUpChallenge()).not.toBeNull();
+    expect(el().querySelector('[data-testid="mfa-stepup-dialog"]')).not.toBeNull();
     expect(el().querySelector('[data-testid="cloud-backup-restore-confirm"]')).not.toBeNull();
-    expect(el().querySelector('[data-testid="cloud-backup-restore-error"]')!.textContent).toContain('step-up');
+    // no bare "paste a token" error is surfaced — the dialog carries the ask
+    expect(component.restoreError()).toBe('');
+
+    // once the dialog reports success, the SAME restore is retried and now queues
+    api.restore.and.resolveTo({ id: 'set-1', version: 2, status: 'RESTORE_QUEUED' });
+    await component.onStepUpSatisfied();
+    fixture.detectChanges();
+    expect(component.stepUpChallenge()).toBeNull();
+    expect(api.restore).toHaveBeenCalledTimes(2);
+    expect(el().querySelector('[data-testid="cloud-backup-sets-notice"]')!.textContent).toContain('Restore queued');
+  });
+
+  it('dismissing the step-up dialog drops the pending restore retry', async () => {
+    await mount();
+    api.restore.and.rejectWith(new CloudBackupApiError(403, 'restore requires step-up'));
+    component.askRestore(set());
+    await component.confirmRestore();
+    expect(component.stepUpChallenge()).not.toBeNull();
+    component.onStepUpDismissed();
+    expect(component.stepUpChallenge()).toBeNull();
+    expect(api.restore).toHaveBeenCalledTimes(1);
   });
 
   it('gracefully degrades on a 403 from the list (server-authoritative deny)', async () => {

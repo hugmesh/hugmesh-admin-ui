@@ -146,22 +146,16 @@
         <p class="cb-error" role="alert" data-testid="cloud-backup-restore-error">{{ restoreError() }}</p>
       }
 
-      <div class="cb-field">
-        <label for="cb-restore-stepup">Step-up token</label>
-        <input
-          id="cb-restore-stepup"
-          name="stepUpToken"
-          type="password"
-          autocomplete="off"
-          [(ngModel)]="stepUpToken"
-          aria-describedby="cb-restore-stepup-help"
-          [attr.aria-invalid]="restoreStepUpNeeded()"
-          data-testid="cloud-backup-restore-stepup"
-        />
-        <span id="cb-restore-stepup-help" class="cb-help">
-          Paste a valid step-up token. It is sent in the X-Backup-StepUp header and is never stored.
-        </span>
-      </div>
+      <!-- ── Inline MFA step-up dialog: shown when the restore 403s with the platform's
+           "requires step-up" contract. On success the SAME restore is retried automatically
+           (token-less — the BFF reads the fresh MFA stamp off this session). ── -->
+      @if (stepUpChallenge(); as challenge) {
+        <snap-mfa-step-up-dialog
+          [action]="challenge.action"
+          (satisfied)="onStepUpSatisfied()"
+          (dismissed)="onStepUpDismissed()"
+        ></snap-mfa-step-up-dialog>
+      }
 
       <div class="cb-confirm-actions">
         <button

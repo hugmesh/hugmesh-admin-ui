@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { Terminal } from '@xterm/xterm';
 import { BffService, DeviceRegistration, DesktopSshSession } from '../bff.service';
 import { SessionService } from '../session.service';
+import { MfaStepUpDialogComponent } from '../mfa/mfa-step-up-dialog.component';
+import { isStepUpRequiredError } from '../mfa/step-up-error';
 
 /**
  * The in-UI SSH TERMINAL (own repo: snapdragon-admin-ui). The admin front-end for the
@@ -35,7 +37,7 @@ import { SessionService } from '../session.service';
 @Component({
   selector: 'snap-desktop-ssh-terminal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MfaStepUpDialogComponent],
   templateUrl: './desktop-ssh-terminal.component.html',
   // Same federation-safe xterm CSS loading as WorkloadTerminalComponent (see its styleUrls
   // comment) — xterm paints its own DOM outside Angular's renderer, so the stylesheet has to
@@ -62,6 +64,12 @@ export class DesktopSshTerminalComponent implements OnInit, AfterViewInit, OnDes
   readonly darkNote = signal('');
   readonly statusMsg = signal('');
   readonly error = signal('');
+
+  /** A pending step-up challenge for the live-terminal step-up mint, or null when none is in
+   *  flight. The WS denial itself is a bodyless POLICY_VIOLATION close, so the dialog is hooked on
+   *  the {@link BffService#desktopStepUp} MINT 403 that names step-up; `retry` re-opens the live
+   *  terminal once the inline {@link MfaStepUpDialogComponent} reports the challenge satisfied. */
+  readonly stepUpChallenge = signal<null | { action: string; retry: () => Promise<void> }>(null);
 
   private term?: Terminal;
   private ws?: WebSocket;
@@ -156,6 +164,12 @@ export class DesktopSshTerminalComponent implements OnInit, AfterViewInit, OnDes
     try {
       stepUp = (await this.bff.desktopStepUp(this.operator)).stepUpToken;
     } catch (e) {
+      // A "requires step-up" mint 403 (fresh MFA re-auth needed) opens the inline dialog and the
+      // live terminal is re-opened on success; any other mint failure stays a verbatim error.
+      if (isStepUpRequiredError(e)) {
+        this.offerStepUp('Opening this SSH terminal', () => this.openLiveTerminal(descriptor));
+        return;
+      }
       this.error.set('Step-up required: ' + (e as Error).message);
       return;
     }
@@ -190,6 +204,25 @@ export class DesktopSshTerminalComponent implements OnInit, AfterViewInit, OnDes
     this.ws?.close();
     this.ws = undefined;
     this.connected.set(false);
+  }
+
+  /** Offer the inline MFA step-up dialog for a live-terminal step-up mint that just 403'd with the
+   *  "requires step-up" contract. `retry` is invoked once the dialog reports success. */
+  private offerStepUp(action: string, retry: () => Promise<void>): void {
+    this.stepUpChallenge.set({ action, retry });
+  }
+
+  /** The inline step-up dialog reported success — retry opening the live terminal it was blocking
+   *  (the BFF now mints against a fresh MFA stamp on this session; no token is needed here). */
+  async onStepUpSatisfied(): Promise<void> {
+    const challenge = this.stepUpChallenge();
+    this.stepUpChallenge.set(null);
+    if (challenge) await challenge.retry();
+  }
+
+  /** The user cancelled the step-up dialog — drop the pending retry. */
+  onStepUpDismissed(): void {
+    this.stepUpChallenge.set(null);
   }
 
   private toWsBase(httpBase: string): string {

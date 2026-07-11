@@ -225,6 +225,50 @@ describe('DesktopInstallRequestsComponent (inbox + remote-install)', () => {
     });
   });
 
+  // ── inline MFA step-up dialog (A5-unified gate; token-less retry) ─────────────
+  describe('inline MFA step-up dialog', () => {
+    it('a mint failure that NAMES step-up offers the dialog (install NOT attempted), then satisfied retries', async () => {
+      setup({ me: 'admin@brand-a', requests: [req()], devices: [device({ id: 'dev-1' }, 'admin@brand-a')] });
+      await init();
+      bff.desktopStepUp.and.rejectWith(new Error('remote install requires step-up re-authentication'));
+      await component.remoteInstall(req());
+      // the dialog is offered rather than a bare note, and the install is not attempted.
+      expect(component.stepUpChallenge()).not.toBeNull();
+      expect(bff.desktopRemoteInstall).not.toHaveBeenCalled();
+      expect(component.noteFor('r-1')).toBeUndefined();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('[data-testid="mfa-stepup-dialog"]')).not.toBeNull();
+
+      // the dialog reports success → the SAME remote-install is retried and now succeeds.
+      bff.desktopStepUp.and.resolveTo({ stepUpToken: 'STEPUP-TOK', ttlMinutes: 5 });
+      bff.desktopRemoteInstall.and.resolveTo('queued');
+      await component.onStepUpSatisfied();
+      expect(component.stepUpChallenge()).toBeNull();
+      expect(bff.desktopRemoteInstall).toHaveBeenCalledWith('dev-1', 'org.inkscape.Inkscape', 'STEPUP-TOK');
+      expect(component.noteFor('r-1')?.kind).toBe('ok');
+    });
+
+    it('an install 403 that NAMES step-up offers the dialog', async () => {
+      setup({ me: 'admin@brand-a', requests: [req()], devices: [device({ id: 'dev-1' }, 'admin@brand-a')] });
+      await init();
+      bff.desktopRemoteInstall.and.rejectWith(new Error('remote install requires step-up re-authentication'));
+      await component.remoteInstall(req());
+      expect(component.stepUpChallenge()).not.toBeNull();
+      expect(component.noteFor('r-1')).toBeUndefined();
+    });
+
+    it('dismissing the dialog drops the pending remote-install retry', async () => {
+      setup({ me: 'admin@brand-a', requests: [req()], devices: [device({ id: 'dev-1' }, 'admin@brand-a')] });
+      await init();
+      bff.desktopStepUp.and.rejectWith(new Error('remote install requires step-up'));
+      await component.remoteInstall(req());
+      expect(component.stepUpChallenge()).not.toBeNull();
+      component.onStepUpDismissed();
+      expect(component.stepUpChallenge()).toBeNull();
+      expect(bff.desktopRemoteInstall).not.toHaveBeenCalled();
+    });
+  });
+
   // ── accessibility ─────────────────────────────────────────────────────────
   describe('accessibility', () => {
     beforeEach(async () => {

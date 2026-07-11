@@ -258,15 +258,20 @@ export class CloudBackupsService {
   }
 
   /** POST /bff/admin/cloud-backups/{id}/restore → {id,version,status} — the
-   *  PRIVILEGED, destructive path. The step-up token rides the X-Backup-StepUp
-   *  header (BackupStepUpGate.STEP_UP_HEADER); a missing/invalid token is a 403
-   *  whose message names the step-up requirement. Scoped: own-domain only. */
-  restore(id: string, stepUpToken: string): Promise<RestoreResult> {
+   *  PRIVILEGED, destructive path. The step-up gate is A5-UNIFIED: it is satisfied
+   *  by a fresh Casdoor-MFA stamp on the caller's own session OR the legacy
+   *  X-Backup-StepUp header (BackupStepUpGate.STEP_UP_HEADER). The header arg is
+   *  OPTIONAL and kept for compat — the console retries token-less after the inline
+   *  MFA dialog stamps the session; when no token is supplied the header is omitted
+   *  entirely. A gate-unsatisfied call is a 403 whose message names the step-up
+   *  requirement. Scoped: own-domain only. */
+  restore(id: string, stepUpToken?: string): Promise<RestoreResult> {
+    const token = stepUpToken?.trim();
     return this.req<RestoreResult>(
       'POST',
       `/bff/admin/cloud-backups/${encodeURIComponent(id)}/restore`,
       undefined,
-      { 'X-Backup-StepUp': stepUpToken },
+      token ? { 'X-Backup-StepUp': token } : undefined,
     );
   }
 

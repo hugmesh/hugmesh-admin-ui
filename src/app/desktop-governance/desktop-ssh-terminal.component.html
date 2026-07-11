@@ -32,6 +32,16 @@
     >{{ gateReason() }}</span>
   </form>
 
+  <!-- ── Inline MFA step-up dialog: the WS denial is a bodyless POLICY_VIOLATION close, so the
+       dialog is hooked on the step-up MINT 403 that names step-up. On success the live terminal is
+       re-opened (token-less — the BFF reads the fresh MFA stamp off this session). ── -->
+  <snap-mfa-step-up-dialog
+    *ngIf="stepUpChallenge() as challenge"
+    [action]="challenge.action"
+    (satisfied)="onStepUpSatisfied()"
+    (dismissed)="onStepUpDismissed()"
+  ></snap-mfa-step-up-dialog>
+
   <p *ngIf="error()" id="dst-err" data-testid="dst-error" role="alert" aria-live="assertive" class="field-error"
     >{{ error() }}</p>
   <p role="status" aria-live="polite" class="dg-status" data-testid="dst-status">{{ statusMsg() }}</p>

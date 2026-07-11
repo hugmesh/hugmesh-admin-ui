@@ -1,8 +1,10 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 
 import { CloudBackupCreateComponent } from './cloud-backup-create.component';
 import { CloudBackupSetsComponent } from './cloud-backup-sets.component';
 import { BackupSet, CLOUD_BACKUPS_BASE_URL, CloudBackupsService } from './cloud-backups.service';
+import { MfaStepUpDialogComponent } from '../mfa/mfa-step-up-dialog.component';
 import { SessionService } from '../session.service';
 
 /**
@@ -17,20 +19,25 @@ import { SessionService } from '../session.service';
  * snapdragon-admin-bff-api `cloudbackup` PR #74 contract, not a mocked service.
  *
  * A backing in-memory "bff" stores created sets and enforces the restore step-up
- * exactly like the bff's BackupStepUpGate: a restore WITHOUT the X-Backup-StepUp
- * header is a 403 naming step-up; WITH a valid token it queues. So "needs a
- * step-up" and "step-up satisfied" are real observable effects, end to end.
+ * exactly like the bff's A5-unified BackupStepUpGate: a restore is refused (403
+ * naming step-up) unless the caller's session carries a FRESH MFA stamp — which a
+ * successful POST /bff/mfa/challenge sets, exactly as the real BFF dual-stamps
+ * `mfa_satisfied`. So the whole "restore refused → inline MFA dialog → token-less
+ * retry succeeds" flow is a real observable effect, end to end.
  */
 describe('FEATURE: Admin cloud-backup + step-up restore (e2e)', () => {
   let fetchSpy: jasmine.Spy;
   let bffSets: BackupSet[];
-  const VALID_STEPUP = 'stepup-OK';
+  /** Server-side session freshness — flipped by a successful /bff/mfa/challenge. */
+  let mfaFresh: boolean;
 
   function json(body: unknown, status = 200): Response {
     return {
       ok: status >= 200 && status < 300,
       status,
       text: () => Promise.resolve(body === undefined ? '' : JSON.stringify(body)),
+      // MfaService reads responses via .json() (CloudBackupsService via .text()).
+      json: () => Promise.resolve(body),
     } as unknown as Response;
   }
 
@@ -79,16 +86,22 @@ describe('FEATURE: Admin cloud-backup + step-up restore (e2e)', () => {
         bffSets.push(created);
         return Promise.resolve(json(created));
       }
+      // The inline MFA step-up challenge — a valid 6-digit code stamps the session
+      // fresh (mirrors the BFF dual-stamping `mfa_satisfied`).
+      if (method === 'POST' && /\/mfa\/challenge$/.test(url)) {
+        if (body?.factor === 'totp' && /^\d{6}$/.test(body?.credential ?? '')) {
+          mfaFresh = true;
+          return Promise.resolve(json({ mfaSatisfied: true }));
+        }
+        return Promise.resolve(json({ mfaSatisfied: false }));
+      }
       const restore = /\/cloud-backups\/([^/]+)\/restore$/.exec(url);
       if (method === 'POST' && restore) {
-        const token = headers['X-Backup-StepUp'];
-        if (!token) {
+        // A5-unified gate: satisfied by a fresh MFA stamp OR the legacy token header.
+        if (!mfaFresh && !headers['X-Backup-StepUp']) {
           return Promise.resolve(
             json({ error: 'restore requires step-up: present a valid step-up token in the X-Backup-StepUp header' }, 403),
           );
-        }
-        if (token !== VALID_STEPUP) {
-          return Promise.resolve(json({ error: 'invalid step-up' }, 403));
         }
         const id = decodeURIComponent(restore[1]);
         const target = bffSets.find((s) => s.id === id);
@@ -125,6 +138,7 @@ describe('FEATURE: Admin cloud-backup + step-up restore (e2e)', () => {
     localStorage.clear();
     localStorage.setItem('snap.session', JSON.stringify({ roles: [] }));
     bffSets = [];
+    mfaFresh = false;
     fetchSpy = spyOn(globalThis, 'fetch');
     installFakeBff();
   });
@@ -170,7 +184,7 @@ describe('FEATURE: Admin cloud-backup + step-up restore (e2e)', () => {
     expect(el(fixture).querySelector('[data-testid="cloud-backup-create-notice"]')!.textContent).toContain('Created backup');
   });
 
-  it('SCENARIO: restore is REFUSED without a step-up, then SUCCEEDS once a valid step-up token is presented', async () => {
+  it('SCENARIO: restore is REFUSED without a step-up, then SUCCEEDS token-less once the inline MFA dialog is satisfied', async () => {
     // GIVEN the bff already holds a completed backup
     bffSets = [{
       id: 'set-1', setKey: 'nightly', version: 1, scope: 'DOMAIN', domain: 'acme.test',
@@ -190,31 +204,39 @@ describe('FEATURE: Admin cloud-backup + step-up restore (e2e)', () => {
 
     expect(el(fixture).querySelector('[data-testid="cloud-backup-sets-list"]')!.textContent).toContain('nightly');
 
-    // WHEN the admin opens the restore confirm and submits a STALE/empty step-up
+    // WHEN the admin opens the restore confirm and submits it (no session freshness yet)
     component.askRestore(bffSets[0]);
-    component.stepUpToken = 'stale-token';
     fixture.detectChanges();
     await component.confirmRestore();
     fixture.detectChanges();
 
-    // THEN the bff denied it (step-up gate) and the UI prompts for a fresh step-up,
-    //      keeping the confirm panel open (restore-needs-step-up)
-    expect(component.restoreStepUpNeeded()).toBeTrue();
+    // THEN the bff denied it (step-up gate) and the UI opens the inline MFA dialog,
+    //      keeping the destructive confirm panel open.
+    expect(component.stepUpChallenge()).not.toBeNull();
+    expect(el(fixture).querySelector('[data-testid="mfa-stepup-dialog"]')).not.toBeNull();
     expect(el(fixture).querySelector('[data-testid="cloud-backup-restore-confirm"]')).not.toBeNull();
-    expect(el(fixture).querySelector('[data-testid="cloud-backup-restore-error"]')!.textContent).toContain('step-up');
 
-    // WHEN the admin presents a VALID step-up token and confirms again
-    component.stepUpToken = VALID_STEPUP;
-    fixture.detectChanges();
-    await component.confirmRestore();
+    // WHEN the admin verifies with a 6-digit authenticator code in the REAL inline dialog
+    //      (drives the real MfaService → POST /bff/mfa/challenge, which stamps the session)
+    const dialog = fixture.debugElement.query(By.directive(MfaStepUpDialogComponent))
+      .componentInstance as MfaStepUpDialogComponent;
+    dialog.code = '123456';
+    await dialog.submitCode();
+    // the challenge success emits (satisfied) → the component retries the restore token-less
+    // as a side effect; drain that retry + reload microtask chain deterministically.
+    for (let i = 0; i < 12; i++) await Promise.resolve();
     fixture.detectChanges();
 
-    // THEN the restore POST carried the X-Backup-StepUp header and the bff queued it
-    const restoreCall = fetchSpy.calls.all().find(
-      (c) => /\/restore$/.test(c.args[0] as string) && (c.args[1]?.headers as any)?.['X-Backup-StepUp'] === VALID_STEPUP,
-    )!;
-    expect(restoreCall.args[0]).toBe('/bff/admin/cloud-backups/set-1/restore');
-    // AND the confirm panel is dismissed and a queued notice is shown
+    // THEN a fresh MFA stamp made the token-less retry succeed — the restore POST carried
+    //      NO X-Backup-StepUp header, and the bff queued it.
+    const restoreCalls = fetchSpy.calls.all().filter((c) => /\/restore$/.test(c.args[0] as string));
+    const queuedCall = restoreCalls[restoreCalls.length - 1];
+    expect(queuedCall.args[0]).toBe('/bff/admin/cloud-backups/set-1/restore');
+    expect((queuedCall.args[1]?.headers as Record<string, string> | undefined)?.['X-Backup-StepUp']).toBeUndefined();
+    // AND a real /bff/mfa/challenge round-trip happened.
+    expect(fetchSpy.calls.all().some((c) => /\/mfa\/challenge$/.test(c.args[0] as string))).toBeTrue();
+    // AND the confirm panel is dismissed and a queued notice is shown.
+    expect(component.stepUpChallenge()).toBeNull();
     expect(el(fixture).querySelector('[data-testid="cloud-backup-restore-confirm"]')).toBeNull();
     expect(el(fixture).querySelector('[data-testid="cloud-backup-sets-notice"]')!.textContent).toContain('Restore queued');
   });

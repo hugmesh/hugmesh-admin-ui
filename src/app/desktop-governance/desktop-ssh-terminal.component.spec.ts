@@ -151,6 +151,33 @@ describe('DesktopSshTerminalComponent (in-UI SSH, ships dark)', () => {
       expect(spy).not.toHaveBeenCalled();
       expect(component.error()).toContain('Step-up required');
     });
+
+    it('a step-up mint that NAMES step-up offers the inline dialog (NO socket), then satisfied re-opens the terminal', async () => {
+      setup({ me: 'admin@brand-a', devices: [device({ id: 'dev-1' }, 'admin@brand-a')] });
+      await init();
+      bff.desktopOpenSshSession.and.resolveTo({ deviceId: 'dev-1', dark: false, wsPath: '/bff/admin/device-terminal/dev-1' });
+      bff.desktopStepUp.and.rejectWith(new Error('device terminal requires step-up re-authentication'));
+      const spy = spyOn(component as unknown as { createSocket: (u: string, p: string[]) => WebSocket }, 'createSocket')
+        .and.callFake((url: string, protocols: string[]) => {
+          (component as unknown as { lastSocketArgs: unknown }).lastSocketArgs = { url, protocols };
+          return fakeSocket();
+        });
+
+      await component.open();
+      // the dialog is offered rather than a bare error, and NO socket is opened.
+      expect(component.stepUpChallenge()).not.toBeNull();
+      expect(spy).not.toHaveBeenCalled();
+      expect(component.error()).toBe('');
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('[data-testid="mfa-stepup-dialog"]')).not.toBeNull();
+
+      // the dialog reports success → the live terminal is re-opened (mint now succeeds).
+      bff.desktopStepUp.and.resolveTo({ stepUpToken: 'STEPUP-TOK', ttlMinutes: 5 });
+      await component.onStepUpSatisfied();
+      expect(component.stepUpChallenge()).toBeNull();
+      expect(spy).toHaveBeenCalled();
+      expect(component.lastSocketArgs!.protocols).toContain('snapdragon.device-terminal.stepup.STEPUP-TOK');
+    });
   });
 
   // ── gating (ALLOW + DENY isolation) ──────────────────────────────────────────

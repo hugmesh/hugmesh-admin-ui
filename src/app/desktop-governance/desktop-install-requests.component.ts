@@ -7,6 +7,8 @@ import {
   DesktopInstallRequest,
 } from '../bff.service';
 import { SessionService } from '../session.service';
+import { MfaStepUpDialogComponent } from '../mfa/mfa-step-up-dialog.component';
+import { isStepUpRequiredError } from '../mfa/step-up-error';
 
 /** A per-row busy/result note surfaced inline next to a request action. */
 interface RowNote { id: string; kind: 'ok' | 'err'; text: string; }
@@ -41,7 +43,7 @@ interface RowNote { id: string; kind: 'ok' | 'err'; text: string; }
 @Component({
   selector: 'snap-desktop-install-requests',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MfaStepUpDialogComponent],
   templateUrl: './desktop-install-requests.component.html',
   styleUrl: './desktop-governance.component.scss',
 })
@@ -59,6 +61,11 @@ export class DesktopInstallRequestsComponent implements OnInit {
   /** The id of the row whose remote-install is currently minting a step-up / running (so the UI
    *  can disable the button + show busy helptext). */
   readonly installing = signal<string | null>(null);
+
+  /** A pending step-up challenge for a remote-install, or null when none is in flight. `retry`
+   *  re-attempts the SAME remote-install once the inline {@link MfaStepUpDialogComponent} reports
+   *  the challenge satisfied (token-less — the BFF reads the fresh MFA stamp off this session). */
+  readonly stepUpChallenge = signal<null | { action: string; retry: () => Promise<void> }>(null);
 
   /** The pending inbox (the headline list) + the already-decided rows (kept for audit/history). */
   readonly pending = computed(() => this.requests().filter((r) => r.status === 'pending'));
@@ -197,6 +204,13 @@ export class DesktopInstallRequestsComponent implements OnInit {
       try {
         stepUp = (await this.bff.desktopStepUp()).stepUpToken;
       } catch (e) {
+        // A "requires step-up" mint 403 (fresh MFA re-auth needed) opens the inline dialog and
+        // the SAME install is retried on success; any other mint failure (e.g. no license) stays
+        // a verbatim note.
+        if (isStepUpRequiredError(e)) {
+          this.offerStepUp('Remote-installing ' + r.appRef, () => this.remoteInstall(r));
+          return;
+        }
         this.setNote(r.id, 'err', 'Remote install requires step-up: ' + (e as Error).message);
         return;
       }
@@ -204,10 +218,33 @@ export class DesktopInstallRequestsComponent implements OnInit {
       this.setNote(r.id, 'ok', 'Remote install triggered: ' + (msg || 'queued'));
       await this.reload();
     } catch (e) {
+      if (isStepUpRequiredError(e)) {
+        this.offerStepUp('Remote-installing ' + r.appRef, () => this.remoteInstall(r));
+        return;
+      }
       this.setNote(r.id, 'err', 'Remote install denied: ' + (e as Error).message);
     } finally {
       this.installing.set(null);
     }
+  }
+
+  /** Offer the inline MFA step-up dialog for a remote-install that just 403'd with the
+   *  "requires step-up" contract. `retry` is invoked once the dialog reports success. */
+  private offerStepUp(action: string, retry: () => Promise<void>): void {
+    this.stepUpChallenge.set({ action, retry });
+  }
+
+  /** The inline step-up dialog reported success — retry the remote-install it was blocking (the
+   *  BFF now mints/accepts against a fresh MFA stamp on this session; no token needed here). */
+  async onStepUpSatisfied(): Promise<void> {
+    const challenge = this.stepUpChallenge();
+    this.stepUpChallenge.set(null);
+    if (challenge) await challenge.retry();
+  }
+
+  /** The user cancelled the step-up dialog — drop the pending retry. */
+  onStepUpDismissed(): void {
+    this.stepUpChallenge.set(null);
   }
 
   /** Issue the decide CAS; reload + (optionally) report on success. Returns whether it stuck. */

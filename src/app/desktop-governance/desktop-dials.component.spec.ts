@@ -129,6 +129,50 @@ describe('DesktopDialsComponent (SUPERADMIN dial management)', () => {
     });
   });
 
+  // ── inline MFA step-up dialog (A5-unified gate; token-less retry) ─────────────
+  describe('inline MFA step-up dialog', () => {
+    it('a mint failure that NAMES step-up offers the dialog (activate NOT attempted), then satisfied retries', async () => {
+      setup({ superadmin: true, dials: [dial({ status: 'PENDING', hostKeyFp: 'SHA256:host' })] });
+      await init();
+      bff.desktopStepUp.and.rejectWith(new Error('dial activation requires step-up re-authentication'));
+      await component.activate(dial());
+      // the dialog is offered rather than a bare note, and activate is not attempted.
+      expect(component.stepUpChallenge()).not.toBeNull();
+      expect(bff.desktopDialActivate).not.toHaveBeenCalled();
+      expect(component.noteFor('dev-1')).toBeUndefined();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('[data-testid="mfa-stepup-dialog"]')).not.toBeNull();
+
+      // the dialog reports success → the SAME activate is retried and now succeeds.
+      bff.desktopStepUp.and.resolveTo({ stepUpToken: 'STEPUP-TOK', ttlMinutes: 5 });
+      bff.desktopDialActivate.and.resolveTo(dial({ status: 'ACTIVE', generation: 2 }));
+      await component.onStepUpSatisfied();
+      expect(component.stepUpChallenge()).toBeNull();
+      expect(bff.desktopDialActivate).toHaveBeenCalledWith('dev-1', 'STEPUP-TOK');
+      expect(component.noteFor('dev-1')?.kind).toBe('ok');
+    });
+
+    it('an activate 403 that NAMES step-up offers the dialog', async () => {
+      setup({ superadmin: true, dials: [dial({ status: 'PENDING', hostKeyFp: 'SHA256:host' })] });
+      await init();
+      bff.desktopDialActivate.and.rejectWith(new Error('dial activation requires step-up'));
+      await component.activate(dial());
+      expect(component.stepUpChallenge()).not.toBeNull();
+      expect(component.noteFor('dev-1')).toBeUndefined();
+    });
+
+    it('dismissing the dialog drops the pending activate retry', async () => {
+      setup({ superadmin: true, dials: [dial({ status: 'PENDING', hostKeyFp: 'SHA256:host' })] });
+      await init();
+      bff.desktopStepUp.and.rejectWith(new Error('dial activation requires step-up'));
+      await component.activate(dial());
+      expect(component.stepUpChallenge()).not.toBeNull();
+      component.onStepUpDismissed();
+      expect(component.stepUpChallenge()).toBeNull();
+      expect(bff.desktopDialActivate).not.toHaveBeenCalled();
+    });
+  });
+
   // ── revoke (CAS; confirm) ─────────────────────────────────────────────────────
   describe('revoke', () => {
     it('revokes (with confirm) — mints a step-up then revokes with the token', async () => {
