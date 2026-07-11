@@ -165,6 +165,22 @@ describe('PackageCatalogModalComponent', () => {
     expect(sel.drop).toEqual(['media-video/vlc']);
   });
 
+  it('un-ticking a seeded option removes its already-folded atoms (real re-edit round-trip)', async () => {
+    // A prior apply folded tor's atom (net-vpn/tor) into add and recorded options:['tor'] — the
+    // exact shape a re-edit seeds. Un-ticking tor must now REMOVE net-vpn/tor, not leave it stuck
+    // in addedAtoms where apply() would re-emit it.
+    await open('x86', { add: ['net-vpn/tor'], drop: [], options: ['tor'] });
+    expect(checkbox('pkg-opt-tor').checked).toBeTrue(); // the option is restored as checked
+
+    const emitted: PackageSelection[] = [];
+    component.applied.subscribe((s) => emitted.push(s));
+    component.toggleOption('tor', false);
+    (q('pkg-apply') as HTMLButtonElement).click();
+    const sel = emitted[0];
+    expect(sel.options).toEqual([]);
+    expect(sel.add).not.toContain('net-vpn/tor'); // gone, not stuck in addedAtoms
+  });
+
   it('emits dismissed from both the Cancel button and the header close', async () => {
     await open();
     const spy = jasmine.createSpy('dismissed');

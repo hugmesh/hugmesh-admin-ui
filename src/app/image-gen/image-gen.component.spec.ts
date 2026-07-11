@@ -251,5 +251,24 @@ describe('ImageGenComponent (worklist host shell)', () => {
       expect(() => component.onEditPackages('nope.nope')).not.toThrow();
       expect(component.pkgModalOpen()).toBeFalse();
     });
+
+    it('labels the modal with the entry wire id (role.platform), not the opaque row key', () => {
+      const wiz = component['wizard']()!;
+      const key = wiz.entries()[0].key;
+      wiz.patchEntry(key, { role: 'be', platform: 'x86' });
+      component.onEditPackages(key);
+      expect(component.pkgModalImageLabel()).toBe('be.x86');
+      expect(component.pkgModalImageLabel()).not.toBe(key); // key is an opaque wle-N-xxxx
+    });
+
+    it('round-trips adhoc option keys through the seam (seeds from the entry, persists on apply)', () => {
+      const wiz = component['wizard']()!;
+      const key = wiz.entries()[0].key;
+      wiz.patchEntry(key, { packagesAdd: 'net-vpn/tor', options: ['tor'] });
+      component.onEditPackages(key);
+      expect(component.pkgModalSelection()!.options).toEqual(['tor']); // seeded, not cleared to []
+      component.onPackagesApplied({ add: ['net-vpn/tor'], drop: [], options: ['tor'] });
+      expect(wiz.entries()[0].options).toEqual(['tor']); // persisted back onto the entry
+    });
   });
 });

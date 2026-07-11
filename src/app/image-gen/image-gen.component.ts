@@ -4,7 +4,7 @@ import { ImageBuild, PackageSelection } from '../bff.service';
 import { ImageGenStore } from './image-gen-store.service';
 import { ImageGenWorklistWizardComponent } from './image-gen-worklist-wizard.component';
 import { PackageCatalogModalComponent } from './package-catalog-modal.component';
-import { WorklistEntrySelection } from './worklist-entry.model';
+import { WorklistEntrySelection, entryWireId } from './worklist-entry.model';
 import { CapabilityGateComponent } from '../platform/capability-gate.component';
 import { PlatformCapabilitiesService } from '../platform/platform-capabilities.service';
 import { MfaStepUpDialogComponent } from '../mfa/mfa-step-up-dialog.component';
@@ -77,11 +77,15 @@ export class ImageGenComponent implements OnInit, OnDestroy {
     if (!entry) return;
     this.pkgEditingKey = key;
     this.pkgModalPlatform.set(entry.platform);
-    this.pkgModalImageLabel.set(key);
+    // The human-facing modal heading is the entry's wire id (role.platform), NOT the opaque
+    // internal row key (wle-N-xxxx) — matching the wizard's own per-entry title.
+    this.pkgModalImageLabel.set(entryWireId(entry));
     this.pkgModalSelection.set({
       add: splitAtoms(entry.packagesAdd),
       drop: splitAtoms(entry.packagesDrop),
-      options: [],
+      // Seed the enabled adhoc-option keys so the modal restores those checkboxes on re-edit
+      // (and can un-tick them to remove their atoms) instead of showing them all cleared.
+      options: entry.options,
     });
     this.pkgModalOpen.set(true);
   }
@@ -97,6 +101,8 @@ export class ImageGenComponent implements OnInit, OnDestroy {
         imageClass: entry.imageClass,
         packagesAdd: sel.add.join(' '),
         packagesDrop: sel.drop.join(' '),
+        // Persist the enabled option keys so the next re-edit restores the checkboxes.
+        options: sel.options,
       };
       this.wizard()?.applyCatalogSelection(this.pkgEditingKey, selection);
     }

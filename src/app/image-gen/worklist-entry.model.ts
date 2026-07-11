@@ -62,6 +62,10 @@ export interface WorklistEntry {
   // ── item 9: package atoms (space-separated); fed inline OR from the catalog modal ──
   packagesAdd: string;
   packagesDrop: string;
+  /** Enabled adhoc-add option KEYS (item 9). Persisted purely so the catalog modal can restore
+   *  the option checkboxes on re-edit — the option's atoms are already folded into packagesAdd
+   *  (and thus into the wire imageSpec); this list never reaches the builder. */
+  options: string[];
 }
 
 /** One mesh user (item 6 Users step). `domain` is picked from the registry dropdown. */
@@ -82,6 +86,8 @@ export interface WorklistEntrySelection {
   desktop?: string;
   packagesAdd?: string;
   packagesDrop?: string;
+  /** Enabled adhoc-add option keys (round-trip so a re-edit restores the option checkboxes). */
+  options?: string[];
 }
 
 /** Image-type options for the per-entry radio (mirrors the closed ImageType vocabulary). */
@@ -128,6 +134,7 @@ export function newEntry(over: Partial<WorklistEntry> = {}): WorklistEntry {
     attachedDomains: [],
     packagesAdd: '',
     packagesDrop: '',
+    options: [],
     ...over,
   };
 }
@@ -197,6 +204,7 @@ export function applySelection(e: WorklistEntry, sel: WorklistEntrySelection): W
     imageClass: sel.imageClass,
     packagesAdd: sel.packagesAdd ?? e.packagesAdd,
     packagesDrop: sel.packagesDrop ?? e.packagesDrop,
+    options: sel.options ?? e.options,
   };
 }
 

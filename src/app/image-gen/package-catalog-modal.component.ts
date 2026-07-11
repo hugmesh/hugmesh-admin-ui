@@ -223,19 +223,27 @@ export class PackageCatalogModalComponent {
    *  atoms of every enabled adhoc option, minus the essential floor, filtered to valid atoms. */
   apply(): void {
     const options = [...this.chosenOptions()].sort();
-    const c = this.catalog();
-    const optionAtoms = new Set<string>();
-    if (c) {
-      for (const key of options) {
-        for (const a of c.adhoc_adds[key]?.atoms ?? []) optionAtoms.add(a);
-      }
-    }
+    const optionAtoms = this.atomsForOptions(this.chosenOptions());
     const essential = this.essentialAtoms();
     const add = [...new Set([...this.addedAtoms(), ...optionAtoms])]
       .filter((a) => !essential.has(a) && ATOM_RE.test(a))
       .sort();
     const drop = [...this.droppedAtoms()].filter((a) => ATOM_RE.test(a)).sort();
     this.applied.emit({ add, drop, options });
+  }
+
+  /** The union of catalog atoms contributed by the given adhoc-option keys ({} when the catalog is
+   *  not loaded — safe: options are only non-empty on a re-edit, by when this persistent modal has
+   *  the catalog cached from its first open). */
+  private atomsForOptions(keys: ReadonlySet<string>): ReadonlySet<string> {
+    const c = this.catalog();
+    const atoms = new Set<string>();
+    if (c) {
+      for (const key of keys) {
+        for (const a of c.adhoc_adds[key]?.atoms ?? []) atoms.add(a);
+      }
+    }
+    return atoms;
   }
 
   cancel(): void {
@@ -248,6 +256,23 @@ export class PackageCatalogModalComponent {
     this.chosenOptions.set(new Set(sel?.options ?? []));
     this.addedAtoms.set(new Set(sel?.add ?? []));
     this.droppedAtoms.set(new Set(sel?.drop ?? []));
+    // If the catalog is already cached (a re-open of this persistent modal), drop the option-
+    // derived atoms now; if it loads later, ensureCatalog() reconciles them (see below).
+    this.reconcileOptionAtoms();
+  }
+
+  /**
+   * Remove the seeded options' atoms from {@link addedAtoms}. sel.add carries the FULL folded atom
+   * set (a prior apply() emitted addedAtoms ∪ optionAtoms), but those option-derived atoms are
+   * represented by {@link chosenOptions} — keeping them in addedAtoms too would let a later
+   * un-tick of the option FAIL to clear them (apply() would re-emit them). Runs on seed AND again
+   * once the catalog first resolves (it can arrive after seed); no user edit can occur in between
+   * because the package tree only renders after the catalog loads. No-op when no options are set.
+   */
+  private reconcileOptionAtoms(): void {
+    const optionAtoms = this.atomsForOptions(this.chosenOptions());
+    if (!optionAtoms.size) return;
+    this.addedAtoms.update((cur) => new Set([...cur].filter((a) => !optionAtoms.has(a))));
   }
 
   private async ensureCatalog(): Promise<void> {
@@ -256,8 +281,14 @@ export class PackageCatalogModalComponent {
     this.loadError.set('');
     try {
       const payload = await this.bff.imageBuildCatalog();
-      if (payload?.packages) this.catalog.set(payload.packages);
-      else this.loadError.set('The package catalog is not available.');
+      if (payload?.packages) {
+        this.catalog.set(payload.packages);
+        // The catalog just became available — drop any seeded option atoms from addedAtoms now
+        // (they could not be resolved at seed time on this modal's first-ever open).
+        this.reconcileOptionAtoms();
+      } else {
+        this.loadError.set('The package catalog is not available.');
+      }
     } catch {
       this.loadError.set('The package catalog could not be loaded.');
     } finally {
