@@ -1,0 +1,112 @@
+@use '../styles/tokens' as t;
+
+:host {
+  display: block;
+}
+
+.snap-device-radios {
+  display: block;
+  padding: 1rem;
+
+  .dr-intro {
+    color: var(--sd-text-soft, var(--sd-text));
+    max-width: 60ch;
+  }
+
+  .dr-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-block: 0.75rem;
+
+    h3 {
+      flex-basis: 100%;
+      margin: 0;
+    }
+  }
+
+  label {
+    font-weight: 600;
+    color: var(--sd-text);
+  }
+
+  input,
+  select {
+    background: var(--sd-bg-1);
+    color: var(--sd-text);
+    border: 1px solid var(--sd-border);
+    border-radius: t.$radius-sm;
+    padding: 0.5rem 0.75rem;
+
+    &[aria-invalid='true'] {
+      border-color: var(--sd-error);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  button {
+    background: var(--sd-accent);
+    color: var(--sd-text);
+    border: 1px solid var(--sd-accent-soft);
+    border-radius: t.$radius-sm;
+    padding: 0.4rem 0.8rem;
+    cursor: pointer;
+  }
+
+  .field-error {
+    color: var(--sd-error);
+    flex-basis: 100%;
+  }
+
+  .dr-muted {
+    color: var(--sd-text-soft, var(--sd-text));
+    font-size: 0.9em;
+  }
+
+  > ul {
+    list-style: none;
+    padding-left: 0;
+
+    > li.dr-radio {
+      margin-block: 1rem;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--sd-border);
+      border-radius: t.$radius-sm;
+    }
+  }
+
+  .dr-radio-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .dr-chip {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid var(--sd-border);
+    background: var(--sd-bg-1);
+
+    &--ok {
+      border-color: var(--sd-ok, #2e7d32);
+      color: var(--sd-ok, #2e7d32);
+    }
+    &--warn {
+      border-color: var(--sd-warn, #b8860b);
+      color: var(--sd-warn, #b8860b);
+    }
+    &--err {
+      border-color: var(--sd-error);
+      color: var(--sd-error);
+    }
+  }
+}

@@ -1,0 +1,123 @@
+<section class="snap-device-radios" data-testid="device-radios-view" aria-labelledby="dr-heading">
+  <h2 id="dr-heading">Device radios</h2>
+  <p class="dr-intro">
+    Attach a Meshtastic LoRa radio to a specific mesh node for the mesh↔Matrix bridge.
+    A radio is node-pinned: the bridge on that node opens the transport you configure —
+    a USB-serial device, a LoRa-WiFi radio over TCP, or a WAN mesh via an MQTT broker.
+  </p>
+
+  <!-- ── Attach a radio to a node ──────────────────────────────────────────── -->
+  <form class="dr-form" (ngSubmit)="attach()" novalidate aria-labelledby="dr-attach-heading">
+    <h3 id="dr-attach-heading">Attach a radio</h3>
+
+    <label for="dr-device">Node</label>
+    <select id="dr-device" data-testid="dr-device" [(ngModel)]="attachDeviceId" name="attachDeviceId">
+      <option *ngFor="let d of devices()" [value]="d.id">{{ d.hostname }} ({{ d.domain }})</option>
+    </select>
+
+    <label for="dr-transport">Transport</label>
+    <select
+      id="dr-transport"
+      data-testid="dr-transport"
+      [(ngModel)]="transport"
+      name="transport"
+      (ngModelChange)="onTransportChange()"
+    >
+      <option value="serial">USB serial</option>
+      <option value="tcp">LoRa-WiFi (TCP)</option>
+      <option value="mqtt">LoRaWAN / WAN mesh (MQTT)</option>
+    </select>
+
+    <ng-container *ngIf="transport === 'serial'">
+      <label for="dr-serial-path">Serial device path</label>
+      <input
+        id="dr-serial-path"
+        data-testid="dr-serial-path"
+        [(ngModel)]="serialPath"
+        name="serialPath"
+        placeholder="/dev/ttyUSB0"
+        [attr.aria-invalid]="attachError() ? 'true' : null"
+        [attr.aria-describedby]="attachError() ? 'dr-attach-error' : null"
+      />
+    </ng-container>
+
+    <ng-container *ngIf="transport !== 'serial'">
+      <label for="dr-host">Host</label>
+      <input
+        id="dr-host"
+        data-testid="dr-host"
+        [(ngModel)]="host"
+        name="host"
+        [placeholder]="transport === 'mqtt' ? 'mqtt.example.org' : 'radio.local'"
+        [attr.aria-invalid]="attachError() ? 'true' : null"
+        [attr.aria-describedby]="attachError() ? 'dr-attach-error' : null"
+      />
+
+      <label for="dr-port">Port</label>
+      <input id="dr-port" data-testid="dr-port" type="number" min="1" max="65535" [(ngModel)]="port" name="port" />
+    </ng-container>
+
+    <ng-container *ngIf="transport === 'mqtt'">
+      <label for="dr-topic-root">Topic root</label>
+      <input id="dr-topic-root" data-testid="dr-topic-root" [(ngModel)]="topicRoot" name="topicRoot" placeholder="msh/US" />
+
+      <label for="dr-channel-name">Channel name</label>
+      <input id="dr-channel-name" data-testid="dr-channel-name" [(ngModel)]="channelName" name="channelName" placeholder="LongFast" />
+
+      <label for="dr-gateway">Gateway node id (optional)</label>
+      <input id="dr-gateway" data-testid="dr-gateway" [(ngModel)]="gatewayNodeId" name="gatewayNodeId" placeholder="!0a1b2c3d" />
+    </ng-container>
+
+    <label for="dr-radio-id">Radio id</label>
+    <input id="dr-radio-id" data-testid="dr-radio-id" [(ngModel)]="radioId" name="radioId" placeholder="lora-0" />
+
+    <label for="dr-mesh-channel">Mesh channel (0..7)</label>
+    <input id="dr-mesh-channel" data-testid="dr-mesh-channel" type="number" min="0" max="7" [(ngModel)]="meshChannel" name="meshChannel" />
+
+    <button data-testid="dr-attach" type="submit">Attach radio</button>
+
+    <span
+      *ngIf="attachError()"
+      id="dr-attach-error"
+      class="field-error"
+      data-testid="dr-attach-error"
+      role="alert"
+      aria-live="assertive"
+    >{{ attachError() }}</span>
+  </form>
+
+  <!-- ── Attached radios ───────────────────────────────────────────────────── -->
+  <p *ngIf="!radios().length" class="dr-muted" data-testid="dr-empty">
+    No radios attached yet — pick a node above and attach one.
+  </p>
+
+  <ul data-testid="dr-radios" aria-label="Attached node radios">
+    <li *ngFor="let r of radios()" [attr.data-radio-id]="r.id" class="dr-radio">
+      <div class="dr-radio-head">
+        <strong>{{ r.radioId }}</strong>
+        <span class="dr-muted">on node {{ r.deviceId }} · {{ r.domain }} · {{ r.transport }}</span>
+        <span
+          class="dr-chip"
+          [attr.data-prop]="r.propagationState"
+          [class.dr-chip--ok]="r.propagationState === 'applied'"
+          [class.dr-chip--warn]="r.propagationState === 'pending'"
+          [class.dr-chip--err]="r.propagationState === 'failed' || r.propagationState === 'degraded'"
+          [attr.aria-label]="'Reconcile state: ' + r.propagationState"
+        >{{ r.propagationState }}</span>
+        <span *ngIf="r.state === 'detached'" class="dr-chip dr-chip--err" aria-label="Radio detached">detached</span>
+      </div>
+
+      <small class="dr-muted" [attr.data-transport-summary]="r.id">
+        {{ transportSummary(r) }} · mesh channel {{ r.meshChannel }}
+      </small>
+
+      <button
+        *ngIf="r.state === 'active'"
+        type="button"
+        [attr.data-detach]="r.id"
+        [attr.aria-label]="'Detach radio ' + r.radioId + ' from node ' + r.deviceId"
+        (click)="detach(r.id)"
+      >detach radio</button>
+    </li>
+  </ul>
+</section>

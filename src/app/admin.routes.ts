@@ -19,6 +19,7 @@ import { AccountAppealsComponent } from './account-appeals/account-appeals.compo
 import { DeviceLicensesComponent } from './device-licenses.component';
 import { DevicePendingComponent } from './device-pending.component';
 import { StoragePoolsComponent } from './storage-pools.component';
+import { DeviceRadiosComponent } from './device-radios.component';
 import { EgressVpnComponent } from './egress-vpn.component';
 import { SuperadminDomainsComponent } from './superadmin-domains.component';
 import { OidcProviderRolesComponent } from './oidc-provider-roles.component';
@@ -65,6 +66,9 @@ import { workloadConsoleGuard } from './workload-console.guard';
  *  a given OIDC identity provider — domain-scoped for admins, all-domains for superadmin), and
  *  /admin/node-storage (attach + register ADDITIONAL node-pinned storage so designated services
  *  have space on that node — ADMIN-capable, ownership-gated downstream in the BFF), and
+ *  /admin/device-radios (attach a Meshtastic LoRa radio — USB serial, LoRa-WiFi TCP, or a
+ *  WAN mesh via an MQTT broker — to a mesh node for the mesh↔Matrix bridge; ADMIN-capable
+ *  like node-storage, ownership-gated downstream in the BFF), and
  *  /admin/egress-vpn (the SUPERADMIN-only Egress VPN console — import provider WireGuard/OpenVPN
  *  configs that nodes use for outgoing public egress, additionally superadmin-guarded), and
  *  /admin/games-services (the games app-store operator console — add/run dockerized FOSS game
@@ -116,6 +120,7 @@ export const ADMIN_ROUTES: Routes = [
   { path: 'device-licenses', component: DeviceLicensesComponent, canActivate: [superadminGuard] },
   { path: 'device-pending', component: DevicePendingComponent, canActivate: [superadminGuard] },
   { path: 'node-storage', component: StoragePoolsComponent },
+  { path: 'device-radios', component: DeviceRadiosComponent },
   { path: 'egress-vpn', component: EgressVpnComponent, canActivate: [superadminGuard] },
   { path: 'superadmin/domains', component: SuperadminDomainsComponent, canActivate: [superadminGuard] },
   { path: 'oidc-providers', component: OidcProviderRolesComponent },

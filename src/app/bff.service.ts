@@ -1012,6 +1012,53 @@ export class BffService {
     throw new Error(await this.errorOf(r));
   }
 
+  // ── Node-radio console (ADMIN-capable, BFF /bff/admin/device-radios) ───────
+  // A Meshtastic LoRa RADIO an operator ATTACHES to a specific mesh node so the
+  // meshbridge optional service (mesh↔Matrix bridge) can reach the LoRa mesh through that
+  // node (schema 300). CLONES the node-storage divergence: radios are ADMIN-CAPABLE (not
+  // superadmin-only) but OWNERSHIP-gated downstream in the BFF — an ADMIN acts ONLY on
+  // own-domain ADMIN-owned nodes (DENY -> 403), any SUPERADMIN-owned node is
+  // SUPERADMIN-only, SUPERADMIN unrestricted. The radio domain is stamped from the node's
+  // RESIDENCY by the BFF, never the caller. Mixed transport shape / unknown-node -> 422.
+  // Endpoints (admin-bff RadioDeviceController):
+  //   GET    /bff/admin/device-radios                      → { radios }
+  //   POST   /bff/admin/device-radios/{deviceId}/radios    → NodeRadio (attach)
+  //   DELETE /bff/admin/device-radios/radios/{radioId}     → { detached }
+
+  /** Radios VISIBLE to the caller (ADMIN own-domain, SUPERADMIN all). */
+  async radios(): Promise<NodeRadio[]> {
+    const r = await fetch(`${CFG.bff}/bff/admin/device-radios`, {
+      credentials: 'include',
+    });
+    if (!r.ok) return [];
+    const body = await r.json();
+    return body.radios ?? [];
+  }
+
+  /** Attach a radio to a node. Throws the BFF {error} (403 ownership DENY /
+   *  422 unknown-node or mixed transport shape). */
+  async attachRadio(deviceId: string, body: AttachRadioBody): Promise<NodeRadio> {
+    return this.radioMutation('POST',
+      `/bff/admin/device-radios/${encodeURIComponent(deviceId)}/radios`, body);
+  }
+
+  /** Detach a radio (CAS state flip, never deleted = audit). */
+  async detachRadio(radioId: string): Promise<{ detached: number }> {
+    return this.radioMutation('DELETE',
+      `/bff/admin/device-radios/radios/${encodeURIComponent(radioId)}`);
+  }
+
+  private async radioMutation<T>(method: string, path: string, body?: unknown): Promise<T> {
+    const init: RequestInit = { method, headers: {}, credentials: 'include' };
+    if (body !== undefined) {
+      (init.headers as Record<string, string>)['content-type'] = 'application/json';
+      init.body = JSON.stringify(body);
+    }
+    const r = await fetch(`${CFG.bff}${path}`, init);
+    if (r.ok) return r.json() as Promise<T>;
+    throw new Error(await this.errorOf(r));
+  }
+
   // ── Games app-store (games-services control plane) ──────────────────────────
   // The operator UI reads the offered catalog + lists/creates/run-stops instances.
   // Authz is enforced at the BFF (the games-services derived roles + DomainScope);
@@ -1848,6 +1895,45 @@ export interface AssignServiceBody {
   serviceName: string;
   pvcName: string;
   requestedBytes: number;
+}
+
+// ── Node-radio DTOs (mirror the admin-bff radio package shapes, camelCase records) ──
+/** A Meshtastic LoRa radio attachment PINNED to one node. transport picks the column set:
+ *  serial → serialPath; tcp → host+port (Meshtastic TCP API, default 4403); mqtt →
+ *  host+port+topicRoot+channelName (+ optional !hex8 gatewayNodeId — a WAN/LoRaWAN-gateway
+ *  mesh via a Meshtastic MQTT broker, default 1883). propagationState surfaces the on-node
+ *  meshbridge reconcile ACK. */
+export interface NodeRadio {
+  id: string;
+  deviceId: string;
+  transport: 'serial' | 'tcp' | 'mqtt';
+  serialPath?: string | null;
+  host?: string | null;
+  port?: number | null;
+  topicRoot?: string | null;
+  channelName?: string | null;
+  gatewayNodeId?: string | null;
+  radioId: string;
+  meshChannel: number;
+  state: 'active' | 'detached';
+  domain: string;
+  propagationState: 'pending' | 'applied' | 'failed' | 'degraded';
+  generation: number;
+  createdBy: string;
+  createdAt?: string | null;
+}
+/** Body for POST .../{deviceId}/radios (attach). Exactly the columns of the chosen
+ *  transport must be present (a mixed shape is a BFF 422); meshChannel is 0..7. */
+export interface AttachRadioBody {
+  transport: 'serial' | 'tcp' | 'mqtt';
+  serialPath?: string | null;
+  host?: string | null;
+  port?: number | null;
+  topicRoot?: string | null;
+  channelName?: string | null;
+  gatewayNodeId?: string | null;
+  radioId: string;
+  meshChannel: number;
 }
 
 // ── Egress-VPN DTOs (mirror the admin-bff egressvpn package shapes) ────────────
