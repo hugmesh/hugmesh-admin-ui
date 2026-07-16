@@ -13,8 +13,11 @@ import {
  * NODE STORAGE control plane — ADDITIONAL storage an operator ATTACHES to a specific mesh
  * node so services can use SPACE on that node.
  *
- * <p>ADMIN-CAPABLE (route-guarded by {@link adminGuard}, NOT superadmin) — the deliberate
- * DIVERGENCE from the Device-Licenses console. The OWNERSHIP gating is enforced by the BFF:
+ * <p>ADMIN-CAPABLE (NOT superadmin) — the deliberate DIVERGENCE from the Device-Licenses
+ * console. This route carries no additional client-side `canActivate` guard beyond the host
+ * shell's baseline Casdoor-admin-role gate on `/admin/**` (unlike device-licenses/device-pending/
+ * egress-vpn/superadmin-domains, which layer {@link superadminGuard} on top). The OWNERSHIP
+ * gating is enforced by the BFF:
  * an ADMIN may act ONLY on own-domain ADMIN-owned nodes (a SUPERADMIN-owned or cross-domain
  * node is a 403), SUPERADMIN is unrestricted. The list itself is BFF-scoped (a brand admin
  * sees only their brand's pools/assignments).

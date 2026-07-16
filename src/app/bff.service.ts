@@ -1154,12 +1154,21 @@ export class BffService {
     }
   }
 
+  // TODO(workload-console): unlike workloadLifecycle/triggerImageBuild/desktopRemoteInstall
+  // etc., this call has no stepUpToken parameter and never sends X-Workload-StepUp, even
+  // though the caller (WorkloadConsoleComponent.rolloutRestart) mints one via workloadStepUp()
+  // first. If the BFF's DANGEROUS-tier gate actually requires that header here (as the console's
+  // own docblock claims), every rollout-restart call is either silently unauthenticated for
+  // step-up or fails outright — worth confirming against WorkloadSuperadminController and wiring
+  // the token through if so.
   /** SUPERADMIN rollout-restart = delete the workload's pods (selfHeal-neutral). */
   async workloadRolloutRestart(namespace: string, workload: string): Promise<unknown> {
     return this.workloadMutate('POST',
       `/bff/superadmin/workloads/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(workload)}/rollout-restart`);
   }
 
+  // TODO(workload-console): same gap as workloadRolloutRestart above — no stepUpToken
+  // parameter, so the minted X-Workload-StepUp token never rides this DELETE either.
   /** SUPERADMIN delete one pod. */
   async workloadDeletePod(namespace: string, pod: string): Promise<unknown> {
     return this.workloadMutate('DELETE',

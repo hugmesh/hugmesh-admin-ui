@@ -10,9 +10,18 @@ import { SessionService } from './session.service';
  * every `/bff/admin/**` endpoint, so even if this guard were bypassed the server remains
  * authoritative. The client guard simply avoids loading the admin bundle for a non-admin.
  *
- * All admin routes in {@link ADMIN_ROUTES} are mounted behind this guard by the host shell.
  * A non-admin user who holds a valid session is redirected to `/login` (the session is valid;
  * the role is insufficient).
+ *
+ * TODO(admin-guard): not currently wired into any route's `canActivate` in
+ * {@link ADMIN_ROUTES} (confirmed by grep — only `superadminGuard`/`gamesServicesGuard`/
+ * `workloadConsoleGuard` are). Today the baseline admin gate for `/admin/**` is the host
+ * shell's own Casdoor-role check before this remote is even loaded (federation exposes only
+ * `./routes`, so the host cannot import this exact function anyway) — this guard has its own
+ * unit coverage (`admin.guard.spec.ts`) but is otherwise dead from the router's perspective.
+ * Either wire it onto the currently-unguarded routes (defense-in-depth) or remove it; a couple
+ * of other files' docblocks (e.g. `StoragePoolsComponent`) still describe routes as
+ * "guarded by adminGuard" which is not true today.
  *
  * @returns `true` to activate, or a `UrlTree` redirect to `/login` on insufficient role.
  * @see {@link superadminGuard} — stricter guard for ROLE_SUPERADMIN-only routes.

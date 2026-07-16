@@ -139,9 +139,10 @@ are ✅ shipped on `main`.
 | `/admin/cloud-backups`    | Cloud backups (per-domain + superadmin TOTAL, versioned, step-up restore) | `CloudBackupsComponent` | —          | yes  |
 | `/admin/announcements`    | Announcements (create + schedule + target)          | `AnnouncementListComponent` | —                | yes  |
 | `/admin/test-reports`     | Test-architecture run history + on-demand run + download | `TestReportsComponent` | —                | yes  |
-| `/admin/image-gen`        | Image-generation console (trigger / SSE progress / download, capability-gated) | `ImageGenComponent` | —          | yes  |
+| `/admin/image-gen`        | Image-generation console: worklist BATCH wizard (up to 16 images/step-up, role-aware package tiers) + build history/detail + SSE progress + download, capability-gated | `ImageGenComponent` | —          | yes  |
 | `/admin/forum`            | Forum (phpBB ACP) admin proxy                       | `ForumAdminComponent`       | —                | yes  |
-| `/admin/appeals`          | Appeals-Decide console (decide-proxy, domain-scoped) | `AppealsComponent`         | —                | yes  |
+| `/admin/appeals`          | Appeals-Decide console — CONTENT-moderation appeals (decide-proxy, domain-scoped) | `AppealsComponent`         | —                | yes  |
+| `/admin/account-appeals`  | Account-ban appeal inbox — a curtailed user's own appeal against their `access_suspension` PROFILE ban; approve actually restores access (distinct from `/admin/appeals` above, which decides content-moderation rows) | `AccountAppealsComponent` | —          | yes  |
 | `/admin/security`         | Self-service Security console: enroll/list/remove your OWN MFA factors (TOTP + WebAuthn passkey), regenerate recovery codes; also the inline `MfaStepUpDialogComponent` any privileged action reuses for the "requires step-up" 403 | `MfaSecurityComponent` | — | yes |
 | `/admin/device-licenses`  | Device-ownership / SSH-operate-license registry      | `DeviceLicensesComponent`   | `superadminGuard` | superadmin-only |
 | `/admin/device-pending`   | Pending headscale-node pick-list (assign into registry) | `DevicePendingComponent` | `superadminGuard` | superadmin-only |
@@ -171,16 +172,24 @@ are ✅ shipped on `main`.
 ## Role gate & session
 
 The host route-guards `/admin` behind the Casdoor **admin role**. This repo also
-ships four `CanActivateFn` guards for finer-grained in-remote routing. All
-client-side role checks are **presentation-only** — the BFF and gateway are the
-authority:
+ships four `CanActivateFn` guards for finer-grained in-remote routing (though one,
+`adminGuard`, is not currently attached to any route — see the note below the
+table). All client-side role checks are **presentation-only** — the BFF and
+gateway are the authority:
 
 | Guard                  | File                          | Allows when                                                                 | Guards |
 | ---------------------- | ----------------------------- | --------------------------------------------------------------------------- | ------ |
-| `adminGuard`           | `src/app/admin.guard.ts`      | `isAdmin()` (`roles` includes `admin`), else `/login`                        | standalone admin gate |
+| `adminGuard`           | `src/app/admin.guard.ts`      | `isAdmin()` (`roles` includes `admin`), else `/login`                        | **none today** — defined + unit-tested (`admin.guard.spec.ts`) but not wired into any `canActivate` in `ADMIN_ROUTES` |
 | `superadminGuard`      | `src/app/superadmin.guard.ts` | `isSuperadmin()` (`roles` includes `superadmin`), else `/login`              | device-licenses, device-pending, egress-vpn, superadmin/domains, superadmin/anubis |
 | `gamesServicesGuard`   | `src/app/games-services.guard.ts` | `isGamesServicesAdmin()` **or** `isGamesServicesRunner()`, else `/login`  | games-services |
 | `workloadConsoleGuard` | `src/app/workload-console.guard.ts` | admin/superadmin **and** a live server-confirmed `workloadCapability()` probe (200); else bounced to `/admin` | workloads + workloads/logs + workloads/terminal |
+
+> `adminGuard` predates most of the routes above and has never been attached to a
+> `canActivate`; today the equivalent gate for un-superadmin-guarded routes (e.g.
+> `/admin/node-storage`) is purely the host shell's own admin-role check before this
+> remote is even loaded (federation exposes only `./routes`, so the host cannot import
+> this exact function). See the `TODO` on `adminGuard` itself for the wire-in-or-remove
+> decision.
 
 `SessionService` (`src/app/session.service.ts`) reads the shared **`snap.session`**
 localStorage key written by the **login remote**. The key carries identity
@@ -237,9 +246,11 @@ error-handling path as the rest of `BffService`.
 | Backup & Recovery       | `POST /bff/admin/backups`, `POST /bff/admin/restores`, `GET /bff/admin/backups`, `GET /bff/admin/usb-devices`, SSE `GET /bff/admin/backups/{id}/events` | Cloud/USB targets with optional AES-256 encryption. The BFF orchestrates a k8s backup/restore worker Job and streams progress over SSE (read via `fetch`, not `EventSource`, so the bearer token can be sent). The plaintext password is sent ONCE and never stored client-side; only the BFF stores a PBKDF2 verifier and the worker derives the key. |
 | Announcements           | `GET/POST/PUT/DELETE /bff/admin/announcements`             | See below. |
 | Delegation / access-roles | `GET/POST/DELETE /bff/admin/access-roles/{role}/{user}`, `GET/POST/DELETE /bff/admin/domain-lock/{role}/{user}` | The narrow, AdminController-verified delegation surface: access-role suspend/ban (+ TTL or permanent) + lift, and domain-lock add/remove (force local-only, keeps the base role). Closed role vocabularies (`ROLE_MATRIX`/`ROLE_MASTODON`/`PROFILE`; `*_DOMAINLOCKED`). No general role grant/revoke exists. |
-| Appeals (decide-proxy)  | `POST /bff/admin/moderation/{id}/decide?approve=<bool>`    | Approve/deny a referred moderation request. The admin-bff does NOT own the table — it **proxies** to snapdragon-federation-api, forwarding the caller's JWT so federation-api applies its own `@PreAuthorize(ADMIN\|SUPERADMIN)` + **per-domain scope** (a row in another brand is invisible/404). No list endpoint yet — the console drives the decide action by known id. |
+| Appeals (decide-proxy)  | `POST /bff/admin/moderation/{id}/decide?approve=<bool>`    | Approve/deny a referred moderation request — **CONTENT**-moderation (posts/profiles). The admin-bff does NOT own the table — it **proxies** to snapdragon-federation-api, forwarding the caller's JWT so federation-api applies its own `@PreAuthorize(ADMIN\|SUPERADMIN)` + **per-domain scope** (a row in another brand is invisible/404). No list endpoint yet — the console drives the decide action by known id. |
+| Account appeals         | `GET /bff/admin/account-appeals`, `POST .../{id}/decide?status=APPROVED\|DENIED` | The **ACCOUNT**-ban appeal inbox — distinct from Appeals above. Decides `account_appeal` rows a curtailed user files (via login-ui's `/login/appeal` → `POST /bff/me/appeal`) against their own `access_suspension` PROFILE ban. An `APPROVED` decide **clears the underlying suspension server-side first** (`SuspensionService.clear`) — the call fails outright if that restore fails, so a failed approve is surfaced as an error, never a false success. MOD is deliberately not gated in (MOD cannot ban/unban an account, so it cannot approve an appeal against one). |
 | Forum admin             | `GET/POST/DELETE /bff/admin/forum/**`                      | Proxies the phpBB ACP capability (stats/usage/users/categories/moderation-queue/audit + ban/groups/categories/moderation approve-reject/styles/extensions). Every response is the `ForumOutcome` envelope with a `result` marker (`ok` / `stubbed` / `degraded:<reason>`). |
 | Test reports            | `GET /bff/admin/test-reports[/{id}]`, `GET .../{id}/download`, `POST .../run`, SSE `GET .../{id}/events` | Durable test-architecture run history + on-demand trigger + bearer-gated `tar.gz` download + live SSE progress. |
+| Image generation        | `GET /bff/admin/image-builds`, `GET .../{id}`, `POST .../batch` (up to 16 entries, one step-up), SSE `GET .../{id}/events`, `GET .../{id}/image`, `GET .../{id}/keys` (`X-ImageGen-StepUp`), `GET .../catalog` | See *Image generation* below. |
 | MFA (self-service + step-up) | `POST /bff/mfa/enroll/totp[/verify]`, `POST /bff/mfa/enroll/webauthn/options`, `POST /bff/mfa/enroll/webauthn/verify`, `POST /bff/mfa/assert/webauthn/options`, `GET /bff/mfa/factors`, `DELETE /bff/mfa/factors/{id}`, `POST /bff/mfa/recovery/regenerate`, `POST /bff/mfa/challenge` | Own hand-written client (`MfaService`, `src/app/mfa/mfa.service.ts` — NOT part of `BffService`, mirroring login-ui's `MfaService` against the same shared `snapdragon-auth-core` `MfaEnrollmentController`/`MfaChallengeController`). `/admin/security` (`MfaSecurityComponent`) is enroll/list/remove/regenerate; `MfaStepUpDialogComponent` is the reusable inline step-up challenge any privileged action shows on the platform's "requires step-up" 403 (see `isStepUpRequiredError`). Ships dark: every call 503s while `app.casdoor.mfa.enabled=false`. |
 | Device licenses         | `GET /bff/admin/device-licenses`, `POST .../{id}/grant`, `POST .../domains/{domain}/grant`, `DELETE .../licenses/{id}` | **Superadmin**: the source of truth for device ownership / domain-residency / SSH operate-licenses. List is admin-readable (own-domain, BFF-scoped); every mutation is `hasRole('SUPERADMIN')`. Grants pin SSH key fingerprints; revoke is a CAS flip (never a delete). |
 | Device pending pick-list| `GET /bff/admin/device-licenses/pending`, `POST .../register` | **Superadmin**: assign a headscale-enrolled node into the registry. `machineKeyFp` is an **opaque** token from headscale — never typed/edited; the BFF re-validates it against headscale at register. |
@@ -283,6 +294,66 @@ the **first module migrated onto the generated client** — it calls the generat
 `AnnouncementAdminControllerService` and reuses the generated `Announcement` /
 `AnnouncementRequest` models. The remaining catch-all client (`BffService`) is
 still hand-written against the shared API contract pending its own migration.
+
+## Image generation ✅
+
+`/admin/image-gen` (`ImageGenComponent`, ADMIN/SUPERADMIN) is a device-image build
+console over the admin-bff `ImageBuildController` (`/bff/admin/image-builds`). The
+trigger surface is the **worklist BATCH wizard**
+(`ImageGenWorklistWizardComponent`): up to **16** role×platform image entries
+authorised by **one** step-up, built in four steps — **Images** (per-entry
+branding / tailnet-SSO / Home encryption sub-forms, gated on the catalog's
+desktop-vs-node image class) → **Domains** (attach registry domains per entry) →
+**Users** (mesh users with a registry-domain dropdown) → **Review** (assemble the
+frozen worklist v1 envelope and submit). The envelope carries only per-image
+content axes — it never carries a brand/org/superdomain or a per-build domain;
+those are always server-derived, and the own-domain wall is re-enforced
+server-side. Cross-tenant affordances (tailnet/SSO on branded desktops,
+cross-brand composition) are additionally SUPERADMIN-gated in the wizard as a UX
+affordance only — the BFF is authoritative.
+
+After submit, `ImageGenStore` fans out **one SSE reader per build** in the batch
+(a `Map<buildId, BuildStream>`, each with its own `AbortController`), so the
+progress screen renders one live card per image and a single stream breaking
+never disturbs its siblings.
+
+**Package selection (role-aware tiers, ✅ shipped PR #77):** each entry's
+"Edit packages" opens `PackageCatalogModalComponent`, which renders the BFF's
+gate-grouped package catalog as a tree. When the catalog carries a
+`roles[platform][role]` tier map (generator-emitted), the modal locks that role's
+`essential` atoms as a checked+disabled floor, pre-checks `removable` atoms as
+the toggleable default set, and folds any enabled adhoc add-on's atoms into the
+locked floor too — a role's real package baseline drives the tree instead of a
+flat gate list. **Legacy fallback:** a catalog without `roles` maps (or an
+unknown/uncovered role) falls back to the older behaviour — the gate-`base`
+atoms are the locked essential floor and every other atom starts unchecked, with
+byte-identical wire emission to the pre-tiers behaviour.
+
+**Capability-gate / ships dark:** the whole console needs an x86 build node, so
+it is gated on the `buildNode` platform capability (`CapabilityGateComponent`) —
+when absent, the wizard and history table are suppressed in favour of an honest
+notice, never a broken console. The backend also ships dark
+(`imagegen.launch.enabled=false`), surfacing a stub notice.
+
+**Keys download** (`GET /bff/admin/image-builds/{id}/keys`) is step-up gated —
+a "requires step-up" 403 opens the inline `MfaStepUpDialogComponent` and retries
+the same download once the dialog reports success. A private key is never
+displayed or persisted client-side; the bundle streamed is backend-guaranteed
+non-secret.
+
+```mermaid
+flowchart TD
+  W1["Images step<br/>(1..16 role x platform entries)"] --> W2["Domains step<br/>(attach registry domains per entry)"]
+  W2 --> W3["Users step<br/>(mesh users + domain dropdown)"]
+  W3 --> W4["Review step<br/>(assemble envelope, ONE step-up)"]
+  W4 -->|"POST /bff/admin/image-builds/batch"| PROG["Progress screen<br/>(N-card, one SSE stream per build)"]
+
+  EDIT["Edit packages (per entry)"] -.-> MODAL["PackageCatalogModalComponent"]
+  MODAL -->|"roles[platform][role] present"| TIERS["locked essential floor<br/>+ pre-checked removable defaults"]
+  MODAL -->|"no roles map / unknown role"| LEGACY["legacy floor:<br/>gate=base locked, rest unchecked"]
+  TIERS --> W1
+  LEGACY --> W1
+```
 
 ## Workload Console (HIDDEN tier) ✅
 
@@ -437,17 +508,24 @@ CI (`.gitlab-ci.yml`) runs **four stages** on every push and mirror-sync (CI is
    `allow_failure: true`, so findings appear in the MR security widget without
    blocking the build.
 
+The repo's `Makefile` mirrors the `pentest` stage for local use: `make pentest-sca`
+(`npm audit` + optional dockerized OWASP Dependency-Check) runs with no setup;
+`make pentest-dast DAST_TARGET_URL=https://host` delegates to the same
+generator `run-pentest.sh` harness CI uses (ZAP + nuclei), shallow-cloning the
+generator's `tests/pentest` harness if it isn't already checked out as a sibling
+repo.
+
 ```mermaid
 flowchart LR
   push["git push / mirror-sync"] --> test
   push --> e2ebdd
-  test["1 · test\nng test (ChromeHeadlessCI)\n→ JUnit report"]
-  e2ebdd["e2e · e2e:bdd\nbddgen + playwright --list\n(no cluster, allow_failure)"]
+  test["1 · test<br/>ng test (ChromeHeadlessCI)<br/>→ JUnit report"]
+  e2ebdd["e2e · e2e:bdd<br/>bddgen + playwright --list<br/>(no cluster, allow_failure)"]
   test -->|pass| build
   test -->|fail| stop["image build blocked"]
-  build["2 · build:image\nbuild + push to GitLab registry\n(sha tag + branch tag)"]
+  build["2 · build:image<br/>build + push to GitLab registry<br/>(sha tag + branch tag)"]
   build --> pentest
-  pentest["3 · pentest\nSCA (Dependency-Check)\nDAST (ZAP + nuclei)\nallow_failure: true"]
+  pentest["3 · pentest<br/>SCA (Dependency-Check)<br/>DAST (ZAP + nuclei)<br/>allow_failure: true"]
   pentest --> widget["findings → MR security widget"]
 ```
 
