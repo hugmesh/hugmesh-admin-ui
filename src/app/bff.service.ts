@@ -1127,6 +1127,59 @@ export class BffService {
     throw new Error(await this.errorOf(r));
   }
 
+  // ── Domain capabilities (per-domain capability gate, BFF /bff/admin/domain-capabilities) ──
+  // A user may register a mesh radio under their own name only if a SUPERADMIN has GRANTED
+  // the capability to their domain AND the domain's ADMIN has ENABLED it (two independent
+  // keys on one row), plus a platform-wide kill via the SAME `granted` flag reused on the
+  // `' global'` sentinel domain (admin-bff DomainCapabilityConfig#GLOBAL_DOMAIN). First (and
+  // so far only) capability: 'user-mesh-devices'. Endpoints (DomainCapabilityAdminController):
+  //   GET  /bff/admin/domain-capabilities                                  → { DomainCapability[] }
+  //        SUPERADMIN sees every domain's rows (incl. ' global'); a scoped ADMIN sees ONLY
+  //        their own domain's rows.
+  //   PUT  /bff/admin/domain-capabilities/{domain}/{capability}            → DomainCapability
+  //        {granted} — SUPERADMIN ONLY (an ADMIN never reaches it, even on their own domain).
+  //   PUT  /bff/admin/domain-capabilities/{domain}/{capability}/enabled    → DomainCapability
+  //        {enabled} — ADMIN own-domain only (403 on another domain / on ' global');
+  //        SUPERADMIN may set it for any domain.
+
+  /** The first (and so far only) domain-capability key this console manages. */
+  static readonly USER_MESH_DEVICES = 'user-mesh-devices';
+
+  /** Gate rows visible to the caller: every domain for a SUPERADMIN (incl. the `' global'`
+   *  platform-wide-kill sentinel row); ONLY the caller's own domain for a scoped ADMIN. */
+  async domainCapabilities(): Promise<DomainCapability[]> {
+    const r = await fetch(`${CFG.bff}/bff/admin/domain-capabilities`, { credentials: 'include' });
+    if (!r.ok) return [];
+    return r.json();
+  }
+
+  /** The SUPERADMIN key: grant (or revoke) `capability` for `domain`. On `domain=' global'`
+   *  this IS the platform-wide kill switch. Throws the BFF {error} (403 for a non-superadmin). */
+  async setDomainCapabilityGranted(domain: string, capability: string, granted: boolean): Promise<DomainCapability> {
+    return this.domainCapabilityMutation('PUT',
+      `/bff/admin/domain-capabilities/${encodeURIComponent(domain)}/${encodeURIComponent(capability)}`,
+      { granted });
+  }
+
+  /** The domain ADMIN key: opt `domain` in (or out) of `capability`. Throws the BFF {error}
+   *  (403 for another domain, the `' global'` sentinel, or a non-admin/superadmin). */
+  async setDomainCapabilityEnabled(domain: string, capability: string, enabled: boolean): Promise<DomainCapability> {
+    return this.domainCapabilityMutation('PUT',
+      `/bff/admin/domain-capabilities/${encodeURIComponent(domain)}/${encodeURIComponent(capability)}/enabled`,
+      { enabled });
+  }
+
+  private async domainCapabilityMutation<T>(method: string, path: string, body?: unknown): Promise<T> {
+    const init: RequestInit = { method, headers: {}, credentials: 'include' };
+    if (body !== undefined) {
+      (init.headers as Record<string, string>)['content-type'] = 'application/json';
+      init.body = JSON.stringify(body);
+    }
+    const r = await fetch(`${CFG.bff}${path}`, init);
+    if (r.ok) return r.json() as Promise<T>;
+    throw new Error(await this.errorOf(r));
+  }
+
   // ── Games app-store (games-services control plane) ──────────────────────────
   // The operator UI reads the offered catalog + lists/creates/run-stops instances.
   // Authz is enforced at the BFF (the games-services derived roles + DomainScope);
@@ -2053,6 +2106,22 @@ export interface AttachRadioBody {
   gatewayNodeId?: string | null;
   radioId: string;
   meshChannel: number;
+}
+
+// ── Domain-capability DTOs (mirror the admin-bff capability package shapes) ────
+/** One (domain, capability) gate row. `granted` is the SUPERADMIN key (on the `' global'`
+ *  sentinel domain it IS the platform-wide kill); `enabled` is the domain ADMIN's own key.
+ *  Both default false (ships dark) — active requires GLOBAL.granted AND perDomain.granted
+ *  AND perDomain.enabled, evaluated server-side. */
+export interface DomainCapability {
+  id: string;
+  domain: string;
+  capability: string;
+  granted: boolean;
+  enabled: boolean;
+  updatedBy?: string | null;
+  updatedAt?: string | null;
+  generation: number;
 }
 
 // ── Egress-VPN DTOs (mirror the admin-bff egressvpn package shapes) ────────────

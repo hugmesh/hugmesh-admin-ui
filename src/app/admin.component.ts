@@ -67,6 +67,7 @@ export class AdminComponent implements OnInit {
     { path: 'device-pending', label: 'Pending devices', superadminOnly: true },
     { path: 'node-storage', label: 'Node storage' },
     { path: 'device-radios', label: 'Device radios' },
+    { path: 'domain-capabilities', label: 'Domain capabilities' },
     { path: 'desktop', label: 'Desktop governance' },
     { path: 'egress-vpn', label: 'Egress VPN', superadminOnly: true },
     { path: 'superadmin/domains', label: 'Domains', superadminOnly: true },

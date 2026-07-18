@@ -20,6 +20,7 @@ import { DeviceLicensesComponent } from './device-licenses.component';
 import { DevicePendingComponent } from './device-pending.component';
 import { StoragePoolsComponent } from './storage-pools.component';
 import { DeviceRadiosComponent } from './device-radios.component';
+import { DomainCapabilitiesComponent } from './domain-capabilities.component';
 import { EgressVpnComponent } from './egress-vpn.component';
 import { SuperadminDomainsComponent } from './superadmin-domains.component';
 import { OidcProviderRolesComponent } from './oidc-provider-roles.component';
@@ -71,6 +72,12 @@ import { workloadConsoleGuard } from './workload-console.guard';
  *  /admin/device-radios (attach a Meshtastic LoRa radio — USB serial, LoRa-WiFi TCP, or a
  *  WAN mesh via an MQTT broker — to a mesh node for the mesh↔Matrix bridge; ADMIN-capable
  *  like node-storage, ownership-gated downstream in the BFF), and
+ *  /admin/domain-capabilities (the per-domain CAPABILITY GATE console — first capability
+ *  'user-mesh-devices': a user may register a mesh radio under their own name only once a
+ *  superadmin has GRANTED the capability to their domain AND the domain's admin has ENABLED
+ *  it, plus a platform-wide kill switch. ADMIN-reachable like node-storage/device-radios;
+ *  the BFF's own list scoping is what differentiates the superadmin cross-domain table from
+ *  the admin own-domain toggle — no route guard needed), and
  *  /admin/egress-vpn (the SUPERADMIN-only Egress VPN console — import provider WireGuard/OpenVPN
  *  configs that nodes use for outgoing public egress, additionally superadmin-guarded), and
  *  /admin/games-services (the games app-store operator console — add/run dockerized FOSS game
@@ -123,6 +130,7 @@ export const ADMIN_ROUTES: Routes = [
   { path: 'device-pending', component: DevicePendingComponent, canActivate: [superadminGuard] },
   { path: 'node-storage', component: StoragePoolsComponent },
   { path: 'device-radios', component: DeviceRadiosComponent },
+  { path: 'domain-capabilities', component: DomainCapabilitiesComponent },
   { path: 'egress-vpn', component: EgressVpnComponent, canActivate: [superadminGuard] },
   { path: 'superadmin/domains', component: SuperadminDomainsComponent, canActivate: [superadminGuard] },
   { path: 'oidc-providers', component: OidcProviderRolesComponent },

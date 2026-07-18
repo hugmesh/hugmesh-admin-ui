@@ -1,0 +1,63 @@
+.domain-capabilities {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 900px;
+}
+
+.dc-intro,
+.dc-hint {
+  color: var(--sd-text-muted);
+  font-size: 0.9rem;
+}
+
+.dc-error {
+  color: var(--sd-error);
+  font-weight: 600;
+}
+
+.dc-status {
+  color: var(--sd-text-muted);
+}
+
+.dc-panel {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 0.75rem;
+}
+
+// Nested under .domain-capabilities (present on this component's template root) instead of
+// bare element selectors — keeps the rule federation-safe under either ViewEncapsulation
+// mode, mirroring workload-console.component.scss's rationale.
+.domain-capabilities {
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th,
+  td {
+    text-align: left;
+    padding: 0.4rem 0.6rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+}
+
+.dc-caption {
+  text-align: left;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.dc-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.dc-grant-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}

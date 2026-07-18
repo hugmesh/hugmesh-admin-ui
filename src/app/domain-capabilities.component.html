@@ -1,0 +1,104 @@
+<section aria-labelledby="dc-heading" class="domain-capabilities" data-testid="domain-capabilities-view">
+  <h2 id="dc-heading">Domain Capabilities</h2>
+  <p class="dc-intro">
+    Per-domain capability gate: a user may register a mesh radio under their own name only
+    once a superadmin has <strong>granted</strong> "{{ capability }}" to their domain AND
+    the domain's admin has <strong>enabled</strong> it.
+  </p>
+
+  <p *ngIf="error()" role="alert" aria-live="assertive" class="dc-error" data-testid="dc-error">{{ error() }}</p>
+  <p *ngIf="loading()" role="status" aria-live="polite" class="dc-status" data-testid="dc-loading">Loading…</p>
+
+  <ng-container *ngIf="!loading()">
+    <!-- ══════════════════════ SUPERADMIN: cross-domain control plane ══════════════════════ -->
+    <ng-container *ngIf="isSuperadmin()">
+      <section aria-labelledby="dc-global-heading" class="dc-panel" data-testid="dc-global-panel" *ngIf="globalRow() as g">
+        <h3 id="dc-global-heading">Platform-wide kill switch</h3>
+        <p class="dc-hint">
+          When OFF, "{{ capability }}" is disabled for <strong>every</strong> domain
+          regardless of any per-domain grant. Ships dark.
+        </p>
+        <label class="dc-check">
+          <input type="checkbox" [checked]="g.granted"
+                 [attr.aria-label]="'Platform-wide ' + capability + ' kill switch'"
+                 (change)="toggleGranted(g)" />
+          Enabled platform-wide
+        </label>
+      </section>
+
+      <section aria-labelledby="dc-domains-heading" class="dc-panel">
+        <h3 id="dc-domains-heading">Per-domain grants</h3>
+
+        <table class="dc-domains" *ngIf="domainRows().length; else dcDomainsEmpty">
+          <caption class="dc-caption">Domains &amp; their "{{ capability }}" state</caption>
+          <thead>
+            <tr>
+              <th scope="col">Domain</th>
+              <th scope="col">Granted (superadmin)</th>
+              <th scope="col">Enabled (domain admin)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r of domainRows()" [attr.data-domain-row]="r.domain">
+              <th scope="row">{{ r.domain }}</th>
+              <td>
+                <label class="dc-check">
+                  <input type="checkbox" [checked]="r.granted"
+                         [attr.aria-label]="'Granted for ' + r.domain"
+                         (change)="toggleGranted(r)" />
+                </label>
+              </td>
+              <td>
+                <label class="dc-check">
+                  <input type="checkbox" [checked]="r.enabled"
+                         [attr.aria-label]="'Enabled for ' + r.domain"
+                         (change)="toggleEnabledForDomain(r)" />
+                </label>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <ng-template #dcDomainsEmpty>
+          <p data-testid="dc-domains-empty">No domain has been granted "{{ capability }}" yet.</p>
+        </ng-template>
+
+        <form class="dc-grant-form" (ngSubmit)="grantNewDomain()">
+          <label for="dc-new-domain">Grant a new domain</label>
+          <input id="dc-new-domain" name="newDomain" type="text" [(ngModel)]="newDomain"
+                 placeholder="brandx" aria-describedby="dc-new-domain-hint" />
+          <span id="dc-new-domain-hint" class="dc-hint">The domain's issuer-derived brand name.</span>
+          <button type="submit">Grant</button>
+        </form>
+      </section>
+    </ng-container>
+
+    <!-- ══════════════════════ ADMIN: own-domain enable toggle ══════════════════════ -->
+    <section aria-labelledby="dc-own-heading" class="dc-panel" data-testid="dc-own-domain" *ngIf="!isSuperadmin()">
+      <h3 id="dc-own-heading">"{{ capability }}" for my domain</h3>
+
+      <ng-container *ngIf="ownRow() as own; else dcNeverGranted">
+        <p *ngIf="!own.granted" class="dc-hint" data-testid="dc-not-granted-hint">
+          A superadmin has not yet granted your domain this capability — ask a superadmin to
+          grant it before you can enable it.
+        </p>
+        <label class="dc-check">
+          <input id="dc-own-enabled" type="checkbox" [checked]="own.enabled" [disabled]="!own.granted"
+                 [attr.aria-label]="'Enable ' + capability + ' for my domain'"
+                 (change)="toggleOwnEnabled()" />
+          Enabled for my domain
+        </label>
+      </ng-container>
+      <ng-template #dcNeverGranted>
+        <p class="dc-hint" data-testid="dc-not-granted-hint">
+          A superadmin has not yet granted your domain this capability — ask a superadmin to
+          grant it before you can enable it.
+        </p>
+        <label class="dc-check">
+          <input id="dc-own-enabled" type="checkbox" [checked]="false" disabled
+                 [attr.aria-label]="'Enable ' + capability + ' for my domain'" />
+          Enabled for my domain
+        </label>
+      </ng-template>
+    </section>
+  </ng-container>
+</section>
