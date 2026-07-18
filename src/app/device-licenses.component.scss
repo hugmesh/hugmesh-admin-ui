@@ -65,4 +65,18 @@
       margin-block: 0.25rem;
     }
   }
+
+  .dl-ssh-issuance {
+    margin-block-start: 0.5rem;
+    padding-block-start: 0.5rem;
+    border-top: 1px dashed var(--sd-border);
+
+    p {
+      color: var(--sd-text-soft, var(--sd-text));
+
+      &.dl-ssh-note-err {
+        color: var(--sd-error);
+      }
+    }
+  }
 }

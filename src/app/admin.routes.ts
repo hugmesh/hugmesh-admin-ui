@@ -56,7 +56,9 @@ import { workloadConsoleGuard } from './workload-console.guard';
  *  PROFILE ban/suspension; an approve actually restores access via
  *  SuspensionService.clear, domain-scoped, ADMIN/SUPERADMIN only), and
  *  /admin/device-licenses (the SUPERADMIN-only Device Licenses console over the
- *  device-ownership / SSH-operate-license registry — additionally superadmin-guarded), and
+ *  device-ownership / SSH-operate-license registry — additionally superadmin-guarded; each
+ *  device row also carries an "Issued SSH keys" panel to MINT/download/revoke an
+ *  admin-bff-issued Ed25519 credential, step-up gated via the shared inline MFA dialog), and
  *  /admin/device-pending (the SUPERADMIN-only Pending Devices pick-list — assign a
  *  headscale-enrolled node into the registry; the machine-key fingerprint is an OPAQUE
  *  token captured from headscale, never typed/edited — additionally superadmin-guarded), and

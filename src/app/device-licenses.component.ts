@@ -1,7 +1,9 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { BffService, DeviceRegistration } from './bff.service';
+import { AdminSshIssuedKey, BffService, DeviceRegistration } from './bff.service';
+import { MfaStepUpDialogComponent } from './mfa/mfa-step-up-dialog.component';
+import { isStepUpRequiredError } from './mfa/step-up-error';
 
 /**
  * Superadmin "Device Licenses" console (own repo: snapdragon-admin-ui). The MVP
@@ -14,11 +16,21 @@ import { BffService, DeviceRegistration } from './bff.service';
  * OR per-DOMAIN (pinning the exact SSH public-key fingerprints the operator may
  * present) and REVOKE an existing license. Every mutation is also SUPERADMIN-gated at
  * the BFF; the registry then drives the headscale ACL + per-node sshd (later PRs).
+ *
+ * <p>Each device row also lists its ISSUED SSH keys — credentials this console MINTED
+ * (distinct from a grant's operator-supplied fingerprint) via the admin-bff
+ * {@code AdminSshKeyIssuanceController}. Issuing, downloading the one-time private key,
+ * and revoking are all SUPERADMIN-only and step-up gated; a "requires step-up" 403 opens
+ * the inline {@link MfaStepUpDialogComponent} and the SAME action is retried once the
+ * dialog reports success (no token needed — the BFF reads the freshness off this
+ * session). The feature SHIPS DARK ({@code app.ssh-issue.enabled=false} by default): the
+ * list response's {@code enabled} field gates the issue control + shows a notice,
+ * mirroring image-gen's capability-gate posture, rather than surfacing a raw 503.
  */
 @Component({
   selector: 'snap-device-licenses',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MfaStepUpDialogComponent],
   templateUrl: './device-licenses.component.html',
   styleUrl: './device-licenses.component.scss',
 })
@@ -29,6 +41,26 @@ export class DeviceLicensesComponent implements OnInit {
   readonly devices = signal<DeviceRegistration[]>([]);
   /** Distinct domains across the registered devices — used as the per-DOMAIN grant picker options. */
   readonly domains = signal<string[]>([]);
+
+  // ── SSH key-issuance (per-device issued-keys panel; only ONE panel is ever expanded, so
+  //    this state is NOT device-keyed — it always describes the currently-expanded device). ──
+  /** The device id whose issued-keys panel is expanded, or '' when none. */
+  readonly expandedSshDeviceId = signal('');
+  /** The expanded device's issued keys ([] before the first fetch resolves). */
+  readonly sshIssuedKeys = signal<AdminSshIssuedKey[]>([]);
+  /** Whether ssh-issuance is launched (the ships-dark signal off the list response) — a single
+   *  DEPLOYMENT-WIDE flag, not per-device, so one fetch's answer is reused for every device.
+   *  Undefined until the first fetch resolves (fail-CLOSED: every gated control stays disabled
+   *  until proven enabled, never assumed enabled while unknown). */
+  readonly sshIssueEnabled = signal<boolean | undefined>(undefined);
+  /** True while an issue/download/revoke action is in flight on the expanded panel. */
+  readonly sshBusy = signal(false);
+  /** The last ssh-issuance action's inline result/error, or null. `kind` drives role=alert vs
+   *  role=status (mirrors desktop-dials.component.ts's DialNote convention). */
+  readonly sshNote = signal<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  /** A pending step-up challenge for an ssh-issuance action, or null when none is in flight.
+   *  `retry` re-attempts the SAME action once the inline dialog reports success. */
+  readonly sshStepUpChallenge = signal<null | { action: string; retry: () => Promise<void> }>(null);
 
   // ── Grant form (ngModel-bound plain properties) ──
   /** The device ID for a per-DEVICE license (pre-filled with the first device on load). */
@@ -129,5 +161,119 @@ export class DeviceLicensesComponent implements OnInit {
    */
   private parseFingerprints(raw: string): string[] {
     return [...new Set(raw.split(/[\s,]+/).map((f) => f.trim()).filter((f) => f.length))];
+  }
+
+  // ── SSH key-issuance (per-device issued-keys panel) ────────────────────────────
+
+  isSshExpanded(deviceId: string): boolean {
+    return this.expandedSshDeviceId() === deviceId;
+  }
+
+  /** Toggle a device's issued-keys panel; fetches on expand (and every re-expand, to pick up
+   *  actions taken elsewhere). Collapsing just hides the panel — no need to refetch. */
+  async toggleSshPanel(deviceId: string): Promise<void> {
+    if (this.expandedSshDeviceId() === deviceId) {
+      this.expandedSshDeviceId.set('');
+      return;
+    }
+    this.expandedSshDeviceId.set(deviceId);
+    this.sshIssuedKeys.set([]);
+    this.sshNote.set(null);
+    await this.refreshIssuedKeys(deviceId);
+  }
+
+  private async refreshIssuedKeys(deviceId: string): Promise<void> {
+    const list = await this.bff.issuedSshKeys(deviceId);
+    // A slow response after the panel moved to (or off) a different device must not clobber it.
+    if (this.expandedSshDeviceId() !== deviceId) return;
+    this.sshIssuedKeys.set(list.issuedKeys);
+    this.sshIssueEnabled.set(list.enabled);
+  }
+
+  isSshBusy(): boolean {
+    return this.sshBusy();
+  }
+
+  /**
+   * Run a privileged ssh-issuance mutation behind the busy guard. A "requires step-up" 403
+   * opens the inline MFA dialog and BLINDLY retries {@code fn} on success (the same closure —
+   * no re-confirmation, no token needed); any other failure sets an inline error note. Shared by
+   * issue/download/revoke, the three mutations this panel gates identically.
+   */
+  private async runSshGated(action: string, fn: () => Promise<void>): Promise<void> {
+    if (this.sshBusy()) return;
+    this.sshBusy.set(true);
+    this.sshNote.set(null);
+    try {
+      await fn();
+    } catch (e) {
+      if (isStepUpRequiredError(e)) {
+        this.offerSshStepUp(action, () => this.runSshGated(action, fn));
+        return;
+      }
+      this.sshNote.set({ kind: 'err', text: e instanceof Error ? e.message : 'The action could not be completed.' });
+    } finally {
+      this.sshBusy.set(false);
+    }
+  }
+
+  /** Mint a fresh Ed25519 credential for {@code deviceId}. */
+  async issueSshKey(deviceId: string): Promise<void> {
+    await this.runSshGated('Issuing this SSH credential', async () => {
+      const result = await this.bff.issueSshKey(deviceId);
+      this.sshNote.set({
+        kind: 'ok',
+        text: `Issued a new credential (fingerprint ${result.fingerprint}). `
+          + 'Download the private key now — it is available once only.',
+      });
+      await this.refreshIssuedKeys(deviceId);
+    });
+  }
+
+  /** Download an issued credential's one-time private key. */
+  async downloadSshKey(deviceId: string, issuedKeyId: string): Promise<void> {
+    await this.runSshGated('Downloading this private key', async () => {
+      const ok = await this.bff.downloadSshPrivateKey(issuedKeyId);
+      if (!ok) this.sshNote.set({ kind: 'err', text: 'The private key could not be downloaded.' });
+    });
+  }
+
+  /**
+   * Revoke an issued credential, after a native confirm(). The confirm is OUTSIDE
+   * {@link runSshGated} deliberately — a step-up retry re-invokes only the gated network action,
+   * never re-prompts the operator (the platform's step-up dialogs are always a blind retry).
+   */
+  async revokeSshKey(deviceId: string, issuedKeyId: string): Promise<void> {
+    if (this.sshBusy()) return;
+    if (!confirm('Revoke this SSH credential? The operator will no longer be able to SSH into '
+      + 'this device with it.')) return;
+    await this.runSshGated('Revoking this SSH credential', async () => {
+      const result = await this.bff.revokeSshKey(issuedKeyId);
+      // A ships-dark refusal is a normal 200 {dark:true, revoked:false} here, NOT an error —
+      // distinguish it from an ordinary "already revoked" so the note is never misleading.
+      this.sshNote.set(result.dark
+        ? { kind: 'err', text: 'SSH key issuance is not enabled yet on this deployment — nothing was revoked.' }
+        : { kind: 'ok', text: result.revoked ? 'Credential revoked.' : 'Nothing to revoke (already revoked).' });
+      await this.refreshIssuedKeys(deviceId);
+    });
+  }
+
+  /** Offer the inline MFA step-up dialog for an ssh-issuance action that 403'd. Clears the
+   *  busy flag so the dialog itself is interactive (the retry re-sets it). */
+  private offerSshStepUp(action: string, retry: () => Promise<void>): void {
+    this.sshBusy.set(false);
+    this.sshStepUpChallenge.set({ action, retry });
+  }
+
+  /** The inline step-up dialog reported success — retry the gated action it was blocking. */
+  async onSshStepUpSatisfied(): Promise<void> {
+    const challenge = this.sshStepUpChallenge();
+    this.sshStepUpChallenge.set(null);
+    if (challenge) await challenge.retry();
+  }
+
+  /** The user cancelled the step-up dialog — drop the pending retry. */
+  onSshStepUpDismissed(): void {
+    this.sshStepUpChallenge.set(null);
   }
 }

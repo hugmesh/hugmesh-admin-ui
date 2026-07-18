@@ -68,6 +68,14 @@
     >{{ formError() }}</span>
   </form>
 
+  <!-- Inline MFA step-up dialog for an ssh-issuance action that 403s "requires step-up". -->
+  <snap-mfa-step-up-dialog
+    *ngIf="sshStepUpChallenge() as challenge"
+    [action]="challenge.action"
+    (satisfied)="onSshStepUpSatisfied()"
+    (dismissed)="onSshStepUpDismissed()"
+  ></snap-mfa-step-up-dialog>
+
   <ul data-testid="dl-devices" aria-label="Registered devices and their SSH operate-licenses">
     <li *ngFor="let d of devices()" [attr.data-device-id]="d.id">
       <strong>{{ d.hostname }}</strong>
@@ -85,6 +93,63 @@
           >revoke</button>
         </li>
       </ul>
+
+      <!-- ── Issued SSH keys (MINTED credentials, distinct from a license's pinned fingerprint) ── -->
+      <div class="dl-ssh-issuance">
+        <button
+          type="button"
+          [attr.data-ssh-toggle]="d.id"
+          [attr.aria-expanded]="isSshExpanded(d.id)"
+          [attr.aria-controls]="'ssh-panel-' + d.id"
+          (click)="toggleSshPanel(d.id)"
+        >{{ isSshExpanded(d.id) ? 'Hide issued SSH keys' : 'Issued SSH keys' }}</button>
+
+        <div *ngIf="isSshExpanded(d.id)" [attr.id]="'ssh-panel-' + d.id" [attr.data-ssh-panel]="d.id">
+          <p
+            *ngIf="sshIssueEnabled() === false"
+            class="hint"
+            [attr.data-testid]="'ssh-dark-' + d.id"
+            role="status"
+            aria-live="polite"
+          >SSH key issuance is not enabled yet on this deployment — issuing, downloading and revoking are disabled.</p>
+
+          <button
+            type="button"
+            [attr.data-ssh-issue]="d.id"
+            [attr.aria-label]="'Issue a new SSH credential for ' + d.hostname"
+            [disabled]="isSshBusy() || sshIssueEnabled() !== true"
+            (click)="issueSshKey(d.id)"
+          >Issue new key</button>
+
+          <p
+            *ngIf="sshNote() as note"
+            [attr.data-testid]="'ssh-note-' + d.id"
+            [class.dl-ssh-note-err]="note.kind === 'err'"
+            [attr.role]="note.kind === 'err' ? 'alert' : 'status'"
+            [attr.aria-live]="note.kind === 'err' ? 'assertive' : 'polite'"
+          >{{ note.text }}</p>
+
+          <ul [attr.aria-label]="'Issued SSH keys for ' + d.hostname">
+            <li *ngFor="let k of sshIssuedKeys()" [attr.data-issued-key-id]="k.id">
+              {{ k.operator }} — {{ k.fingerprint }} ({{ k.state }})
+              <button
+                type="button"
+                [attr.data-ssh-download]="k.id"
+                [attr.aria-label]="'Download the one-time private key for ' + k.operator + ' on ' + d.hostname"
+                [disabled]="isSshBusy() || k.state !== 'issued' || !!k.downloadedAt || sshIssueEnabled() !== true"
+                (click)="downloadSshKey(d.id, k.id)"
+              >download private key</button>
+              <button
+                type="button"
+                [attr.data-ssh-revoke]="k.id"
+                [attr.aria-label]="'Revoke the SSH credential for ' + k.operator + ' on ' + d.hostname"
+                [disabled]="isSshBusy() || k.state !== 'issued' || sshIssueEnabled() !== true"
+                (click)="revokeSshKey(d.id, k.id)"
+              >revoke</button>
+            </li>
+          </ul>
+        </div>
+      </div>
     </li>
   </ul>
 </section>

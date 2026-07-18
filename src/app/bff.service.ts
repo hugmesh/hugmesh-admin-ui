@@ -155,9 +155,12 @@ export class BffService {
     throw new Error(await this.errorOf(r));
   }
 
-  /** Extract the BFF's {error} message (string or object) for a thrown rejection. */
+  /** Extract the BFF's {error} message (string or object) for a thrown rejection. Falls back to
+   *  {note} for the handful of hand-rolled non-ApiException bodies (e.g. AdminSshKeyIssuanceController's
+   *  darkResponse(), `{dark:true, note:"..."}`) that don't carry the standard {error} shape. */
   private async errorOf(r: Response): Promise<string> {
-    const err = (await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`;
+    const body = await r.json().catch(() => ({}));
+    const err = body.error ?? body.note ?? `HTTP ${r.status}`;
     return typeof err === 'string' ? err : JSON.stringify(err);
   }
 
@@ -743,6 +746,71 @@ export class BffService {
     if (r.ok) return (await r.json()).devices ?? [];
     const err = (await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`;
     throw new Error(err);
+  }
+
+  // ── SSH key-ISSUANCE console (SUPERADMIN-only mutations, BFF /bff/admin/ssh-issue) ──
+  // Distinct from the license grants above: a GRANT pins an operator's OWN, already-held
+  // key fingerprint; ISSUANCE here MINTS a brand-new Ed25519 keypair for an operator and
+  // registers its fingerprint into the same device_ssh_license registry, then streams the
+  // private key back ONCE. SHIPS DARK (app.ssh-issue.enabled=false by default): the list
+  // response's `enabled` field is the honest signal — the console suppresses issue/download/
+  // revoke and shows a notice when false, mirroring image-gen's capability-gate posture.
+  // Every mutating verb requires a fresh step-up: EITHER the X-SshKeyIssue-StepUp header OR
+  // (once wired) a fresh Casdoor-MFA stamp on the caller's own session (the A5 UNIFIED
+  // step-up already implemented server-side by SshKeyIssueStepUpGate) — a 403 whose message
+  // contains "requires step-up" is the shared `isStepUpRequiredError` contract. Endpoints
+  // (admin-bff AdminSshKeyIssuanceController):
+  //   GET    /bff/admin/ssh-issue/devices/{deviceId}/issued-keys → { deviceId, enabled, issuedKeys }
+  //   POST   /bff/admin/ssh-issue/issue?deviceId=                → SshIssueResult (X-SshKeyIssue-StepUp)
+  //   GET    /bff/admin/ssh-issue/issued/{id}/private-key        → application/octet-stream (one-time)
+  //   DELETE /bff/admin/ssh-issue/issued/{id}                    → { revoked, id } (X-SshKeyIssue-StepUp)
+
+  /** The issued-keys list for one device (ADMIN/SUPERADMIN, own-domain scoped by the BFF).
+   *  Degrades to an empty, not-enabled list on a denied/failed read (no existence leak),
+   *  matching {@link devices}/{@link pendingNodes}'s never-throw list convention. */
+  async issuedSshKeys(deviceId: string): Promise<AdminSshIssuedKeyList> {
+    const r = await fetch(`${CFG.bff}/bff/admin/ssh-issue/devices/${encodeURIComponent(deviceId)}/issued-keys`,
+      { credentials: 'include' });
+    return r.ok ? r.json() : { deviceId, enabled: false, issuedKeys: [] };
+  }
+
+  /** Mint a fresh Ed25519 credential for {@code deviceId} (SUPERADMIN-only, step-up gated).
+   *  The optional step-up token rides X-SshKeyIssue-StepUp; throws the BFF {error} on a
+   *  non-2xx (403 "requires step-up", 403 own-domain/superadmin-owned deny, 503 ships dark)
+   *  so a step-up-required 403 can be distinguished and offered the inline MFA dialog. */
+  async issueSshKey(deviceId: string, stepUpToken?: string): Promise<AdminSshIssueResult> {
+    const headers: Record<string, string> = {};
+    if (stepUpToken) headers['X-SshKeyIssue-StepUp'] = stepUpToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/ssh-issue/issue?deviceId=${encodeURIComponent(deviceId)}`,
+      { method: 'POST', headers, credentials: 'include' });
+    if (r.ok) return r.json();
+    throw new Error(await this.errorOf(r));
+  }
+
+  /** Download an issued credential's ONE-TIME private key (SUPERADMIN-only, step-up gated).
+   *  Credentialed fetch → Blob → synthetic object-URL anchor (never a plain <a href>, so the
+   *  HttpOnly bff_ cookie is sent and no key bytes ever touch a URL/history entry). Throws the
+   *  BFF {error} on a non-2xx (403 "requires step-up", 410 Gone if already downloaded/expired,
+   *  503 ships dark). */
+  async downloadSshPrivateKey(issuedKeyId: string, stepUpToken?: string): Promise<boolean> {
+    const headers: Record<string, string> = { accept: 'application/octet-stream' };
+    if (stepUpToken) headers['X-SshKeyIssue-StepUp'] = stepUpToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/ssh-issue/issued/${encodeURIComponent(issuedKeyId)}/private-key`,
+      { headers, credentials: 'include' });
+    if (!r.ok) throw new Error(await this.errorOf(r));
+    return this.saveBlob(await r.blob(), `snapdragon-ssh-${issuedKeyId.replace(/[^A-Za-z0-9._-]/g, '_')}`);
+  }
+
+  /** Revoke an issued credential (SUPERADMIN-only, step-up gated). A dark-ships refusal is a
+   *  normal 200 body `{dark:true, revoked:false, id}` (the controller never surfaces it as an
+   *  error for this verb) — only a role/step-up/own-domain deny throws. */
+  async revokeSshKey(issuedKeyId: string, stepUpToken?: string): Promise<AdminSshRevokeResult> {
+    const headers: Record<string, string> = {};
+    if (stepUpToken) headers['X-SshKeyIssue-StepUp'] = stepUpToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/ssh-issue/issued/${encodeURIComponent(issuedKeyId)}`,
+      { method: 'DELETE', headers, credentials: 'include' });
+    if (r.ok) return r.json();
+    throw new Error(await this.errorOf(r));
   }
 
   // ── Device PENDING pick-list (machine_key_fp AUTO-CAPTURE; SUPERADMIN assigns) ──
@@ -1757,6 +1825,57 @@ export interface DeviceSshLicense {
   granted_by?: string | null;
   granted_at?: string | null;
 }
+
+// ── SSH key-ISSUANCE DTOs (mirror the admin-bff sshissue package shapes; Jackson records
+//    serialise camelCase field names verbatim — no snake_case here, unlike DeviceRegistration
+//    above, which mirrors an older hand-mapped DTO). ──
+/** One `admin_ssh_issued_key` audit row — a MINTED credential (distinct from a license grant's
+ *  pinned, operator-supplied fingerprint). No private-key field ever appears on the wire. */
+export interface AdminSshIssuedKey {
+  id: string;
+  deviceId: string;
+  licenseId: string;
+  operator: string;
+  keyType: string;
+  publicKey: string;
+  fingerprint: string;
+  issuedBy: string;
+  issuedAt: string;
+  downloadedAt?: string | null;
+  state: 'issued' | 'revoked';
+  domain: string;
+  revokedAt?: string | null;
+  revokedBy?: string | null;
+}
+
+/** GET .../issued-keys response. `enabled` is the ships-dark signal (app.ssh-issue.enabled) —
+ *  false means issue/download/revoke will 503; the console gates on this rather than parsing
+ *  error bodies for a dark refusal. */
+export interface AdminSshIssuedKeyList {
+  deviceId: string;
+  enabled: boolean;
+  issuedKeys: AdminSshIssuedKey[];
+}
+
+/** The `issue` response — deliberately WITHOUT the private key (it is held server-side for one
+ *  download). `deviceStale` warns the credential will not be enforceable until the node next
+ *  phones home (advisory only). */
+export interface AdminSshIssueResult {
+  issuedKeyId: string;
+  fingerprint: string;
+  publicKey: string;
+  deviceLastSeenAt: string | null;
+  deviceStale: boolean;
+}
+
+/** The `revoke` response. A ships-dark refusal is a normal 200 here (not an error) — `dark:true`
+ *  with `revoked:false`, distinct from an ordinary "already revoked" `revoked:false`. */
+export interface AdminSshRevokeResult {
+  revoked: boolean;
+  id: string;
+  dark?: boolean;
+}
+
 // ── Domain-registry DTOs (mirror the admin-bff domainregistry package shapes) ──
 /** Body for POST /bff/admin/domains — registers one brand/domain in domain_registry.
  *  clusterDomain is REQUIRED + the UNIQUE natural key; the rest are optional brand
