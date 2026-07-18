@@ -157,6 +157,24 @@
                 >Browse catalog…</button>
               </div>
 
+              <!-- Tor onion — an x86 NODE service (fe-gateway as a v3 .onion), folded via the
+                   builder's additive --with-tor. Shown only for an x86 node image. -->
+              @if (showTorOnion(e)) {
+                <fieldset class="tor-onion-field" [attr.data-tor-onion-subform]="e.key">
+                  <legend>Tor onion (x86 node)</legend>
+                  <label class="check-inline">
+                    <input
+                      type="checkbox"
+                      [attr.data-tor-onion]="e.key"
+                      [ngModel]="e.torOnion"
+                      (ngModelChange)="patchEntry(e.key, { torOnion: $event })"
+                      [name]="'tor-onion-' + e.key"
+                    />
+                    Expose fe-gateway as a Tor v3 .onion
+                  </label>
+                </fieldset>
+              }
+
               <!-- ── DESKTOP-ONLY sub-forms (items 2/3/7), gated on image class ── -->
               @if (isDesktop(e)) {
                 <div class="desktop-subform" [attr.data-desktop-subform]="e.key">

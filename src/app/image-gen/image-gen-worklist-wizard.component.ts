@@ -21,6 +21,7 @@ import {
   entryWireId,
   isDesktopClass,
   isTailnetSsoEligible,
+  isTorOnionEligible,
   newEntry,
 } from './worklist-entry.model';
 
@@ -199,6 +200,13 @@ export class ImageGenWorklistWizardComponent implements OnInit {
    *  (cross-tenant affordance). The BFF re-enforces regardless. */
   showTailnetSso(e: WorklistEntry): boolean {
     return this.isSuperadmin() && isTailnetSsoEligible(e);
+  }
+
+  /** Whether the Tor-onion toggle shows: an x86 NODE image (the onion is an x86-only NODE
+   *  service, folded via the builder's --with-tor). The BFF/generator spec channel carries the
+   *  emitted tor_onion_service through to the builder. */
+  showTorOnion(e: WorklistEntry): boolean {
+    return isTorOnionEligible(e);
   }
 
   wireId(e: WorklistEntry): string {

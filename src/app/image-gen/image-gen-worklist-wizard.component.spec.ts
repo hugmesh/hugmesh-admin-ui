@@ -218,6 +218,35 @@ describe('ImageGenWorklistWizardComponent', () => {
     });
   });
 
+  // ── Tor onion toggle visibility (x86 NODE only) ───────────────────────────
+  describe('Tor onion toggle gating', () => {
+    it('SHOWS the Tor onion toggle for an x86 node image', async () => {
+      configure(['admin']);
+      await init();
+      component.entries.set([newEntry({ role: 'be', platform: 'x86', imageClass: 'node', targetUser: 'a@acme' })]);
+      fixture.detectChanges();
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.querySelector('[data-tor-onion-subform]')).not.toBeNull();
+      expect(el.querySelector('[data-tor-onion]')).not.toBeNull();
+    });
+
+    it('HIDES the Tor onion toggle for a non-x86 node image', async () => {
+      configure(['admin']);
+      await init();
+      component.entries.set([newEntry({ role: 'be', platform: 'rpi5', imageClass: 'node', targetUser: 'a@acme' })]);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('[data-tor-onion-subform]')).toBeNull();
+    });
+
+    it('HIDES the Tor onion toggle for an x86 desktop/client image', async () => {
+      configure(['admin']);
+      await init();
+      component.entries.set([newEntry({ role: 'laptop', platform: 'x86', imageClass: 'desktop', imageType: 'client', targetUser: 'a@acme' })]);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('[data-tor-onion-subform]')).toBeNull();
+    });
+  });
+
   // ── DOMAINS step (item 4, fed by listDomains, enabled only, NO games) ─────
   describe('domains step', () => {
     async function toDomains(roles: string[] = ['admin']) {
@@ -374,5 +403,30 @@ describe('buildWorklistEnvelope', () => {
   it('collapses an empty base to null', () => {
     const env = buildWorklistEnvelope([newEntry({ role: 'be', targetUser: 'n@acme' })], [], 1);
     expect(env.base).toBeNull();
+  });
+
+  // ── Tor onion (x86 node → tor_onion_service; the generator folds it to --with-tor) ──
+  it('emits tor_onion_service for an x86 NODE entry with torOnion on', () => {
+    const e = newEntry({ role: 'be', platform: 'x86', imageClass: 'node', targetUser: 'n@acme', torOnion: true });
+    const env = buildWorklistEnvelope([e], [], 1);
+    expect(env.entries[0].imageSpec).toEqual(jasmine.objectContaining({ tor_onion_service: true }));
+  });
+
+  it('OMITS tor_onion_service when torOnion is off (fail-closed default)', () => {
+    const e = newEntry({ role: 'be', platform: 'x86', imageClass: 'node', targetUser: 'n@acme' });
+    const env = buildWorklistEnvelope([e], [], 1);
+    expect(env.entries[0].imageSpec).not.toEqual(jasmine.objectContaining({ tor_onion_service: jasmine.anything() }));
+  });
+
+  it('DROPS tor_onion_service on a non-x86 node even if torOnion is on (no dead flag; rpi5 tor rides --optional-services, not offered here)', () => {
+    const e = newEntry({ role: 'be', platform: 'rpi5', imageClass: 'node', targetUser: 'n@acme', torOnion: true });
+    const env = buildWorklistEnvelope([e], [], 1);
+    expect(env.entries[0].imageSpec).not.toEqual(jasmine.objectContaining({ tor_onion_service: jasmine.anything() }));
+  });
+
+  it('DROPS tor_onion_service on an x86 CLIENT/desktop image even if torOnion is on (the onion is a NODE service)', () => {
+    const e = newEntry({ role: 'laptop', platform: 'x86', imageClass: 'desktop', imageType: 'client', targetUser: 'd@acme', torOnion: true });
+    const env = buildWorklistEnvelope([e], [], 1);
+    expect(env.entries[0].imageSpec).not.toEqual(jasmine.objectContaining({ tor_onion_service: jasmine.anything() }));
   });
 });

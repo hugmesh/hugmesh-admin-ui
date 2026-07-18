@@ -55,6 +55,11 @@ export interface WorklistEntry {
   // ── item 3: tailnet / SSO (branded desktop only, superadmin-gated) ──
   tailnetJoin: boolean;
   sso: boolean;
+  // ── Tor onion NODE service (x86 node only) — expose fe-gateway as a v3 .onion.
+  //    An x86-only ImageConfig field (tor_onion_service); the x86 builder folds it via
+  //    the additive --with-tor. Off by default. rpi5/edge tor rides --optional-services,
+  //    a richer path not offered here (mirrors the Studio's x86-only tor field). ──
+  torOnion: boolean;
   // ── item 7: home / home-encryption (desktop-only) ──
   homeEnabled: boolean;
   // ── item 4: attached domains (domain-name refs) ──
@@ -130,6 +135,7 @@ export function newEntry(over: Partial<WorklistEntry> = {}): WorklistEntry {
     customPrimaryColor: '',
     tailnetJoin: false,
     sso: false,
+    torOnion: false,
     homeEnabled: false,
     attachedDomains: [],
     packagesAdd: '',
@@ -156,6 +162,17 @@ export function isTailnetSsoEligible(e: WorklistEntry): boolean {
   );
 }
 
+/**
+ * True when the Tor-onion NODE-service toggle applies: an x86 NODE-class image. The onion is a
+ * k8s cluster NODE service the x86 builder folds via the additive `--with-tor`
+ * (`tor_onion_service` is an x86-only ImageConfig field); it has no effect on a client/desktop
+ * image and no dedicated flag on rpi5/edge (there it rides `--optional-services`, a richer path
+ * not offered in this wizard). Mirrors the Studio wizard, whose Tor field is x86-only.
+ */
+export function isTorOnionEligible(e: WorklistEntry): boolean {
+  return e.platform === 'x86' && e.imageClass === 'node';
+}
+
 /** The stable wire entry id `{role}.{platform}` used for domain attachment refs. */
 export function entryWireId(e: WorklistEntry): string {
   return `${e.role}.${e.platform}`;
@@ -172,6 +189,10 @@ export function entryWireId(e: WorklistEntry): string {
 export function entryContentSpec(e: WorklistEntry): Record<string, unknown> {
   const spec: Record<string, unknown> = { role: e.role, platform: e.platform };
   if (e.encryptRoot !== 'default') spec['encrypt_root'] = e.encryptRoot;
+  // Tor onion NODE service (x86 node only) → the x86-only tor_onion_service ImageConfig field,
+  // which the generator's to_cli_args() folds into the builder's additive --with-tor. Gated so a
+  // non-x86 / client entry never emits a dead flag (mirrors the Studio's x86-only tor field).
+  if (isTorOnionEligible(e) && e.torOnion) spec['tor_onion_service'] = true;
   const add = e.packagesAdd.trim();
   if (add) spec['packages_add'] = add;
   const drop = e.packagesDrop.trim();

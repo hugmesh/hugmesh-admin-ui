@@ -109,6 +109,7 @@
   .image-type-field,
   .branding-field,
   .tailnet-field,
+  .tor-onion-field,
   .home-field {
     border: 1px solid var(--sd-border, #{t.$mid});
     border-radius: t.$radius-sm;
