@@ -80,6 +80,20 @@ describe('DeviceRadiosComponent', () => {
     fixture.detectChanges();           // render with the loaded data
   }
 
+  /** Switch the transport THROUGH the real select (value + change event), the way a user
+   *  does. Mutating `component.transport` directly never re-renders here: under the
+   *  notification-based change-detection scheduler only views MARKED dirty get refreshed
+   *  by detectChanges(), and a bare property write from test code marks nothing — the DOM
+   *  event is what marks the view (and is also what drives ngModel + onTransportChange
+   *  in production). */
+  function switchTransport(value: 'serial' | 'tcp' | 'mqtt'): void {
+    const select = (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLSelectElement>('#dr-transport')!;
+    select.value = value;
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+  }
+
   it('loads radios/devices on init and defaults the node select', async () => {
     await init();
 
@@ -128,22 +142,20 @@ describe('DeviceRadiosComponent', () => {
     expect(el.querySelector('#dr-topic-root')).toBeNull();
 
     // tcp: host+port appear, serial path disappears; port defaults 4403.
-    component.transport = 'tcp';
-    component.onTransportChange();
-    fixture.detectChanges();
+    switchTransport('tcp');
     expect(el.querySelector('#dr-serial-path')).toBeNull();
     expect(el.querySelector('#dr-host')).not.toBeNull();
     expect(el.querySelector('#dr-port')).not.toBeNull();
     expect(el.querySelector('#dr-topic-root')).toBeNull();
+    expect(component.transport).toBe('tcp');
     expect(component.port).toBe(4403);
 
     // mqtt: topic root + channel name + optional gateway appear; port defaults 1883.
-    component.transport = 'mqtt';
-    component.onTransportChange();
-    fixture.detectChanges();
+    switchTransport('mqtt');
     expect(el.querySelector('#dr-topic-root')).not.toBeNull();
     expect(el.querySelector('#dr-channel-name')).not.toBeNull();
     expect(el.querySelector('#dr-gateway')).not.toBeNull();
+    expect(component.transport).toBe('mqtt');
     expect(component.port).toBe(1883);
   });
 
@@ -297,9 +309,7 @@ describe('DeviceRadiosComponent', () => {
 
     it('associates every visible form control with a visible <label for>', async () => {
       await init();
-      component.transport = 'mqtt';   // the widest field set
-      component.onTransportChange();
-      fixture.detectChanges();
+      switchTransport('mqtt');   // the widest field set
       const el: HTMLElement = fixture.nativeElement;
       for (const id of ['dr-device', 'dr-transport', 'dr-host', 'dr-port', 'dr-topic-root',
         'dr-channel-name', 'dr-gateway', 'dr-radio-id', 'dr-mesh-channel']) {
