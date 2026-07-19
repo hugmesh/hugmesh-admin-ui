@@ -1,0 +1,159 @@
+<section class="snap-phone-fleet" data-testid="phone-fleet-view" aria-labelledby="pf-heading">
+  <h2 id="pf-heading">Phone fleet</h2>
+  <p class="pf-intro">
+    Every MDM phone that has ingested — self-reported its provisioning snapshot to the
+    platform. Read-only: enrolment and profile changes happen on the device via the
+    phone wizard; this console only observes what the fleet reports.
+  </p>
+
+  <button
+    type="button"
+    data-testid="pf-refresh"
+    (click)="load()"
+    [disabled]="loading()"
+  >Refresh</button>
+
+  <span
+    *ngIf="loadError()"
+    class="field-error"
+    data-testid="pf-error"
+    role="alert"
+    aria-live="assertive"
+  >{{ loadError() }}</span>
+
+  <p *ngIf="loading()" class="pf-muted" data-testid="pf-loading" role="status" aria-live="polite">
+    Loading the phone fleet…
+  </p>
+
+  <p
+    *ngIf="!loading() && !loadError() && !phones().length"
+    class="pf-muted"
+    data-testid="pf-empty"
+  >No phones have ingested yet.</p>
+
+  <table *ngIf="phones().length" class="pf-table" data-testid="pf-table" aria-labelledby="pf-heading">
+    <caption class="sr">
+      Ingested MDM phones with OS, role, attached domain, tailscale address, enterprise
+      profile, attestation verdict and ingest telemetry — newest ingest activity first.
+    </caption>
+    <thead>
+      <tr>
+        <th scope="col">Device</th>
+        <th scope="col">OS</th>
+        <th scope="col">Role</th>
+        <th scope="col">Attached domain</th>
+        <th scope="col">Tailscale</th>
+        <th scope="col">Enterprise profile</th>
+        <th scope="col">Attestation</th>
+        <th scope="col">Last ingested</th>
+        <th scope="col">Ingests</th>
+        <th scope="col"><span class="sr">Details</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      <ng-container *ngFor="let p of phones()">
+        <tr [attr.data-phone-id]="p.deviceId" class="pf-row">
+          <td class="p-device">
+            <strong>{{ p.deviceId }}</strong>
+            <small *ngIf="deviceName(p)" class="pf-muted">{{ deviceName(p) }}</small>
+          </td>
+          <td class="p-os">{{ p.os || '—' }} {{ p.osVersion }}</td>
+          <td class="p-role">{{ p.role || '—' }}</td>
+          <td class="p-domain">{{ p.attachedDomain || '—' }}</td>
+          <td class="p-tailscale">
+            {{ p.tailscaleIp || '—' }}
+            <small *ngIf="p.tailscaleHostname" class="pf-muted">{{ p.tailscaleHostname }}</small>
+          </td>
+          <td class="p-enterprise">
+            <span
+              class="pf-chip"
+              [attr.data-ep]="p.enterpriseProfilePresent"
+              [class.pf-chip--ok]="p.enterpriseProfilePresent"
+            >{{ p.enterpriseProfilePresent ? 'present' : 'none' }}</span>
+          </td>
+          <td class="p-attestation">
+            <span
+              class="pf-chip"
+              [attr.data-verdict]="p.attestationVerdict || 'unknown'"
+              [class.pf-chip--ok]="p.attestationVerdict === 'verified'"
+              [class.pf-chip--err]="p.attestationVerdict === 'failed'"
+            >{{ p.attestationVerdict || 'unknown' }}</span>
+          </td>
+          <td class="p-last-ingested">{{ p.lastIngestedAt | date: 'short' }}</td>
+          <td class="p-ingests">{{ p.ingestCount }}</td>
+          <td class="p-actions">
+            <button
+              type="button"
+              class="link"
+              [attr.data-expand]="p.deviceId"
+              [attr.aria-expanded]="isExpanded(p.deviceId)"
+              [attr.aria-controls]="'pf-detail-' + p.deviceId"
+              [attr.aria-label]="(isExpanded(p.deviceId) ? 'Hide details for phone ' : 'Show details for phone ') + p.deviceId"
+              (click)="toggle(p.deviceId)"
+            >{{ isExpanded(p.deviceId) ? 'Hide details' : 'Details' }}</button>
+          </td>
+        </tr>
+
+        <tr *ngIf="isExpanded(p.deviceId)" class="pf-detail" [attr.data-phone-detail]="p.deviceId">
+          <td colspan="10" [attr.id]="'pf-detail-' + p.deviceId">
+            <div class="pf-detail-grid">
+              <div class="pf-block">
+                <h3>Identity</h3>
+                <dl>
+                  <dt>Registry id</dt><dd>{{ p.id }}</dd>
+                  <dt>Device id</dt><dd>{{ p.deviceId }}</dd>
+                  <dt>Class</dt><dd>{{ p.deviceClass || '—' }}</dd>
+                  <dt>Serial</dt><dd>{{ p.serial || '—' }}</dd>
+                  <dt>Codename</dt><dd>{{ p.codename || '—' }}</dd>
+                  <dt>Marketing name</dt><dd>{{ p.marketingName || '—' }}</dd>
+                  <dt>OS</dt><dd>{{ p.os || '—' }} {{ p.osVersion }}</dd>
+                  <dt>Role</dt><dd>{{ p.role || '—' }}</dd>
+                </dl>
+              </div>
+
+              <div class="pf-block">
+                <h3>Mesh / tailscale</h3>
+                <dl>
+                  <dt>Superdomain</dt><dd>{{ p.superdomain || '—' }}</dd>
+                  <dt>Login server</dt><dd>{{ p.loginServer || '—' }}</dd>
+                  <dt>Tailscale IP</dt><dd>{{ p.tailscaleIp || '—' }}</dd>
+                  <dt>Tailscale hostname</dt><dd>{{ p.tailscaleHostname || '—' }}</dd>
+                  <dt>Attached domain</dt><dd>{{ p.attachedDomain || '—' }}</dd>
+                </dl>
+              </div>
+
+              <div class="pf-block">
+                <h3>Enterprise profile</h3>
+                <dl>
+                  <dt>Present</dt><dd>{{ p.enterpriseProfilePresent ? 'yes' : 'no' }}</dd>
+                  <dt>Profile user id</dt><dd>{{ p.enterpriseProfileUserId ?? '—' }}</dd>
+                  <dt>Credential custody</dt><dd>{{ p.enterpriseProfileCredentialCustody || '—' }}</dd>
+                </dl>
+              </div>
+
+              <div class="pf-block">
+                <h3>Attestation</h3>
+                <dl>
+                  <dt>Verdict</dt><dd>{{ p.attestationVerdict || 'unknown' }}</dd>
+                  <dt>Attestation URL</dt><dd>{{ p.attestationUrl || '—' }}</dd>
+                  <dt>Auditor package</dt><dd>{{ p.auditorPackage || '—' }}</dd>
+                </dl>
+              </div>
+
+              <div class="pf-block">
+                <h3>Ingest telemetry</h3>
+                <dl>
+                  <dt>Enrolled</dt><dd>{{ p.enrolledAt ? (p.enrolledAt | date: 'short') : '—' }}</dd>
+                  <dt>Generated</dt><dd>{{ p.generatedAt ? (p.generatedAt | date: 'short') : '—' }}</dd>
+                  <dt>First ingested</dt><dd>{{ p.firstIngestedAt ? (p.firstIngestedAt | date: 'short') : '—' }}</dd>
+                  <dt>Last ingested</dt><dd>{{ p.lastIngestedAt ? (p.lastIngestedAt | date: 'short') : '—' }}</dd>
+                  <dt>Ingest count</dt><dd>{{ p.ingestCount }}</dd>
+                </dl>
+              </div>
+            </div>
+          </td>
+        </tr>
+      </ng-container>
+    </tbody>
+  </table>
+</section>

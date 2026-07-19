@@ -65,6 +65,7 @@ export class AdminComponent implements OnInit {
     { path: 'security', label: 'Security (2FA)' },
     { path: 'device-licenses', label: 'Device licenses', superadminOnly: true },
     { path: 'device-pending', label: 'Pending devices', superadminOnly: true },
+    { path: 'phone-fleet', label: 'Phone fleet', superadminOnly: true },
     { path: 'node-storage', label: 'Node storage' },
     { path: 'device-radios', label: 'Device radios' },
     { path: 'domain-capabilities', label: 'Domain capabilities' },

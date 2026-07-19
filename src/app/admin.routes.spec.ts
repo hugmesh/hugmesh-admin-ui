@@ -20,6 +20,7 @@ import { AppealsComponent } from './appeals/appeals.component';
 import { AccountAppealsComponent } from './account-appeals/account-appeals.component';
 import { DeviceLicensesComponent } from './device-licenses.component';
 import { DevicePendingComponent } from './device-pending.component';
+import { PhoneFleetComponent } from './phone-fleet.component';
 import { StoragePoolsComponent } from './storage-pools.component';
 import { DeviceRadiosComponent } from './device-radios.component';
 import { DomainCapabilitiesComponent } from './domain-capabilities.component';
@@ -72,6 +73,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('security')!.component).toBe(MfaSecurityComponent);
     expect(byPath('device-licenses')!.component).toBe(DeviceLicensesComponent);
     expect(byPath('device-pending')!.component).toBe(DevicePendingComponent);
+    expect(byPath('phone-fleet')!.component).toBe(PhoneFleetComponent);
     expect(byPath('node-storage')!.component).toBe(StoragePoolsComponent);
     expect(byPath('device-radios')!.component).toBe(DeviceRadiosComponent);
     expect(byPath('domain-capabilities')!.component).toBe(DomainCapabilitiesComponent);
@@ -83,7 +85,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('superadmin/anubis')!.component).toBe(AnubisAdminComponent);
   });
 
-  it('exposes exactly the thirty-four admin views the host expects (incl. delegation + appeals + account-appeals + the self-service security/MFA console + device-licenses + device-pending + node-storage + device-radios + domain-capabilities + desktop governance + egress-vpn + superadmin/domains + oidc-providers + games-services + superadmin/anubis + cloud-backups + image-gen + the HIDDEN-tier workloads console + its logs/terminal sub-views)', () => {
+  it('exposes exactly the thirty-five admin views the host expects (incl. delegation + appeals + account-appeals + the self-service security/MFA console + device-licenses + device-pending + phone-fleet + node-storage + device-radios + domain-capabilities + desktop governance + egress-vpn + superadmin/domains + oidc-providers + games-services + superadmin/anubis + cloud-backups + image-gen + the HIDDEN-tier workloads console + its logs/terminal sub-views)', () => {
     expect(ADMIN_ROUTES.map((r) => r.path)).toEqual([
       '',
       'usage',
@@ -107,6 +109,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
       'security',
       'device-licenses',
       'device-pending',
+      'phone-fleet',
       'node-storage',
       'device-radios',
       'domain-capabilities',
@@ -146,6 +149,13 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(dp).toBeDefined();
     expect(dp!.component).toBe(DevicePendingComponent);
     expect(dp!.canActivate).toEqual([superadminGuard]);
+  });
+
+  it('superadmin-gates the phone-fleet console (read-only MDM phone registry; behind the superadmin guard)', () => {
+    const pf = byPath('phone-fleet');
+    expect(pf).toBeDefined();
+    expect(pf!.component).toBe(PhoneFleetComponent);
+    expect(pf!.canActivate).toEqual([superadminGuard]);
   });
 
   it('superadmin-gates the egress-vpn console (additive, behind the superadmin guard)', () => {
