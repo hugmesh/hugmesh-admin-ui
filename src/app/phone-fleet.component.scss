@@ -1,0 +1,135 @@
+@use '../styles/tokens' as t;
+
+:host {
+  display: block;
+}
+
+.snap-phone-fleet {
+  display: block;
+  padding: 1rem;
+
+  .pf-intro {
+    color: var(--sd-text-soft, var(--sd-text));
+    max-width: 60ch;
+  }
+
+  .pf-muted {
+    color: var(--sd-text-soft, var(--sd-text));
+    font-size: 0.9em;
+  }
+
+  button {
+    background: var(--sd-accent);
+    color: var(--sd-text);
+    border: 1px solid var(--sd-accent-soft);
+    border-radius: t.$radius-sm;
+    padding: 0.4rem 0.8rem;
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: progress;
+    }
+  }
+
+  .field-error {
+    color: var(--sd-error);
+    margin-inline-start: 0.75rem;
+  }
+
+  .pf-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-block: 0.75rem 1rem;
+
+    caption.sr { text-align: left; }
+
+    th[scope='col'] {
+      text-align: left;
+      border-bottom: 1px solid var(--sd-border, #{t.$mid});
+      padding: 0.4rem 0.6rem;
+      color: var(--sd-text-muted, #{t.$light});
+      font-size: 0.85rem;
+    }
+
+    td {
+      padding: 0.45rem 0.6rem;
+      border-bottom: 1px solid rgba(t.$mid, 0.5);
+      text-align: left;
+      vertical-align: top;
+    }
+  }
+
+  .p-device,
+  .p-tailscale {
+    small {
+      display: block;
+    }
+  }
+
+  .pf-chip {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid var(--sd-border);
+    background: var(--sd-bg-1);
+
+    &--ok {
+      border-color: var(--sd-ok, #2e7d32);
+      color: var(--sd-ok, #2e7d32);
+    }
+    &--err {
+      border-color: var(--sd-error);
+      color: var(--sd-error);
+    }
+  }
+
+  .p-actions .link {
+    all: unset;
+    cursor: pointer;
+    color: var(--sd-accent-soft, #{t.$neon-bright});
+    text-decoration: underline;
+
+    &:focus-visible { outline: 2px solid var(--sd-text, #{t.$offwhite}); outline-offset: 2px; }
+  }
+
+  .pf-detail td {
+    background: rgba(t.$pastel-sky, 0.08);
+    border-radius: t.$radius-sm;
+  }
+
+  .pf-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: 0.75rem 1.5rem;
+  }
+
+  .pf-block {
+    h3 {
+      margin: 0 0 0.25rem;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: var(--sd-text-muted, #{t.$light});
+    }
+
+    dl {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: 0.15rem 0.75rem;
+      margin: 0;
+    }
+
+    dt {
+      font-weight: 600;
+      color: var(--sd-text);
+    }
+
+    dd {
+      margin: 0;
+      overflow-wrap: anywhere;
+    }
+  }
+}

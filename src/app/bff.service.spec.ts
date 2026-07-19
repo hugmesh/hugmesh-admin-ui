@@ -405,6 +405,34 @@ describe('BffService', () => {
       expect(lastUrl()).toContain('/bff/admin/desktop/ssh-terminal/sessions?deviceId=dev-1');
     });
   });
+
+  describe('phone fleet', () => {
+    it('phones() unwraps the { phones } envelope from the superadmin registry with credentials', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ phones: [{ id: 'row-1', deviceId: 'phone-1', enterpriseProfilePresent: false, ingestCount: 3 }] }));
+      const phones = await service.phones();
+      expect(phones.length).toBe(1);
+      expect(phones[0].deviceId).toBe('phone-1');
+      expect(lastUrl()).toContain('/bff/superadmin/phone-devices');
+      expect(lastInit().credentials).toBe('include');
+    });
+
+    it('phones() returns [] (not throw) on a failed read', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ error: 'forbidden' }, { ok: false, status: 403 }));
+      await expectAsync(service.phones()).toBeResolvedTo([]);
+    });
+
+    it('phone() GETs the url-encoded deviceId path and returns the row', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ id: 'row-1', deviceId: 'phone/1', enterpriseProfilePresent: true, ingestCount: 9 }));
+      const p = await service.phone('phone/1');
+      expect(p!.ingestCount).toBe(9);
+      expect(lastUrl()).toContain('/bff/superadmin/phone-devices/phone%2F1');
+    });
+
+    it('phone() returns null (not throw) on a 404 unknown device', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ error: 'unknown device' }, { ok: false, status: 404 }));
+      await expectAsync(service.phone('nope')).toBeResolvedTo(null);
+    });
+  });
 });
 
 /** A minimal ReadableStream whose single chunk is the given SSE text. */

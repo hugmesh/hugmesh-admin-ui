@@ -1609,6 +1609,32 @@ export class BffService {
     if (r.ok) return r.json();
     throw new Error(await this.errorOf(r));
   }
+
+  // ── Phone fleet (SUPERADMIN-only READ-ONLY, BFF /bff/superadmin/phone-devices) ──
+  // The sovereign MDM phone registry: every Android phone that has INGESTED (self-reported
+  // its identity/mesh/attestation snapshot to the BFF). Read-only — enrolment and profile
+  // management happen device-side via the phone wizard, never from this console.
+  //   GET /bff/superadmin/phone-devices              → { phones } (newest ingest activity first)
+  //   GET /bff/superadmin/phone-devices/{deviceId}   → PhoneDevice (404 {error} unknown; 400 blank/oversized id)
+
+  /** Every ingested phone, newest ingest activity first (SUPERADMIN). */
+  async phones(): Promise<PhoneDevice[]> {
+    const r = await fetch(`${CFG.bff}/bff/superadmin/phone-devices`, {
+      credentials: 'include',
+    });
+    if (!r.ok) return [];
+    const body = await r.json();
+    return body.phones ?? [];
+  }
+
+  /** One phone by its stable deviceId, or null when unknown/denied (fail-soft read idiom). */
+  async phone(deviceId: string): Promise<PhoneDevice | null> {
+    const r = await fetch(`${CFG.bff}/bff/superadmin/phone-devices/${encodeURIComponent(deviceId)}`, {
+      credentials: 'include',
+    });
+    if (!r.ok) return null;
+    return r.json();
+  }
 }
 
 // ── Backup & Recovery DTOs (mirror the BFF backup package shapes) ─────
@@ -2580,4 +2606,46 @@ export interface DeviceSshDial {
   k8sSecretName?: string | null;
   status: string;
   generation: number;
+}
+
+// ── Phone-fleet DTOs (mirror the admin-bff phone package shapes, camelCase records) ──
+/** One ingested MDM phone row (admin-bff PhoneFleetSuperadminController). A phone appears
+ *  here only after its first INGEST (the device self-reporting its provisioning snapshot);
+ *  the ingest telemetry trio (firstIngestedAt / lastIngestedAt / ingestCount) tracks that
+ *  self-reporting, DISTINCT from enrolledAt/generatedAt which the device carries from its
+ *  own provisioning. The enterpriseProfile* fields describe the on-device WORK PROFILE
+ *  (enterprise profile/user), not this superadmin console's own scope. */
+export interface PhoneDevice {
+  id: string;
+  deviceId: string;
+  deviceClass?: string | null;
+  serial?: string | null;
+  codename?: string | null;
+  marketingName?: string | null;
+  os?: string | null;
+  osVersion?: string | null;
+  superdomain?: string | null;
+  loginServer?: string | null;
+  tailscaleIp?: string | null;
+  tailscaleHostname?: string | null;
+  role?: string | null;
+  attachedDomain?: string | null;
+  enterpriseProfilePresent: boolean;
+  enterpriseProfileUserId?: number | null;
+  enterpriseProfileCredentialCustody?: string | null;
+  attestationUrl?: string | null;
+  auditorPackage?: string | null;
+  attestationVerdict?: string | null;
+  // MDM device-owner (Headwind) enrolment facts — phone-ingest/v2's `mdm` fold.
+  // Null/false for v1 producers and phones that never ran mdm-enroll.
+  mdmEnrolled?: boolean | null;
+  mdmDpcPackage?: string | null;
+  mdmHeadwindUrl?: string | null;
+  mdmSetVia?: string | null;
+  mdmEnrolledAt?: string | null;
+  enrolledAt?: string | null;
+  generatedAt?: string | null;
+  firstIngestedAt?: string | null;
+  lastIngestedAt?: string | null;
+  ingestCount: number;
 }
