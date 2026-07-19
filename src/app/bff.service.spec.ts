@@ -432,6 +432,63 @@ describe('BffService', () => {
       fetchSpy.and.resolveTo(jsonResponse({ error: 'unknown device' }, { ok: false, status: 404 }));
       await expectAsync(service.phone('nope')).toBeResolvedTo(null);
     });
+
+    // ── Device-management + lockout mutations (SUPERADMIN + X-PhoneLock-StepUp) ──
+    function phoneHeader(name: string): string | undefined {
+      return (lastInit().headers as Record<string, string>)?.[name];
+    }
+
+    it('setPhoneManagement PUTs the management path with {mode} body + credentials, and sends X-PhoneLock-StepUp when a token is given', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ deviceId: 'phone-1', managementMode: 'mesh_owned' }));
+      const updated = await service.setPhoneManagement('phone/1', 'mesh_owned', 'TK-1');
+      expect(updated.managementMode).toBe('mesh_owned');
+      expect(lastUrl()).toContain('/bff/superadmin/phone-devices/phone%2F1/management');
+      expect(lastInit().method).toBe('PUT');
+      expect(lastInit().credentials).toBe('include');
+      expect(JSON.parse(String(lastInit().body))).toEqual({ mode: 'mesh_owned' });
+      expect(phoneHeader('X-PhoneLock-StepUp')).toBe('TK-1');
+    });
+
+    it('setPhoneManagement omits the step-up header when no token is given (the BFF then 403s)', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ deviceId: 'phone-1', managementMode: 'unmanaged' }));
+      await service.setPhoneManagement('phone-1', 'unmanaged');
+      expect(phoneHeader('X-PhoneLock-StepUp')).toBeUndefined();
+    });
+
+    it('lockPhone POSTs .../lock with the {reason} body and sends the step-up header', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ deviceId: 'phone-1', lockState: 'locked' }));
+      const updated = await service.lockPhone('phone-1', 'stolen', 'TK-2');
+      expect(updated.lockState).toBe('locked');
+      expect(lastUrl()).toContain('/bff/superadmin/phone-devices/phone-1/lock');
+      expect(lastInit().method).toBe('POST');
+      expect(JSON.parse(String(lastInit().body))).toEqual({ reason: 'stolen' });
+      expect(phoneHeader('X-PhoneLock-StepUp')).toBe('TK-2');
+    });
+
+    it('unlockPhone POSTs .../unlock with NO body and the step-up header when a token is given', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ deviceId: 'phone-1', lockState: 'unlocked' }));
+      const updated = await service.unlockPhone('phone-1', 'TK-3');
+      expect(updated.lockState).toBe('unlocked');
+      expect(lastUrl()).toContain('/bff/superadmin/phone-devices/phone-1/unlock');
+      expect(lastInit().method).toBe('POST');
+      expect(lastInit().body).toBeUndefined();
+      expect(phoneHeader('X-PhoneLock-StepUp')).toBe('TK-3');
+      // No JSON body means no content-type header on the request.
+      expect(phoneHeader('content-type')).toBeUndefined();
+    });
+
+    it('a phone-lock mutation THROWS the BFF {error} on a non-OK — so a step-up 403 surfaces for isStepUpRequiredError', async () => {
+      fetchSpy.and.resolveTo(jsonResponse(
+        { error: 'phone lock requires step-up re-authentication (present X-PhoneLock-StepUp)' },
+        { ok: false, status: 403 }));
+      await expectAsync(service.lockPhone('phone-1', 'stolen'))
+        .toBeRejectedWithError(/requires step-up/);
+    });
+
+    it('lockPhone surfaces the BFF 409 for a BYOD device verbatim', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ error: 'not a managed device' }, { ok: false, status: 409 }));
+      await expectAsync(service.lockPhone('phone-byod', 'x')).toBeRejectedWithError('not a managed device');
+    });
   });
 });
 

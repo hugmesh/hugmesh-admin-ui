@@ -1635,6 +1635,55 @@ export class BffService {
     if (!r.ok) return null;
     return r.json();
   }
+
+  // ── Phone device-management + lockout MUTATIONS (SUPERADMIN + step-up) ──────────
+  // Distinct from the fail-soft reads above: these THROW on a non-2xx (like every other
+  // mutation in this service), so a step-up-required 403 surfaces its "requires step-up"
+  // message verbatim (via {@link errorOf}) for {@link isStepUpRequiredError} to detect and
+  // offer the inline MFA dialog — mirroring the ssh-issuance verbs. The optional step-up
+  // token rides the X-PhoneLock-StepUp header (the BFF's PhoneLockStepUpGate); each returns
+  // the UPDATED PhoneDevice so the console can swap the row in place. Endpoints (admin-bff
+  // PhoneFleetSuperadminController, all under /bff/superadmin/phone-devices/{deviceId}):
+  //   PUT  .../management  {mode}   → 200 PhoneDevice        (409 not a managed device is not raised here — PUT always succeeds; clearing a locked device also unlocks it)
+  //   POST .../lock        {reason} → 200 PhoneDevice        (409 if managementMode != mesh_owned)
+  //   POST .../unlock               → 200 PhoneDevice
+
+  /** Set a phone's AUTHORITATIVE management mode (operator-set, spoof-proof). Clearing a
+   *  currently-locked device to `unmanaged` also unlocks it server-side (a BYOD device cannot
+   *  stay locked). Returns the updated row; throws the BFF {error} on a non-2xx. */
+  async setPhoneManagement(deviceId: string, mode: 'mesh_owned' | 'unmanaged', stepUpToken?: string): Promise<PhoneDevice> {
+    return this.phoneLockMutate('PUT',
+      `/bff/superadmin/phone-devices/${encodeURIComponent(deviceId)}/management`, { mode }, stepUpToken);
+  }
+
+  /** Lock a MANAGED (mesh_owned) phone with a reason (<=512). A BYOD/unmanaged device is a clean
+   *  409 "not a managed device". Bumps lockGeneration and runs the enforcement legs (propagation
+   *  applied|degraded|failed). Returns the updated row; throws the BFF {error} on a non-2xx. */
+  async lockPhone(deviceId: string, reason: string, stepUpToken?: string): Promise<PhoneDevice> {
+    return this.phoneLockMutate('POST',
+      `/bff/superadmin/phone-devices/${encodeURIComponent(deviceId)}/lock`, { reason }, stepUpToken);
+  }
+
+  /** Unlock a phone (reversible CAS; bumps lockGeneration). Returns the updated row; throws the
+   *  BFF {error} on a non-2xx. */
+  async unlockPhone(deviceId: string, stepUpToken?: string): Promise<PhoneDevice> {
+    return this.phoneLockMutate('POST',
+      `/bff/superadmin/phone-devices/${encodeURIComponent(deviceId)}/unlock`, undefined, stepUpToken);
+  }
+
+  /** Shared phone-lock mutation: carries the HttpOnly bff_ cookie (credentials:'include'), the
+   *  optional X-PhoneLock-StepUp token, and (when present) a JSON body; throws the BFF {error} on
+   *  any non-2xx so a step-up 403 message surfaces verbatim to {@link isStepUpRequiredError}. */
+  private async phoneLockMutate(method: string, path: string, body: unknown, stepUpToken?: string): Promise<PhoneDevice> {
+    const headers: Record<string, string> = {};
+    if (body !== undefined) headers['content-type'] = 'application/json';
+    if (stepUpToken) headers['X-PhoneLock-StepUp'] = stepUpToken;
+    const init: RequestInit = { method, headers, credentials: 'include' };
+    if (body !== undefined) init.body = JSON.stringify(body);
+    const r = await fetch(`${CFG.bff}${path}`, init);
+    if (r.ok) return r.json();
+    throw new Error(await this.errorOf(r));
+  }
 }
 
 // ── Backup & Recovery DTOs (mirror the BFF backup package shapes) ─────
@@ -2636,6 +2685,23 @@ export interface PhoneDevice {
   attestationUrl?: string | null;
   auditorPackage?: string | null;
   attestationVerdict?: string | null;
+  // ── Device management + lockout (admin-bff #<phone-device-management>) ──
+  // AUTHORITATIVE, operator-set (never self-claimed): managementMode is written ONLY via
+  // /bff/superadmin/** (SUPERADMIN + step-up); the ingest path never touches it. `mesh_owned`
+  // = a managed, mesh-owner-provisioned phone (lockable); `unmanaged` = BYOD (not lockable).
+  // lockState mirrors device_ssh_license: a reversible CAS with a monotonic lockGeneration and a
+  // best-effort lockPropagationState (null when never locked/unlocked; pending→applied|degraded|
+  // failed as the two flag-gated enforcement legs run). The NOT-NULL-DEFAULT columns (mode/state/
+  // generation) are always present on a row the NEW BFF returns; the lock* nullables are null
+  // until the first lock. The `mdmEnrolled` fold above is the DEVICE-REPORTED, spoofable advisory
+  // hint that a phone is eligible to be promoted to mesh_owned — distinct from this authority.
+  managementMode: 'unmanaged' | 'mesh_owned';
+  lockState: 'unlocked' | 'locked';
+  lockPropagationState: 'pending' | 'applied' | 'failed' | 'degraded' | null;
+  lockGeneration: number;
+  lockReason: string | null;
+  lockActor: string | null;
+  lockUpdatedAt: string | null;
   // MDM device-owner (Headwind) enrolment facts — phone-ingest/v2's `mdm` fold.
   // Null/false for v1 producers and phones that never ran mdm-enroll.
   mdmEnrolled?: boolean | null;
