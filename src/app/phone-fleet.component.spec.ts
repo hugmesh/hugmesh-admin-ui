@@ -29,6 +29,11 @@ const fixturePhones = (): PhoneDevice[] => [
     attestationUrl: 'https://attestsrv.example',
     auditorPackage: 'systems.snapdragon.auditor',
     attestationVerdict: 'verified',
+    mdmEnrolled: true,
+    mdmDpcPackage: 'com.hmdm.launcher',
+    mdmHeadwindUrl: 'https://hmdm-srv.example',
+    mdmSetVia: 'adb-device-owner',
+    mdmEnrolledAt: '2026-07-02T11:00:00Z',
     enrolledAt: '2026-07-01T10:00:00Z',
     generatedAt: '2026-06-30T08:00:00Z',
     firstIngestedAt: '2026-07-01T10:05:00Z',
@@ -194,6 +199,12 @@ describe('PhoneFleetComponent', () => {
     expect(text).toContain('https://attestsrv.example'); // attestationUrl (was never uniquely asserted)
     expect(text).toContain('systems.snapdragon.auditor'); // auditorPackage
     expect(text).toContain('verified');         // verdict
+    // MDM-enrolment block (phone-ingest/v2 fold).
+    const mdm = detail.querySelector('[data-block="mdm"]')!.textContent!;
+    expect(mdm).toContain('enrolled');           // device-owner state
+    expect(mdm).toContain('com.hmdm.launcher');  // dpcPackage
+    expect(mdm).toContain('https://hmdm-srv.example'); // headwindUrl
+    expect(mdm).toContain('adb-device-owner');   // setVia
     // Ingest telemetry: first/last ingested + count.
     expect(text).toContain(formatDate('2026-07-01T10:05:00Z', 'short', 'en-US'));
     expect(text).toContain(formatDate('2026-07-18T09:30:00Z', 'short', 'en-US'));

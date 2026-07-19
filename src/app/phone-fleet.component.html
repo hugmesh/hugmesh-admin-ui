@@ -140,6 +140,17 @@
                 </dl>
               </div>
 
+              <div class="pf-block" data-block="mdm">
+                <h3>MDM enrolment</h3>
+                <dl>
+                  <dt>Device owner</dt><dd>{{ p.mdmEnrolled ? 'enrolled' : 'not enrolled' }}</dd>
+                  <dt>DPC package</dt><dd>{{ p.mdmDpcPackage || '—' }}</dd>
+                  <dt>Headwind URL</dt><dd>{{ p.mdmHeadwindUrl || '—' }}</dd>
+                  <dt>Set via</dt><dd>{{ p.mdmSetVia || '—' }}</dd>
+                  <dt>Enrolled at</dt><dd>{{ p.mdmEnrolledAt ? (p.mdmEnrolledAt | date: 'short') : '—' }}</dd>
+                </dl>
+              </div>
+
               <div class="pf-block">
                 <h3>Ingest telemetry</h3>
                 <dl>

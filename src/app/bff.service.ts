@@ -2636,6 +2636,13 @@ export interface PhoneDevice {
   attestationUrl?: string | null;
   auditorPackage?: string | null;
   attestationVerdict?: string | null;
+  // MDM device-owner (Headwind) enrolment facts — phone-ingest/v2's `mdm` fold.
+  // Null/false for v1 producers and phones that never ran mdm-enroll.
+  mdmEnrolled?: boolean | null;
+  mdmDpcPackage?: string | null;
+  mdmHeadwindUrl?: string | null;
+  mdmSetVia?: string | null;
+  mdmEnrolledAt?: string | null;
   enrolledAt?: string | null;
   generatedAt?: string | null;
   firstIngestedAt?: string | null;
