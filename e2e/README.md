@@ -75,7 +75,7 @@ the default lane is empty or holds the `@offline` scenarios.
 `@skip` drops a scenario from generation entirely (`bddgen` emits 0 specs for
 it), so a `@skip`-tagged suite cannot be *discovered*. `@cluster` is a plain
 filter tag — the no-filter validation below generates and lists every scenario
-(**101 today across 20 files**), proving the Gherkin compiles, while the default
+(**107 today across 21 files**), proving the Gherkin compiles, while the default
 config keeps the `@cluster` ones dark and surfaces the `@offline` lane.
 
 ## Structural validation (no cluster, no browser)
@@ -96,7 +96,7 @@ export default defineConfig({ reporter: [['list']],
   projects: [{ name: 'bdd', testDir: d, use: { ...devices['Desktop Chrome'] } }] });
 EOF
 npx bddgen -c pw-validate.config.ts
-npx playwright test --list -c pw-validate.config.ts   # → 101 tests in 20 files
+npx playwright test --list -c pw-validate.config.ts   # → 107 tests in 21 files
 rm pw-validate.config.ts
 ```
 

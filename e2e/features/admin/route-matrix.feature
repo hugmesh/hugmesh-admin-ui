@@ -16,8 +16,9 @@
 #     plain user and the signed-out visitor to /login. That is why the mod /
 #     plain / signed-out columns are constant bounce assertions on every row.
 #   - superadminGuard (session.isSuperadmin()) additionally protects
-#     device-licenses, device-pending, egress-vpn, superadmin/domains and
-#     superadmin/anubis → a plain domain admin bounces there.
+#     device-licenses, device-pending, phone-fleet, egress-vpn,
+#     superadmin/domains and superadmin/anubis → a plain domain admin bounces
+#     there.
 #   - gamesServicesGuard admits ONLY games_services_admin | games_services_runner
 #     → BOTH the plain admin AND the superadmin bounce from /games-services
 #     (neither seed carries a games role; the per-games-role ALLOWs live in
@@ -83,6 +84,7 @@ Feature: Per-role route matrix — every admin route, every persona, ALLOW or bo
       | route                     | superadmin outcome                          | admin outcome                     |
       | /admin/device-licenses    | sees the "device-licenses-view" console     | is redirected to the login page   |
       | /admin/device-pending     | sees the "device-pending-view" console      | is redirected to the login page   |
+      | /admin/phone-fleet        | sees the "phone-fleet-view" console         | is redirected to the login page   |
       | /admin/egress-vpn         | sees the "egress-vpn-view" console          | is redirected to the login page   |
       | /admin/superadmin/domains | sees the "superadmin-domains-view" console  | is redirected to the login page   |
       | /admin/superadmin/anubis  | sees the "anubis-admin-view" console        | is redirected to the login page   |
