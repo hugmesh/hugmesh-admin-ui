@@ -199,7 +199,7 @@
                     *ngIf="p.managementMode !== 'mesh_owned'"
                     type="button"
                     [attr.data-mark-managed]="p.deviceId"
-                    [disabled]="busy()"
+                    [disabled]="actionsLocked()"
                     [attr.aria-label]="'Mark phone ' + p.deviceId + ' managed'"
                     (click)="markManaged(p)"
                   >Mark managed</button>
@@ -207,7 +207,7 @@
                     *ngIf="p.managementMode === 'mesh_owned'"
                     type="button"
                     [attr.data-clear-managed]="p.deviceId"
-                    [disabled]="busy()"
+                    [disabled]="actionsLocked()"
                     [attr.aria-label]="'Clear the managed flag on phone ' + p.deviceId"
                     (click)="clearManaged(p)"
                   >Clear managed</button>
@@ -221,12 +221,12 @@
                       [(ngModel)]="lockReason"
                       placeholder="reason for lock"
                       aria-label="Reason for locking this phone"
-                      [disabled]="busy() || !canLock(p)"
+                      [disabled]="actionsLocked() || !canLock(p)"
                     />
                     <button
                       type="button"
                       [attr.data-lock-action]="p.deviceId"
-                      [disabled]="busy() || !canLock(p)"
+                      [disabled]="actionsLocked() || !canLock(p)"
                       [attr.aria-label]="'Lock phone ' + p.deviceId"
                       (click)="lock(p)"
                     >Lock</button>
@@ -241,7 +241,7 @@
                     *ngIf="p.lockState === 'locked'"
                     type="button"
                     [attr.data-unlock-action]="p.deviceId"
-                    [disabled]="busy()"
+                    [disabled]="actionsLocked()"
                     [attr.aria-label]="'Unlock phone ' + p.deviceId"
                     (click)="unlock(p)"
                   >Unlock</button>

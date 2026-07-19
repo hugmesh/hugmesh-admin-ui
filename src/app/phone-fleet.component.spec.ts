@@ -406,6 +406,29 @@ describe('PhoneFleetComponent', () => {
       expect(el.querySelector('[data-testid="mfa-stepup-dialog"]')).toBeNull();
     });
 
+    it('disables the row action buttons while a step-up dialog is open (no orphaned retry)', async () => {
+      spyOn(window, 'confirm').and.returnValue(true);
+      await init();
+      clickExpand('phone-a1b2c3');
+      component.lockReason = 'stolen';
+      bff.lockPhone.and.rejectWith(
+        new Error('phone lock requires step-up re-authentication (present X-PhoneLock-StepUp)'));
+
+      await component.lock(component.phones()[0]);
+      fixture.detectChanges();
+
+      // The challenge is open (busy has already been released so the dialog is interactive),
+      // but every other action button in the row must be disabled so a second action can't
+      // overwrite the pending challenge and orphan this lock's retry.
+      expect(component.busy()).toBe(false);
+      expect(component.stepUpChallenge()).not.toBeNull();
+      expect(component.actionsLocked()).toBe(true);
+      const el: HTMLElement = fixture.nativeElement;
+      const clearBtn = el.querySelector<HTMLButtonElement>('[data-clear-managed="phone-a1b2c3"]');
+      expect(clearBtn).not.toBeNull();
+      expect(clearBtn!.disabled).toBe(true);
+    });
+
     it('dismisses the step-up dialog without retrying on cancel', async () => {
       await init();
       clickExpand('phone-d4e5f6');

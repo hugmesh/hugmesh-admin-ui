@@ -146,6 +146,17 @@ export class PhoneFleetComponent implements OnInit {
     return p.managementMode === 'mesh_owned';
   }
 
+  /**
+   * True while any management/lock action is in flight OR a step-up dialog is open, so the
+   * row's other action buttons stay disabled. Blocking on an open challenge (not just `busy`)
+   * prevents a second action from overwriting the pending {@link stepUpChallenge} and orphaning
+   * the first action's retry — every action is still independently server-gated, this is a UX
+   * guard, not the security boundary.
+   */
+  actionsLocked(): boolean {
+    return this.busy() || this.stepUpChallenge() !== null;
+  }
+
   /** Swap an updated row in place by its stable deviceId (the mutations return the updated
    *  PhoneDevice — no full refetch needed to reflect the new management/lock state). */
   private updateRow(updated: PhoneDevice): void {
