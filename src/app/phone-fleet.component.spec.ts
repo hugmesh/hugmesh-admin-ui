@@ -12,17 +12,21 @@ const fixturePhones = (): PhoneDevice[] => [
     codename: 'komodo',
     marketingName: 'Pixel 9 Pro',
     os: 'GrapheneOS',
-    osVersion: '2026070800',
-    superdomain: 'snapdragon.systems',
-    loginServer: 'https://headscale.snapdragon.systems',
+    // Every string below is a DISTINCT sentinel so a `toContain` on the detail
+    // region pins exactly one field — a binding typo can't be masked by another
+    // field carrying the same substring (a fail-soft blank cell is otherwise
+    // invisible).
+    osVersion: 'osver-2026070800',
+    superdomain: 'super-komodo.example',
+    loginServer: 'https://hslogin.example',
     tailscaleIp: '100.64.0.7',
-    tailscaleHostname: 'phone-a1b2c3',
+    tailscaleHostname: 'tshost-komodo-9',
     role: 'personal',
     attachedDomain: 'domain-a',
     enterpriseProfilePresent: true,
     enterpriseProfileUserId: 10,
-    enterpriseProfileCredentialCustody: 'device',
-    attestationUrl: 'https://attestation.snapdragon.systems',
+    enterpriseProfileCredentialCustody: 'custody-device',
+    attestationUrl: 'https://attestsrv.example',
     auditorPackage: 'systems.snapdragon.auditor',
     attestationVerdict: 'verified',
     enrolledAt: '2026-07-01T10:00:00Z',
@@ -170,23 +174,30 @@ describe('PhoneFleetComponent', () => {
     clickExpand('phone-a1b2c3');
     const detail = el.querySelector('[data-phone-detail="phone-a1b2c3"]')!;
     expect(detail).not.toBeNull();
+    const text = detail.textContent!;
+    // Every field is asserted with its OWN distinct sentinel value, so a
+    // binding regression on any single field fails this test (fields that
+    // shared a substring before could hide a broken binding behind another).
     // Identity block.
-    expect(detail.textContent).toContain('row-1');
-    expect(detail.textContent).toContain('SER-0001');
-    expect(detail.textContent).toContain('komodo');
+    expect(text).toContain('row-1');            // registry id
+    expect(text).toContain('SER-0001');         // serial
+    expect(text).toContain('komodo');           // codename
+    expect(text).toContain('osver-2026070800'); // osVersion (was never uniquely asserted)
     // Mesh/tailscale block.
-    expect(detail.textContent).toContain('snapdragon.systems');
-    expect(detail.textContent).toContain('phone-a1b2c3');
+    expect(text).toContain('super-komodo.example');  // superdomain
+    expect(text).toContain('https://hslogin.example'); // loginServer (was never uniquely asserted)
+    expect(text).toContain('tshost-komodo-9');       // tailscaleHostname (was aliased to deviceId)
     // Enterprise-profile block.
-    expect(detail.textContent).toContain('device');
-    expect(detail.textContent).toContain('10');
+    expect(text).toContain('custody-device');   // credentialCustody
+    expect(text).toContain('10');               // userId
     // Attestation block.
-    expect(detail.textContent).toContain('systems.snapdragon.auditor');
-    expect(detail.textContent).toContain('verified');
+    expect(text).toContain('https://attestsrv.example'); // attestationUrl (was never uniquely asserted)
+    expect(text).toContain('systems.snapdragon.auditor'); // auditorPackage
+    expect(text).toContain('verified');         // verdict
     // Ingest telemetry: first/last ingested + count.
-    expect(detail.textContent).toContain(formatDate('2026-07-01T10:05:00Z', 'short', 'en-US'));
-    expect(detail.textContent).toContain(formatDate('2026-07-18T09:30:00Z', 'short', 'en-US'));
-    expect(detail.textContent).toContain('42');
+    expect(text).toContain(formatDate('2026-07-01T10:05:00Z', 'short', 'en-US'));
+    expect(text).toContain(formatDate('2026-07-18T09:30:00Z', 'short', 'en-US'));
+    expect(text).toContain('42');
 
     clickExpand('phone-a1b2c3');
     expect(el.querySelector('[data-phone-detail="phone-a1b2c3"]')).toBeNull();
@@ -230,13 +241,25 @@ describe('PhoneFleetComponent', () => {
       const el: HTMLElement = fixture.nativeElement;
       const button = el.querySelector('[data-expand="phone-a1b2c3"]')!;
       expect(button.getAttribute('aria-expanded')).toBe('false');
-      expect(button.getAttribute('aria-controls')).toBe('pf-detail-phone-a1b2c3');
+      // The DOM id keys off the registry id (row-1), not the deviceId — so a
+      // deviceId carrying spaces/quotes can never produce an invalid HTML id.
+      expect(button.getAttribute('aria-controls')).toBe('pf-detail-row-1');
       expect(button.getAttribute('aria-label')).toContain('phone-a1b2c3');
 
       clickExpand('phone-a1b2c3');
       expect(button.getAttribute('aria-expanded')).toBe('true');
       // The controls id resolves to the rendered detail cell.
-      expect(el.querySelector('#pf-detail-phone-a1b2c3')).not.toBeNull();
+      expect(el.querySelector('#pf-detail-row-1')).not.toBeNull();
+    });
+
+    it('sanitizes the detail DOM id so a hostile deviceId cannot break the aria linkage', () => {
+      // The ingest DTO only bounds device_id @Size(max=128) — no @Pattern — so a
+      // value with spaces/quotes is contract-legal; detailDomId must still yield
+      // a valid, aria-controls-resolvable HTML id.
+      const hostile: PhoneDevice = { id: '', deviceId: 'ab 1"x', enterpriseProfilePresent: false, ingestCount: 0 };
+      const domId = component.detailDomId(hostile);
+      expect(domId).toBe('pf-detail-ab-1-x');
+      expect(domId).not.toMatch(/[^A-Za-z0-9_-]/);   // no space, quote left
     });
 
     it('announces the loading state politely in role=status', async () => {

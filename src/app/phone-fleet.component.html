@@ -87,7 +87,7 @@
               class="link"
               [attr.data-expand]="p.deviceId"
               [attr.aria-expanded]="isExpanded(p.deviceId)"
-              [attr.aria-controls]="'pf-detail-' + p.deviceId"
+              [attr.aria-controls]="detailDomId(p)"
               [attr.aria-label]="(isExpanded(p.deviceId) ? 'Hide details for phone ' : 'Show details for phone ') + p.deviceId"
               (click)="toggle(p.deviceId)"
             >{{ isExpanded(p.deviceId) ? 'Hide details' : 'Details' }}</button>
@@ -95,7 +95,7 @@
         </tr>
 
         <tr *ngIf="isExpanded(p.deviceId)" class="pf-detail" [attr.data-phone-detail]="p.deviceId">
-          <td colspan="10" [attr.id]="'pf-detail-' + p.deviceId">
+          <td colspan="10" [attr.id]="detailDomId(p)">
             <div class="pf-detail-grid">
               <div class="pf-block">
                 <h3>Identity</h3>

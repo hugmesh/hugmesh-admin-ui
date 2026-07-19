@@ -52,7 +52,9 @@ export class PhoneFleetComponent implements OnInit {
       this.phones.set(await this.bff.phones());
       this.loadError.set('');
     } catch (e) {
-      this.loadError.set((e as Error).message);
+      // A rejection is not guaranteed to be an Error (a bare string/object would
+      // leave `.message` undefined, silently blanking the role=alert region).
+      this.loadError.set(e instanceof Error ? e.message : String(e));
     } finally {
       this.loading.set(false);
     }
@@ -84,5 +86,19 @@ export class PhoneFleetComponent implements OnInit {
    */
   deviceName(p: PhoneDevice): string {
     return p.marketingName || p.codename || p.deviceClass || '';
+  }
+
+  /**
+   * DOM id for a row's expandable detail region (also its button's aria-controls).
+   * Keyed off the registry `id` (a DB UUID — always unique and id-charset-safe),
+   * falling back to a sanitized deviceId. A raw deviceId can carry spaces/quotes
+   * (the ingest DTO only bounds it @Size(max=128)), which would produce an invalid
+   * HTML id — breaking the aria-controls linkage assistive tech relies on.
+   *
+   * @param p - The phone row.
+   */
+  detailDomId(p: PhoneDevice): string {
+    const raw = p.id || p.deviceId || '';
+    return 'pf-detail-' + raw.replace(/[^A-Za-z0-9_-]/g, '-');
   }
 }
