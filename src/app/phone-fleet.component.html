@@ -2,8 +2,9 @@
   <h2 id="pf-heading">Phone fleet</h2>
   <p class="pf-intro">
     Every MDM phone that has ingested — self-reported its provisioning snapshot to the
-    platform. Read-only: enrolment and profile changes happen on the device via the
-    phone wizard; this console only observes what the fleet reports.
+    platform. Expand a row to set its authoritative management mode (managed / BYOD) and,
+    for a managed device, to lock or unlock it. Management is operator-set and never
+    self-claimed; the device-reported enrolment is only an advisory promotion hint.
   </p>
 
   <button
@@ -33,14 +34,17 @@
 
   <table *ngIf="phones().length" class="pf-table" data-testid="pf-table" aria-labelledby="pf-heading">
     <caption class="sr">
-      Ingested MDM phones with OS, role, attached domain, tailscale address, enterprise
-      profile, attestation verdict and ingest telemetry — newest ingest activity first.
+      Ingested MDM phones with OS, role, authoritative management mode, lock state, attached
+      domain, tailscale address, enterprise profile, attestation verdict and ingest telemetry
+      — newest ingest activity first.
     </caption>
     <thead>
       <tr>
         <th scope="col">Device</th>
         <th scope="col">OS</th>
         <th scope="col">Role</th>
+        <th scope="col">Management</th>
+        <th scope="col">Lock</th>
         <th scope="col">Attached domain</th>
         <th scope="col">Tailscale</th>
         <th scope="col">Enterprise profile</th>
@@ -59,6 +63,25 @@
           </td>
           <td class="p-os">{{ p.os || '—' }} {{ p.osVersion }}</td>
           <td class="p-role">{{ p.role || '—' }}</td>
+          <td class="p-management">
+            <span
+              class="pf-chip"
+              [attr.data-management]="p.managementMode || 'unmanaged'"
+              [class.pf-chip--ok]="p.managementMode === 'mesh_owned'"
+            >{{ managementLabel(p) }}</span>
+          </td>
+          <td class="p-lock">
+            <span
+              class="pf-chip"
+              [attr.data-lock-state]="p.lockState || 'unlocked'"
+              [class.pf-chip--err]="p.lockState === 'locked'"
+            >{{ p.lockState === 'locked' ? 'locked' : 'unlocked' }}</span>
+            <small
+              *ngIf="p.lockState === 'locked' && p.lockPropagationState"
+              class="pf-muted"
+              [attr.data-lock-prop]="p.lockPropagationState"
+            >{{ p.lockPropagationState }}</small>
+          </td>
           <td class="p-domain">{{ p.attachedDomain || '—' }}</td>
           <td class="p-tailscale">
             {{ p.tailscaleIp || '—' }}
@@ -95,7 +118,7 @@
         </tr>
 
         <tr *ngIf="isExpanded(p.deviceId)" class="pf-detail" [attr.data-phone-detail]="p.deviceId">
-          <td colspan="10" [attr.id]="detailDomId(p)">
+          <td colspan="12" [attr.id]="detailDomId(p)">
             <div class="pf-detail-grid">
               <div class="pf-block">
                 <h3>Identity</h3>
@@ -149,6 +172,97 @@
                   <dt>Set via</dt><dd>{{ p.mdmSetVia || '—' }}</dd>
                   <dt>Enrolled at</dt><dd>{{ p.mdmEnrolledAt ? (p.mdmEnrolledAt | date: 'short') : '—' }}</dd>
                 </dl>
+              </div>
+
+              <div class="pf-block pf-block--wide" data-block="management">
+                <h3>Device management</h3>
+                <dl>
+                  <dt>Management mode</dt>
+                  <dd data-testid="pf-mgmt-mode">
+                    {{ p.managementMode === 'mesh_owned' ? 'managed (mesh-owned)' : 'unmanaged (BYOD)' }}
+                  </dd>
+                  <dt>Reports device-owner</dt>
+                  <dd data-testid="pf-mgmt-hint">
+                    {{ p.mdmEnrolled ? 'yes — advisory hint, eligible to promote' : 'no' }}
+                  </dd>
+                  <dt>Lock state</dt><dd data-testid="pf-lock-state">{{ p.lockState || 'unlocked' }}</dd>
+                  <dt>Propagation</dt><dd>{{ p.lockPropagationState || '—' }}</dd>
+                  <dt>Lock generation</dt><dd>{{ p.lockGeneration ?? 0 }}</dd>
+                  <dt>Lock reason</dt><dd>{{ p.lockReason || '—' }}</dd>
+                  <dt>Lock actor</dt><dd>{{ p.lockActor || '—' }}</dd>
+                  <dt>Lock updated</dt><dd>{{ p.lockUpdatedAt ? (p.lockUpdatedAt | date: 'short') : '—' }}</dd>
+                </dl>
+
+                <div class="pf-actions">
+                  <!-- Management toggle: promote (Mark managed) or clear (→ BYOD). -->
+                  <button
+                    *ngIf="p.managementMode !== 'mesh_owned'"
+                    type="button"
+                    [attr.data-mark-managed]="p.deviceId"
+                    [disabled]="busy()"
+                    [attr.aria-label]="'Mark phone ' + p.deviceId + ' managed'"
+                    (click)="markManaged(p)"
+                  >Mark managed</button>
+                  <button
+                    *ngIf="p.managementMode === 'mesh_owned'"
+                    type="button"
+                    [attr.data-clear-managed]="p.deviceId"
+                    [disabled]="busy()"
+                    [attr.aria-label]="'Clear the managed flag on phone ' + p.deviceId"
+                    (click)="clearManaged(p)"
+                  >Clear managed</button>
+
+                  <!-- Lock: enabled ONLY for a managed device; BYOD rows are disabled + helper. -->
+                  <ng-container *ngIf="p.lockState !== 'locked'">
+                    <input
+                      type="text"
+                      data-testid="pf-lock-reason"
+                      [attr.data-lock-reason]="p.deviceId"
+                      [(ngModel)]="lockReason"
+                      placeholder="reason for lock"
+                      aria-label="Reason for locking this phone"
+                      [disabled]="busy() || !canLock(p)"
+                    />
+                    <button
+                      type="button"
+                      [attr.data-lock-action]="p.deviceId"
+                      [disabled]="busy() || !canLock(p)"
+                      [attr.aria-label]="'Lock phone ' + p.deviceId"
+                      (click)="lock(p)"
+                    >Lock</button>
+                    <span
+                      *ngIf="!canLock(p)"
+                      class="pf-muted"
+                      data-testid="pf-lock-help"
+                      [attr.data-lock-help]="p.deviceId"
+                    >BYOD device — not lockable (mark managed first)</span>
+                  </ng-container>
+                  <button
+                    *ngIf="p.lockState === 'locked'"
+                    type="button"
+                    [attr.data-unlock-action]="p.deviceId"
+                    [disabled]="busy()"
+                    [attr.aria-label]="'Unlock phone ' + p.deviceId"
+                    (click)="unlock(p)"
+                  >Unlock</button>
+                </div>
+
+                <p
+                  *ngIf="actionNote() as note"
+                  data-testid="pf-action-note"
+                  class="pf-action-note"
+                  [class.pf-action-note--err]="note.kind === 'err'"
+                  [attr.role]="note.kind === 'err' ? 'alert' : 'status'"
+                  [attr.aria-live]="note.kind === 'err' ? 'assertive' : 'polite'"
+                >{{ note.text }}</p>
+
+                <!-- Inline MFA step-up dialog for an action that 403s "requires step-up". -->
+                <snap-mfa-step-up-dialog
+                  *ngIf="stepUpChallenge() as challenge"
+                  [action]="challenge.action"
+                  (satisfied)="onStepUpSatisfied()"
+                  (dismissed)="onStepUpDismissed()"
+                ></snap-mfa-step-up-dialog>
               </div>
 
               <div class="pf-block">

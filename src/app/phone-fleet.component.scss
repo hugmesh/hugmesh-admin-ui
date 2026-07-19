@@ -115,6 +115,10 @@
       color: var(--sd-text-muted, #{t.$light});
     }
 
+    &--wide {
+      grid-column: 1 / -1;
+    }
+
     dl {
       display: grid;
       grid-template-columns: max-content 1fr;
@@ -131,5 +135,32 @@
       margin: 0;
       overflow-wrap: anywhere;
     }
+  }
+
+  .pf-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.6rem;
+
+    input[type='text'] {
+      flex: 1 1 12rem;
+      min-width: 8rem;
+      padding: 0.35rem 0.5rem;
+      border: 1px solid var(--sd-border);
+      border-radius: t.$radius-sm;
+      background: var(--sd-bg-1);
+      color: var(--sd-text);
+
+      &:disabled { opacity: 0.5; cursor: not-allowed; }
+    }
+  }
+
+  .pf-action-note {
+    margin: 0.5rem 0 0;
+    color: var(--sd-text-soft, var(--sd-text));
+
+    &--err { color: var(--sd-error); }
   }
 }
