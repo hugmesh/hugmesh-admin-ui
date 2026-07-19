@@ -29,6 +29,14 @@ const fixturePhones = (): PhoneDevice[] => [
     attestationUrl: 'https://attestsrv.example',
     auditorPackage: 'systems.snapdragon.auditor',
     attestationVerdict: 'verified',
+    // MANAGED + unlocked: the Lock control is enabled for this row.
+    managementMode: 'mesh_owned',
+    lockState: 'unlocked',
+    lockPropagationState: null,
+    lockGeneration: 3,
+    lockReason: null,
+    lockActor: null,
+    lockUpdatedAt: null,
     mdmEnrolled: true,
     mdmDpcPackage: 'com.hmdm.launcher',
     mdmHeadwindUrl: 'https://hmdm-srv.example',
@@ -42,10 +50,18 @@ const fixturePhones = (): PhoneDevice[] => [
   },
   {
     // A minimal row (first ingest only): every optional field absent, so the
-    // template's '—' fallbacks render instead of blank cells.
+    // template's '—' fallbacks render instead of blank cells. UNMANAGED (BYOD) +
+    // unlocked — the Lock control is DISABLED with a helper note for this row.
     id: 'row-2',
     deviceId: 'phone-d4e5f6',
     enterpriseProfilePresent: false,
+    managementMode: 'unmanaged',
+    lockState: 'unlocked',
+    lockPropagationState: null,
+    lockGeneration: 0,
+    lockReason: null,
+    lockActor: null,
+    lockUpdatedAt: null,
     ingestCount: 1,
   },
 ];
@@ -56,7 +72,8 @@ describe('PhoneFleetComponent', () => {
   let bff: jasmine.SpyObj<BffService>;
 
   beforeEach(async () => {
-    bff = jasmine.createSpyObj<BffService>('BffService', ['phones']);
+    bff = jasmine.createSpyObj<BffService>('BffService',
+      ['phones', 'setPhoneManagement', 'lockPhone', 'unlockPhone']);
     bff.phones.and.resolveTo(fixturePhones());
     await TestBed.configureTestingModule({
       imports: [PhoneFleetComponent],
@@ -225,6 +242,243 @@ describe('PhoneFleetComponent', () => {
     expect(el.querySelector('[data-phone-detail="phone-d4e5f6"]')).not.toBeNull();
   });
 
+  describe('device management + lockout', () => {
+    it('renders a managed chip for a mesh_owned phone and a BYOD chip for an unmanaged one, plus the lock chip + propagation hint', async () => {
+      const phones = fixturePhones();
+      phones[0].lockState = 'locked';
+      phones[0].lockPropagationState = 'degraded';
+      bff.phones.and.resolveTo(phones);
+      await init();
+
+      const el: HTMLElement = fixture.nativeElement;
+      const managed = el.querySelector('[data-phone-id="phone-a1b2c3"]')!;
+      const byod = el.querySelector('[data-phone-id="phone-d4e5f6"]')!;
+      expect(managed.querySelector('[data-management="mesh_owned"]')!.textContent!.trim()).toBe('managed');
+      expect(byod.querySelector('[data-management="unmanaged"]')!.textContent!.trim()).toBe('BYOD');
+      // The locked chip carries the propagation hint alongside it.
+      expect(managed.querySelector('[data-lock-state="locked"]')).not.toBeNull();
+      expect(managed.querySelector('[data-lock-prop]')!.textContent!.trim()).toBe('degraded');
+      expect(byod.querySelector('[data-lock-state="unlocked"]')).not.toBeNull();
+    });
+
+    it('DISABLES the Lock control for a BYOD (unmanaged) phone and shows the not-lockable helper', async () => {
+      await init();
+      clickExpand('phone-d4e5f6');
+      const el: HTMLElement = fixture.nativeElement;
+      const lockBtn = el.querySelector<HTMLButtonElement>('[data-lock-action="phone-d4e5f6"]')!;
+      expect(lockBtn.disabled).toBeTrue();
+      expect(el.querySelector('[data-lock-help="phone-d4e5f6"]')).not.toBeNull();
+    });
+
+    it('ENABLES the Lock control for a managed (mesh_owned) phone and shows no helper', async () => {
+      await init();
+      clickExpand('phone-a1b2c3');
+      const el: HTMLElement = fixture.nativeElement;
+      const lockBtn = el.querySelector<HTMLButtonElement>('[data-lock-action="phone-a1b2c3"]')!;
+      expect(lockBtn.disabled).toBeFalse();
+      expect(el.querySelector('[data-lock-help="phone-a1b2c3"]')).toBeNull();
+    });
+
+    it('locks a managed phone via bff.lockPhone(deviceId, reason), swaps the row to locked and clears the reason', async () => {
+      spyOn(window, 'confirm').and.returnValue(true);
+      await init();
+      clickExpand('phone-a1b2c3');
+      const locked: PhoneDevice = {
+        ...fixturePhones()[0], lockState: 'locked', lockPropagationState: 'applied', lockGeneration: 4,
+      };
+      bff.lockPhone.and.resolveTo(locked);
+
+      component.lockReason = 'stolen device';
+      await component.lock(component.phones()[0]);
+      fixture.detectChanges();
+
+      expect(bff.lockPhone).toHaveBeenCalledWith('phone-a1b2c3', 'stolen device');
+      expect(component.phones()[0].lockState).toBe('locked');
+      expect(component.lockReason).toBe('');
+      expect(component.actionNote()?.kind).toBe('ok');
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.querySelector('[data-phone-id="phone-a1b2c3"] [data-lock-state="locked"]')).not.toBeNull();
+    });
+
+    it('refuses to lock with a blank reason — no BFF call, an error note surfaces', async () => {
+      await init();
+      clickExpand('phone-a1b2c3');
+      component.lockReason = '   ';
+      await component.lock(component.phones()[0]);
+      expect(bff.lockPhone).not.toHaveBeenCalled();
+      expect(component.actionNote()?.kind).toBe('err');
+    });
+
+    it('marks a BYOD phone managed via setPhoneManagement(mesh_owned) and swaps the chip to managed', async () => {
+      await init();
+      const el: HTMLElement = fixture.nativeElement;
+      clickExpand('phone-d4e5f6');
+      expect(el.querySelector('[data-mark-managed="phone-d4e5f6"]')).not.toBeNull();
+      const promoted: PhoneDevice = { ...fixturePhones()[1], managementMode: 'mesh_owned' };
+      bff.setPhoneManagement.and.resolveTo(promoted);
+
+      await component.markManaged(component.phones()[1]);
+      fixture.detectChanges();
+
+      expect(bff.setPhoneManagement).toHaveBeenCalledWith('phone-d4e5f6', 'mesh_owned');
+      expect(component.phones()[1].managementMode).toBe('mesh_owned');
+      expect(el.querySelector('[data-phone-id="phone-d4e5f6"] [data-management="mesh_owned"]')).not.toBeNull();
+    });
+
+    it('warns that clearing a LOCKED managed device will also unlock it, then clears to BYOD (unlocked)', async () => {
+      const confirmSpy = spyOn(window, 'confirm').and.returnValue(true);
+      const phones = fixturePhones();
+      phones[0].lockState = 'locked';
+      phones[0].lockPropagationState = 'applied';
+      bff.phones.and.resolveTo(phones);
+      await init();
+      clickExpand('phone-a1b2c3');
+      const cleared: PhoneDevice = {
+        ...phones[0], managementMode: 'unmanaged', lockState: 'unlocked', lockPropagationState: null,
+      };
+      bff.setPhoneManagement.and.resolveTo(cleared);
+
+      await component.clearManaged(component.phones()[0]);
+      fixture.detectChanges();
+
+      expect(confirmSpy).toHaveBeenCalled();
+      // The destructive warning names the implicit unlock.
+      expect(confirmSpy.calls.mostRecent().args[0]).toContain('UNLOCK');
+      expect(bff.setPhoneManagement).toHaveBeenCalledWith('phone-a1b2c3', 'unmanaged');
+      expect(component.phones()[0].managementMode).toBe('unmanaged');
+      expect(component.phones()[0].lockState).toBe('unlocked');
+    });
+
+    it('does not clear the managed flag when the confirmation is declined', async () => {
+      spyOn(window, 'confirm').and.returnValue(false);
+      await init();
+      clickExpand('phone-a1b2c3');
+      await component.clearManaged(component.phones()[0]);
+      expect(bff.setPhoneManagement).not.toHaveBeenCalled();
+    });
+
+    it('unlocks a locked phone via bff.unlockPhone and swaps the row to unlocked', async () => {
+      const phones = fixturePhones();
+      phones[0].lockState = 'locked';
+      bff.phones.and.resolveTo(phones);
+      await init();
+      clickExpand('phone-a1b2c3');
+      const unlocked: PhoneDevice = { ...phones[0], lockState: 'unlocked' };
+      bff.unlockPhone.and.resolveTo(unlocked);
+
+      await component.unlock(component.phones()[0]);
+      fixture.detectChanges();
+
+      expect(bff.unlockPhone).toHaveBeenCalledWith('phone-a1b2c3');
+      expect(component.phones()[0].lockState).toBe('unlocked');
+    });
+
+    it('opens the inline MFA step-up dialog on a "requires step-up" 403 and retries the SAME lock on success, without re-prompting confirm()', async () => {
+      spyOn(window, 'confirm').and.returnValue(true);
+      await init();
+      clickExpand('phone-a1b2c3');
+      component.lockReason = 'stolen';
+      bff.lockPhone.and.rejectWith(
+        new Error('phone lock requires step-up re-authentication (present X-PhoneLock-StepUp)'));
+
+      await component.lock(component.phones()[0]);
+      fixture.detectChanges();
+
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.querySelector('[data-testid="mfa-stepup-dialog"]')).not.toBeNull();
+      expect((window.confirm as jasmine.Spy).calls.count()).toBe(1);
+
+      // The dialog reports success — the SAME lock (same captured reason) is retried and now
+      // succeeds, and confirm() is NOT shown a second time (a blind retry never re-prompts).
+      const locked: PhoneDevice = { ...fixturePhones()[0], lockState: 'locked' };
+      bff.lockPhone.and.resolveTo(locked);
+
+      await component.onStepUpSatisfied();
+      fixture.detectChanges();
+
+      expect(bff.lockPhone).toHaveBeenCalledTimes(2);
+      expect(bff.lockPhone.calls.allArgs()).toEqual([
+        ['phone-a1b2c3', 'stolen'],
+        ['phone-a1b2c3', 'stolen'],
+      ]);
+      expect((window.confirm as jasmine.Spy).calls.count()).toBe(1);
+      expect(component.phones()[0].lockState).toBe('locked');
+      expect(el.querySelector('[data-testid="mfa-stepup-dialog"]')).toBeNull();
+    });
+
+    it('disables the row action buttons while a step-up dialog is open (no orphaned retry)', async () => {
+      spyOn(window, 'confirm').and.returnValue(true);
+      await init();
+      clickExpand('phone-a1b2c3');
+      component.lockReason = 'stolen';
+      bff.lockPhone.and.rejectWith(
+        new Error('phone lock requires step-up re-authentication (present X-PhoneLock-StepUp)'));
+
+      await component.lock(component.phones()[0]);
+      fixture.detectChanges();
+
+      // The challenge is open (busy has already been released so the dialog is interactive),
+      // but every other action button in the row must be disabled so a second action can't
+      // overwrite the pending challenge and orphan this lock's retry.
+      expect(component.busy()).toBe(false);
+      expect(component.stepUpChallenge()).not.toBeNull();
+      expect(component.actionsLocked()).toBe(true);
+      const el: HTMLElement = fixture.nativeElement;
+      const clearBtn = el.querySelector<HTMLButtonElement>('[data-clear-managed="phone-a1b2c3"]');
+      expect(clearBtn).not.toBeNull();
+      expect(clearBtn!.disabled).toBe(true);
+    });
+
+    it('dismisses the step-up dialog without retrying on cancel', async () => {
+      await init();
+      clickExpand('phone-d4e5f6');
+      bff.setPhoneManagement.and.rejectWith(
+        new Error('management change requires step-up re-authentication (present X-PhoneLock-StepUp)'));
+      await component.markManaged(component.phones()[1]);
+      expect(component.stepUpChallenge()).not.toBeNull();
+
+      component.onStepUpDismissed();
+
+      expect(component.stepUpChallenge()).toBeNull();
+      expect(bff.setPhoneManagement).toHaveBeenCalledTimes(1);
+    });
+
+    it('surfaces a non-step-up mutation failure in the role=alert action-note region', async () => {
+      await init();
+      clickExpand('phone-d4e5f6');
+      bff.setPhoneManagement.and.rejectWith(new Error('device is not in your domain'));
+
+      await component.markManaged(component.phones()[1]);
+      fixture.detectChanges();
+
+      const el: HTMLElement = fixture.nativeElement;
+      const note = el.querySelector('[data-testid="pf-action-note"]')!;
+      expect(note).not.toBeNull();
+      expect(note.getAttribute('role')).toBe('alert');
+      expect(note.getAttribute('aria-live')).toBe('assertive');
+      expect(note.textContent).toContain('device is not in your domain');
+    });
+
+    it('disables the action buttons while a mutation is in flight (busy guard)', async () => {
+      spyOn(window, 'confirm').and.returnValue(true);
+      await init();
+      clickExpand('phone-a1b2c3');
+      let resolveLock!: (v: PhoneDevice) => void;
+      bff.lockPhone.and.returnValue(new Promise<PhoneDevice>((res) => { resolveLock = res; }));
+
+      component.lockReason = 'x';
+      const pending = component.lock(component.phones()[0]);
+      fixture.detectChanges();
+
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.querySelector<HTMLButtonElement>('[data-lock-action="phone-a1b2c3"]')!.disabled).toBeTrue();
+      expect(el.querySelector<HTMLButtonElement>('[data-clear-managed="phone-a1b2c3"]')!.disabled).toBeTrue();
+
+      resolveLock({ ...fixturePhones()[0], lockState: 'locked' } as PhoneDevice);
+      await pending;
+    });
+  });
+
   describe('accessibility', () => {
     it('labels the section heading via aria-labelledby', async () => {
       await init();
@@ -241,7 +495,7 @@ describe('PhoneFleetComponent', () => {
       expect(table.getAttribute('aria-labelledby')).toBe('pf-heading');
       expect(table.querySelector('caption')).not.toBeNull();
       const headers = table.querySelectorAll('thead th');
-      expect(headers.length).toBe(10);
+      expect(headers.length).toBe(12);
       for (const th of Array.from(headers)) {
         expect(th.getAttribute('scope')).toBe('col');
       }
@@ -267,7 +521,11 @@ describe('PhoneFleetComponent', () => {
       // The ingest DTO only bounds device_id @Size(max=128) — no @Pattern — so a
       // value with spaces/quotes is contract-legal; detailDomId must still yield
       // a valid, aria-controls-resolvable HTML id.
-      const hostile: PhoneDevice = { id: '', deviceId: 'ab 1"x', enterpriseProfilePresent: false, ingestCount: 0 };
+      const hostile: PhoneDevice = {
+        id: '', deviceId: 'ab 1"x', enterpriseProfilePresent: false, ingestCount: 0,
+        managementMode: 'unmanaged', lockState: 'unlocked', lockPropagationState: null,
+        lockGeneration: 0, lockReason: null, lockActor: null, lockUpdatedAt: null,
+      };
       const domId = component.detailDomId(hostile);
       expect(domId).toBe('pf-detail-ab-1-x');
       expect(domId).not.toMatch(/[^A-Za-z0-9_-]/);   // no space, quote left
