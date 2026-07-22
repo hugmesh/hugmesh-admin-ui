@@ -32,6 +32,7 @@ import { WorkloadConsoleComponent } from './workload-console/workload-console.co
 import { WorkloadLogsComponent } from './workload-console/workload-logs.component';
 import { WorkloadTerminalComponent } from './workload-console/workload-terminal.component';
 import { CloudBackupsComponent } from './cloud-backups/cloud-backups.component';
+import { BackingServicesComponent } from './backing-services/backing-services.component';
 import { ImageGenComponent } from './image-gen/image-gen.component';
 import { MfaSecurityComponent } from './mfa/mfa-security.component';
 import { superadminGuard } from './superadmin.guard';
@@ -114,6 +115,11 @@ export const ADMIN_ROUTES: Routes = [
   // above (mirrors the bff's distinct /bff/admin/cloud-backups prefix). The TOTAL
   // tab inside is superadmin-only (hidden for an admin; the bff is authoritative).
   { path: 'cloud-backups', component: CloudBackupsComponent },
+  // Managed backing-services console (SUPERADMIN-only, cross-domain infra): choose self-hosted
+  // (default) vs a managed cloud equivalent per backing service. The bff
+  // (/bff/superadmin/backing-services) is authoritative (SUPERADMIN + step-up + ships dark);
+  // this guard is presentation-only.
+  { path: 'backing-services', component: BackingServicesComponent, canActivate: [superadminGuard] },
   { path: 'announcements', component: AnnouncementListComponent },
   { path: 'test-reports', component: TestReportsComponent },
   // Image-generation console (ADMIN/SUPERADMIN) over the bff `imagegen` surfaces

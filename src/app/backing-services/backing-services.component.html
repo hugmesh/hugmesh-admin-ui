@@ -1,0 +1,162 @@
+<section class="bs-console" data-testid="backing-services-view" aria-labelledby="bs-heading">
+  <h2 id="bs-heading">Managed backing services</h2>
+  <p class="bs-intro">
+    Run each mesh backing service in-mesh (self-hosted, the default) or point it at a managed
+    cloud equivalent (AWS / Azure). Self-hosted is the byte-identical default — no change until you
+    record a managed mode. References only — never credentials; managed creds route to ESO/Vault.
+    Recording a mode is INTENT: the generator (at image build) and the reconciler converge it.
+  </p>
+
+  @if (!enabled()) {
+    <p class="bs-muted" role="status" data-testid="backing-services-dark">
+      This feature ships dark (reads are live; recording a mode is disabled until enabled).
+    </p>
+  }
+  @if (note()) {
+    <p class="bs-help" data-testid="backing-services-note">{{ note() }}</p>
+  }
+  @if (loadError()) {
+    <p class="bs-error" role="alert" data-testid="backing-services-load-error">{{ loadError() }}</p>
+  }
+  @if (notice()) {
+    <p class="bs-success" role="status" data-testid="backing-services-notice">{{ notice() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="bs-muted" role="status">Loading catalog…</p>
+  } @else {
+    <table class="bs-table" data-testid="backing-services-table">
+      <thead>
+        <tr>
+          <th scope="col">Service</th>
+          <th scope="col">Kind</th>
+          <th scope="col">Tier</th>
+          <th scope="col">Current mode</th>
+          <th scope="col">Endpoint</th>
+          <th scope="col">Managed targets</th>
+          <th scope="col"><span class="bs-sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of services(); track row.id) {
+          <tr [attr.data-testid]="'backing-services-row-' + row.id">
+            <td>
+              <span class="bs-id">{{ row.id }}</span>
+              <span class="bs-muted bs-display">{{ row.displayName }}</span>
+            </td>
+            <td>{{ row.kind }}</td>
+            <td>
+              <span class="bs-tier" [class.bs-tier--docs]="row.docsOnly">tier {{ row.tier }}</span>
+            </td>
+            <td>
+              <span class="bs-mode" [class.bs-mode--managed]="row.currentMode === 'managed'"
+                    [attr.data-testid]="'backing-services-mode-' + row.id">
+                {{ row.currentMode }}
+              </span>
+            </td>
+            <td class="bs-endpoint">{{ row.endpoint || '—' }}</td>
+            <td class="bs-muted">{{ row.awsTarget }} / {{ row.azureTarget }}</td>
+            <td class="bs-actions">
+              @if (row.docsOnly) {
+                <span class="bs-docs" [attr.data-testid]="'backing-services-docsonly-' + row.id"
+                      [title]="row.notes">
+                  Docs-only — self-hosted
+                </span>
+              } @else {
+                <button
+                  type="button"
+                  class="bs-btn bs-btn--ghost"
+                  [attr.aria-label]="'Edit mode for ' + row.id"
+                  [attr.data-testid]="'backing-services-edit-' + row.id"
+                  (click)="startEdit(row)"
+                >
+                  Edit mode
+                </button>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+
+    <!-- Inline mode-edit form for the selected tier-1/2 row. -->
+    @if (editing(); as row) {
+      <form class="bs-edit" (ngSubmit)="save()" novalidate data-testid="backing-services-form"
+            aria-labelledby="bs-edit-title">
+        <h3 id="bs-edit-title">Set mode — {{ row.id }}</h3>
+        <p class="bs-help">{{ row.notes }}</p>
+
+        <div class="bs-field">
+          <label for="bs-mode">Mode</label>
+          <select id="bs-mode" name="mode" [ngModel]="mode()" (ngModelChange)="mode.set($event)"
+                  aria-describedby="bs-mode-help">
+            @for (m of modes; track m.value) {
+              <option [value]="m.value">{{ m.label }}</option>
+            }
+          </select>
+          <span id="bs-mode-help" class="bs-help">
+            Self-hosted keeps the in-mesh workload (byte-identical default). Managed re-points the
+            consumers at a hosted endpoint (converged by the generator / reconciler).
+          </span>
+        </div>
+
+        @if (managed()) {
+          <div class="bs-field">
+            <label for="bs-endpoint">Managed endpoint</label>
+            <input id="bs-endpoint" name="endpoint" type="text" autocomplete="off"
+                   [ngModel]="endpoint()" (ngModelChange)="endpoint.set($event)"
+                   [attr.aria-invalid]="endpointInvalid()" aria-describedby="bs-endpoint-help"
+                   placeholder="host / URL of the hosted service" />
+            <span id="bs-endpoint-help" class="bs-help">
+              The hosted service host/URL (a non-secret coordinate).
+            </span>
+            @if (endpointInvalid()) {
+              <p class="bs-error" role="alert" data-testid="backing-services-endpoint-error">
+                A managed mode requires an endpoint.
+              </p>
+            }
+          </div>
+
+          <div class="bs-field">
+            <label for="bs-creds">Credentials reference (optional)</label>
+            <input id="bs-creds" name="credsRef" type="text" autocomplete="off"
+                   [ngModel]="credsRef()" (ngModelChange)="credsRef.set($event)"
+                   aria-describedby="bs-creds-help"
+                   placeholder="ESO / Vault path (e.g. snapdragon/postgres-admin-bff)" />
+            <span id="bs-creds-help" class="bs-help">
+              A reference to the managed creds (ESO / Vault path NAME) — never the bytes.
+            </span>
+          </div>
+        }
+
+        @if (stepUpRequired()) {
+          <div class="bs-field bs-field--stepup">
+            <label for="bs-stepup">Step-up token</label>
+            <input id="bs-stepup" name="stepUpToken" type="text" autocomplete="off"
+                   [ngModel]="stepUpToken()" (ngModelChange)="stepUpToken.set($event)"
+                   aria-describedby="bs-stepup-help" data-testid="backing-services-stepup"
+                   placeholder="X-BackingServices-StepUp token" />
+            <span id="bs-stepup-help" class="bs-help">
+              This change requires step-up re-authentication. Paste a valid step-up token and retry.
+            </span>
+          </div>
+        }
+
+        @if (formError()) {
+          <p class="bs-error" role="alert" data-testid="backing-services-form-error">{{ formError() }}</p>
+        }
+
+        <div class="bs-form-actions">
+          <button type="submit" class="bs-btn" [disabled]="!canSave()"
+                  aria-label="Record mode" data-testid="backing-services-save">
+            {{ busy() ? 'Recording…' : 'Record mode' }}
+          </button>
+          <button type="button" class="bs-btn bs-btn--ghost" (click)="cancelEdit()"
+                  aria-label="Cancel" data-testid="backing-services-cancel">
+            Cancel
+          </button>
+        </div>
+      </form>
+    }
+  }
+</section>
