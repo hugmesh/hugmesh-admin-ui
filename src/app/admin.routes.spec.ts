@@ -21,6 +21,8 @@ import { AccountAppealsComponent } from './account-appeals/account-appeals.compo
 import { DeviceLicensesComponent } from './device-licenses.component';
 import { DevicePendingComponent } from './device-pending.component';
 import { PhoneFleetComponent } from './phone-fleet.component';
+import { MyFleetComponent } from './my-fleet.component';
+import { FleetEntitlementsComponent } from './fleet-entitlements.component';
 import { StoragePoolsComponent } from './storage-pools.component';
 import { DeviceRadiosComponent } from './device-radios.component';
 import { DomainCapabilitiesComponent } from './domain-capabilities.component';
@@ -31,6 +33,7 @@ import { GamesServicesComponent } from './games-services/games-services.componen
 import { AnubisAdminComponent } from './anubis-admin.component';
 import { DesktopGovernanceComponent } from './desktop-governance/desktop-governance.component';
 import { superadminGuard } from './superadmin.guard';
+import { fleetAdminGuard } from './fleet.guard';
 import { gamesServicesGuard } from './games-services.guard';
 import { WorkloadConsoleComponent } from './workload-console/workload-console.component';
 import { WorkloadLogsComponent } from './workload-console/workload-logs.component';
@@ -74,6 +77,8 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('device-licenses')!.component).toBe(DeviceLicensesComponent);
     expect(byPath('device-pending')!.component).toBe(DevicePendingComponent);
     expect(byPath('phone-fleet')!.component).toBe(PhoneFleetComponent);
+    expect(byPath('my-fleet')!.component).toBe(MyFleetComponent);
+    expect(byPath('fleet-entitlements')!.component).toBe(FleetEntitlementsComponent);
     expect(byPath('node-storage')!.component).toBe(StoragePoolsComponent);
     expect(byPath('device-radios')!.component).toBe(DeviceRadiosComponent);
     expect(byPath('domain-capabilities')!.component).toBe(DomainCapabilitiesComponent);
@@ -85,7 +90,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('superadmin/anubis')!.component).toBe(AnubisAdminComponent);
   });
 
-  it('exposes exactly the thirty-five admin views the host expects (incl. delegation + appeals + account-appeals + the self-service security/MFA console + device-licenses + device-pending + phone-fleet + node-storage + device-radios + domain-capabilities + desktop governance + egress-vpn + superadmin/domains + oidc-providers + games-services + superadmin/anubis + cloud-backups + image-gen + the HIDDEN-tier workloads console + its logs/terminal sub-views)', () => {
+  it('exposes exactly the thirty-seven admin views the host expects (incl. delegation + appeals + account-appeals + the self-service security/MFA console + device-licenses + device-pending + phone-fleet + my-fleet + fleet-entitlements + node-storage + device-radios + domain-capabilities + desktop governance + egress-vpn + superadmin/domains + oidc-providers + games-services + superadmin/anubis + cloud-backups + image-gen + the HIDDEN-tier workloads console + its logs/terminal sub-views)', () => {
     expect(ADMIN_ROUTES.map((r) => r.path)).toEqual([
       '',
       'usage',
@@ -110,6 +115,8 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
       'device-licenses',
       'device-pending',
       'phone-fleet',
+      'my-fleet',
+      'fleet-entitlements',
       'node-storage',
       'device-radios',
       'domain-capabilities',
@@ -156,6 +163,20 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(pf).toBeDefined();
     expect(pf!.component).toBe(PhoneFleetComponent);
     expect(pf!.canActivate).toEqual([superadminGuard]);
+  });
+
+  it('fleet-gates the my-fleet owner console (fleetAdminGuard — fleet_admin/admin/superadmin; the BFF enforces the entitlement + owner wall)', () => {
+    const mf = byPath('my-fleet');
+    expect(mf).toBeDefined();
+    expect(mf!.component).toBe(MyFleetComponent);
+    expect(mf!.canActivate).toEqual([fleetAdminGuard]);
+  });
+
+  it('superadmin-gates the fleet-entitlements console (grant/revoke the FLEET_ADMIN subscription; behind the superadmin guard)', () => {
+    const fe = byPath('fleet-entitlements');
+    expect(fe).toBeDefined();
+    expect(fe!.component).toBe(FleetEntitlementsComponent);
+    expect(fe!.canActivate).toEqual([superadminGuard]);
   });
 
   it('superadmin-gates the egress-vpn console (additive, behind the superadmin guard)', () => {

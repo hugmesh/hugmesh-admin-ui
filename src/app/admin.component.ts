@@ -7,9 +7,11 @@ import { SessionService } from './session.service';
 
 /** One admin own-component module surfaced in the admin menu. A `superadminOnly`
  *  item is hidden from the menu unless the session carries the superadmin role; a
+ *  `fleetOnly` item is shown only when the session carries the fleet capability
+ *  (fleet_admin/admin/superadmin — see {@link SessionService.isFleetAdmin}); a
  *  `hidden` item belongs to the HIDDEN tier — it is surfaced ONLY when a server-confirmed
  *  capability probe passes (e.g. the Workload Console, gated on an active grant). */
-interface AdminMenuItem { path: string; label: string; superadminOnly?: boolean; hidden?: boolean; }
+interface AdminMenuItem { path: string; label: string; superadminOnly?: boolean; fleetOnly?: boolean; hidden?: boolean; }
 
 /**
  * Admin micro-frontend (own repo: snapdragon-admin-ui). Visible only to Casdoor
@@ -40,6 +42,8 @@ export class AdminComponent implements OnInit {
    *
    * - Regular items: visible to any ROLE_ADMIN session.
    * - `superadminOnly` items: hidden from an ADMIN — visible only to ROLE_SUPERADMIN.
+   * - `fleetOnly` items: visible only to a session with the fleet capability
+   *   (fleet_admin/admin/superadmin — the "My fleet" owner console).
    * - `hidden` items: the HIDDEN tier — only surfaced when a server-confirmed capability probe
    *   passes (the workload console is the first example; the route guard is the authoritative gate).
    */
@@ -66,6 +70,8 @@ export class AdminComponent implements OnInit {
     { path: 'device-licenses', label: 'Device licenses', superadminOnly: true },
     { path: 'device-pending', label: 'Pending devices', superadminOnly: true },
     { path: 'phone-fleet', label: 'Phone fleet', superadminOnly: true },
+    { path: 'my-fleet', label: 'My fleet', fleetOnly: true },
+    { path: 'fleet-entitlements', label: 'Fleet entitlements', superadminOnly: true },
     { path: 'node-storage', label: 'Node storage' },
     { path: 'device-radios', label: 'Device radios' },
     { path: 'domain-capabilities', label: 'Domain capabilities' },
@@ -87,6 +93,7 @@ export class AdminComponent implements OnInit {
   readonly menu = computed(() =>
     this.allMenu.filter((item) => {
       if (item.superadminOnly && !this.session.isSuperadmin()) return false;
+      if (item.fleetOnly && !this.session.isFleetAdmin()) return false;
       if (item.hidden && !this.workloadVisible()) return false;
       return true;
     }));

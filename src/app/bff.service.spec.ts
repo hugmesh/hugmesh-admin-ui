@@ -490,6 +490,146 @@ describe('BffService', () => {
       await expectAsync(service.lockPhone('phone-byod', 'x')).toBeRejectedWithError('not a managed device');
     });
   });
+
+  // ── Fleet-owner surface + owner assignment + entitlement admin (fleet-entitlement wave) ──
+  describe('fleet owner + entitlements', () => {
+    function header(name: string): string | undefined {
+      return (lastInit().headers as Record<string, string>)?.[name];
+    }
+
+    // ── Fleet-OWNER surface (PUBLIC /bff/admin/phone-fleet) ──
+    it('ownedPhones() unwraps the { phones } envelope from the PUBLIC owner surface with credentials', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ phones: [
+        { id: 'row-9', deviceId: 'owned-1', enterpriseProfilePresent: false, ingestCount: 2,
+          physicalOwner: 'casdoor:alice', ownerDomain: 'brand-a' },
+      ] }));
+      const phones = await service.ownedPhones();
+      expect(phones.length).toBe(1);
+      expect(phones[0].deviceId).toBe('owned-1');
+      expect(phones[0].physicalOwner).toBe('casdoor:alice');
+      expect(phones[0].ownerDomain).toBe('brand-a');
+      // The FLEET-OWNER path is the PUBLIC one, distinct from the superadmin registry read.
+      expect(lastUrl()).toContain('/bff/admin/phone-fleet');
+      expect(lastUrl()).not.toContain('/bff/superadmin/');
+      expect(lastInit().credentials).toBe('include');
+    });
+
+    it('ownedPhones() returns [] (not throw) on a denied/failed read — an un-entitled fleet-admin shows an honest empty fleet', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ error: 'fleet entitlement required' }, { ok: false, status: 403 }));
+      await expectAsync(service.ownedPhones()).toBeResolvedTo([]);
+    });
+
+    it('lockOwnedPhone POSTs the fleet-owner .../lock path with {reason} and the X-PhoneLock-StepUp header', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ deviceId: 'owned-1', lockState: 'locked' }));
+      const updated = await service.lockOwnedPhone('owned/1', 'stolen', 'TK-9');
+      expect(updated.lockState).toBe('locked');
+      expect(lastUrl()).toContain('/bff/admin/phone-fleet/owned%2F1/lock');
+      expect(lastInit().method).toBe('POST');
+      expect(JSON.parse(String(lastInit().body))).toEqual({ reason: 'stolen' });
+      expect(header('X-PhoneLock-StepUp')).toBe('TK-9');
+    });
+
+    it('unlockOwnedPhone POSTs the fleet-owner .../unlock path with NO body and the step-up header', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ deviceId: 'owned-1', lockState: 'unlocked' }));
+      const updated = await service.unlockOwnedPhone('owned-1', 'TK-10');
+      expect(updated.lockState).toBe('unlocked');
+      expect(lastUrl()).toContain('/bff/admin/phone-fleet/owned-1/unlock');
+      expect(lastInit().method).toBe('POST');
+      expect(lastInit().body).toBeUndefined();
+      expect(header('X-PhoneLock-StepUp')).toBe('TK-10');
+      expect(header('content-type')).toBeUndefined();
+    });
+
+    it('a fleet-owner lock THROWS the BFF {error} on a non-OK — so a step-up 403 surfaces for isStepUpRequiredError', async () => {
+      fetchSpy.and.resolveTo(jsonResponse(
+        { error: 'lock requires step-up re-authentication (present X-PhoneLock-StepUp)' },
+        { ok: false, status: 403 }));
+      await expectAsync(service.lockOwnedPhone('owned-1', 'stolen'))
+        .toBeRejectedWithError(/requires step-up/);
+    });
+
+    it('a fleet-owner lock on a cross-owner device surfaces the BFF 404 verbatim (no enumeration)', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ error: "phone 'other' not found" }, { ok: false, status: 404 }));
+      await expectAsync(service.lockOwnedPhone('other', 'x')).toBeRejectedWithError(/not found/);
+    });
+
+    // ── SUPERADMIN owner assignment (changeset 305) ──
+    it('setPhoneOwner PUTs the superadmin .../owner path with {physicalOwner, ownerDomain} + the step-up header', async () => {
+      fetchSpy.and.resolveTo(jsonResponse(
+        { deviceId: 'phone-1', physicalOwner: 'casdoor:bob', ownerDomain: 'brand-b' }));
+      const updated = await service.setPhoneOwner('phone/1',
+        { physicalOwner: 'casdoor:bob', ownerDomain: 'brand-b' }, 'TK-11');
+      expect(updated.physicalOwner).toBe('casdoor:bob');
+      expect(updated.ownerDomain).toBe('brand-b');
+      expect(lastUrl()).toContain('/bff/superadmin/phone-devices/phone%2F1/owner');
+      expect(lastInit().method).toBe('PUT');
+      expect(JSON.parse(String(lastInit().body)))
+        .toEqual({ physicalOwner: 'casdoor:bob', ownerDomain: 'brand-b' });
+      expect(header('X-PhoneLock-StepUp')).toBe('TK-11');
+    });
+
+    it('setPhoneOwner THROWS the BFF {error} on a non-OK (400 blank field / 403 step-up)', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ error: 'physicalOwner is required' }, { ok: false, status: 400 }));
+      await expectAsync(service.setPhoneOwner('phone-1', { physicalOwner: '', ownerDomain: 'b' }))
+        .toBeRejectedWithError('physicalOwner is required');
+    });
+
+    // ── SUPERADMIN entitlement admin (changeset 306) ──
+    it('listFleetEntitlements() unwraps the { entitlements } envelope with credentials', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ entitlements: [
+        { subject: 'casdoor:alice', active: true, seats: 25, expiresAt: null, updatedAt: '2026-07-20T09:00:00Z' },
+      ] }));
+      const list = await service.listFleetEntitlements();
+      expect(list.length).toBe(1);
+      expect(list[0].subject).toBe('casdoor:alice');
+      expect(list[0].seats).toBe(25);
+      expect(lastUrl()).toContain('/bff/superadmin/fleet-entitlements');
+      expect(lastInit().credentials).toBe('include');
+    });
+
+    it('listFleetEntitlements() returns [] (not throw) on a failed read', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ error: 'forbidden' }, { ok: false, status: 403 }));
+      await expectAsync(service.listFleetEntitlements()).toBeResolvedTo([]);
+    });
+
+    it('upsertFleetEntitlement PUTs .../{subject} with the {active, seats, expiresAt} body + the step-up header', async () => {
+      fetchSpy.and.resolveTo(jsonResponse(
+        { subject: 'casdoor:alice', active: true, seats: 25, expiresAt: '2026-12-31T00:00:00Z', updatedAt: '2026-07-21T00:00:00Z' }));
+      const saved = await service.upsertFleetEntitlement('casdoor:alice',
+        { active: true, seats: 25, expiresAt: '2026-12-31T00:00:00Z' }, 'TK-12');
+      expect(saved.subject).toBe('casdoor:alice');
+      expect(lastUrl()).toContain('/bff/superadmin/fleet-entitlements/casdoor%3Aalice');
+      expect(lastInit().method).toBe('PUT');
+      expect(JSON.parse(String(lastInit().body)))
+        .toEqual({ active: true, seats: 25, expiresAt: '2026-12-31T00:00:00Z' });
+      expect(header('X-PhoneLock-StepUp')).toBe('TK-12');
+    });
+
+    it('upsertFleetEntitlement THROWS the BFF {error} on a non-OK — so a step-up 403 surfaces', async () => {
+      fetchSpy.and.resolveTo(jsonResponse(
+        { error: 'entitlement upsert requires step-up re-authentication (present X-PhoneLock-StepUp)' },
+        { ok: false, status: 403 }));
+      await expectAsync(service.upsertFleetEntitlement('casdoor:alice', { active: true }))
+        .toBeRejectedWithError(/requires step-up/);
+    });
+
+    it('removeFleetEntitlement DELETEs .../{subject} with the step-up header and returns { deleted }', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ deleted: 1 }));
+      const result = await service.removeFleetEntitlement('casdoor:alice', 'TK-13');
+      expect(result.deleted).toBe(1);
+      expect(lastUrl()).toContain('/bff/superadmin/fleet-entitlements/casdoor%3Aalice');
+      expect(lastInit().method).toBe('DELETE');
+      expect(header('X-PhoneLock-StepUp')).toBe('TK-13');
+    });
+
+    it('removeFleetEntitlement THROWS the BFF {error} on a non-OK', async () => {
+      fetchSpy.and.resolveTo(jsonResponse(
+        { error: 'entitlement delete requires step-up re-authentication (present X-PhoneLock-StepUp)' },
+        { ok: false, status: 403 }));
+      await expectAsync(service.removeFleetEntitlement('casdoor:alice'))
+        .toBeRejectedWithError(/requires step-up/);
+    });
+  });
 });
 
 /** A minimal ReadableStream whose single chunk is the given SSE text. */

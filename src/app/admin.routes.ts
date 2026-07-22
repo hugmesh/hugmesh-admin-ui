@@ -19,6 +19,8 @@ import { AccountAppealsComponent } from './account-appeals/account-appeals.compo
 import { DeviceLicensesComponent } from './device-licenses.component';
 import { DevicePendingComponent } from './device-pending.component';
 import { PhoneFleetComponent } from './phone-fleet.component';
+import { MyFleetComponent } from './my-fleet.component';
+import { FleetEntitlementsComponent } from './fleet-entitlements.component';
 import { StoragePoolsComponent } from './storage-pools.component';
 import { DeviceRadiosComponent } from './device-radios.component';
 import { DomainCapabilitiesComponent } from './domain-capabilities.component';
@@ -35,6 +37,7 @@ import { CloudBackupsComponent } from './cloud-backups/cloud-backups.component';
 import { ImageGenComponent } from './image-gen/image-gen.component';
 import { MfaSecurityComponent } from './mfa/mfa-security.component';
 import { superadminGuard } from './superadmin.guard';
+import { fleetAdminGuard } from './fleet.guard';
 import { gamesServicesGuard } from './games-services.guard';
 import { workloadConsoleGuard } from './workload-console.guard';
 
@@ -64,9 +67,14 @@ import { workloadConsoleGuard } from './workload-console.guard';
  *  /admin/device-pending (the SUPERADMIN-only Pending Devices pick-list — assign a
  *  headscale-enrolled node into the registry; the machine-key fingerprint is an OPAQUE
  *  token captured from headscale, never typed/edited — additionally superadmin-guarded), and
- *  /admin/phone-fleet (the SUPERADMIN-only READ-ONLY Phone Fleet console over the sovereign
- *  MDM phone registry — every Android phone that has ingested its provisioning snapshot;
- *  no mutations, additionally superadmin-guarded), and
+ *  /admin/phone-fleet (the SUPERADMIN-only Phone Fleet console over the sovereign MDM phone
+ *  registry — every Android phone that has ingested its provisioning snapshot; management +
+ *  lockout + fleet-owner assignment, additionally superadmin-guarded), and
+ *  /admin/my-fleet (the FLEET-OWNER console over the PUBLIC /bff/admin/phone-fleet plane — a
+ *  non-superadmin FLEET_ADMIN/ADMIN sees + locks/unlocks ONLY their own owned devices; guarded
+ *  by fleetAdminGuard, with the BFF enforcing the per-subject entitlement + owner/domain wall), and
+ *  /admin/fleet-entitlements (the SUPERADMIN-only Fleet Entitlements console — grant/update/revoke
+ *  a subject's FLEET_ADMIN subscription; additionally superadmin-guarded, step-up gated), and
  *  /admin/superadmin/domains (the SUPERADMIN-only Domains console over the domain_registry
  *  brand list — multi-tenancy PR9, additionally superadmin-guarded), and
  *  /admin/oidc-providers (configure which roles new users auto-receive when registering via
@@ -133,6 +141,12 @@ export const ADMIN_ROUTES: Routes = [
   { path: 'device-licenses', component: DeviceLicensesComponent, canActivate: [superadminGuard] },
   { path: 'device-pending', component: DevicePendingComponent, canActivate: [superadminGuard] },
   { path: 'phone-fleet', component: PhoneFleetComponent, canActivate: [superadminGuard] },
+  // Fleet-OWNER surface (PUBLIC /bff/admin/phone-fleet plane) — a non-superadmin FLEET_ADMIN/
+  // ADMIN manages ONLY their own owned phones. Guarded by fleetAdminGuard (fleet_admin/admin/
+  // superadmin); the BFF enforces the per-subject entitlement + owner-within-domain wall.
+  { path: 'my-fleet', component: MyFleetComponent, canActivate: [fleetAdminGuard] },
+  // Fleet-entitlement admin (SUPERADMIN) — grant/update/revoke the FLEET_ADMIN subscription.
+  { path: 'fleet-entitlements', component: FleetEntitlementsComponent, canActivate: [superadminGuard] },
   { path: 'node-storage', component: StoragePoolsComponent },
   { path: 'device-radios', component: DeviceRadiosComponent },
   { path: 'domain-capabilities', component: DomainCapabilitiesComponent },

@@ -66,6 +66,25 @@ describe('SessionService', () => {
     expect(service.isSuperadmin()).toBeTrue();
   });
 
+  it('isFleetAdmin for a dedicated fleet_admin capability', () => {
+    service.set(makeSession({ roles: ['fleet_admin'] }));
+    expect(service.isFleetAdmin()).toBeTrue();
+    // ...and it is NOT an admin/superadmin — a pure fleet owner.
+    expect(service.isAdmin()).toBeFalse();
+    expect(service.isSuperadmin()).toBeFalse();
+  });
+
+  it('isFleetAdmin for admin and superadmin (a superset), false for a plain/mod user', () => {
+    service.set(makeSession({ roles: ['admin'] }));
+    expect(service.isFleetAdmin()).toBeTrue();
+    service.set(makeSession({ roles: ['superadmin'] }));
+    expect(service.isFleetAdmin()).toBeTrue();
+    service.set(makeSession({ roles: ['mod'] }));
+    expect(service.isFleetAdmin()).toBeFalse();
+    service.set(makeSession({ roles: [] }));
+    expect(service.isFleetAdmin()).toBeFalse();
+  });
+
   it('patch() merges into the current session without dropping other fields', () => {
     service.set(makeSession({ roles: ['admin'] }));
     service.patch({ registrationComplete: true });
