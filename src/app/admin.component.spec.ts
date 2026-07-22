@@ -11,21 +11,26 @@ describe('AdminComponent', () => {
   let fixture: ComponentFixture<AdminComponent>;
   let component: AdminComponent;
   let bff: jasmine.SpyObj<BffService>;
-  // The menu hides superadmin-only items unless the session is a superadmin; this
-  // signal lets each test choose the role the component sees.
+  // The menu hides superadmin-only items unless the session is a superadmin, and
+  // fleet-only items unless the session is fleet-capable; these signals let each test
+  // choose the role the component sees. `fleetAdmin` defaults true (an ADMIN is
+  // fleet-capable) so it does not perturb the pre-existing menu assertions.
   const superadmin = signal(false);
+  const fleetAdmin = signal(true);
 
   beforeEach(async () => {
     superadmin.set(false);
+    fleetAdmin.set(true);
     bff = jasmine.createSpyObj<BffService>('BffService', ['allowlist', 'invite']);
     bff.allowlist.and.resolveTo({ emails: ['a@gmail.com'], discord: ['bob'] });
     await TestBed.configureTestingModule({
       imports: [AdminComponent],
       // The landing view now carries the admin menu (routerLinks), so the test
-      // module supplies a router. A stub SessionService drives the superadmin gate.
+      // module supplies a router. A stub SessionService drives the superadmin +
+      // fleet capability gates.
       providers: [
         { provide: BffService, useValue: bff },
-        { provide: SessionService, useValue: { isSuperadmin: superadmin } },
+        { provide: SessionService, useValue: { isSuperadmin: superadmin, isFleetAdmin: fleetAdmin } },
         provideRouter([]),
       ],
     }).compileComponents();
@@ -102,6 +107,38 @@ describe('AdminComponent', () => {
     const link = el.querySelector('[data-menu="phone-fleet"]');
     expect(link).not.toBeNull();
     expect(link!.textContent!.trim()).toBe('Phone fleet');
+  });
+
+  it('surfaces the My fleet menu item for a fleet-capable session', () => {
+    fleetAdmin.set(true);
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    const link = el.querySelector('[data-menu="my-fleet"]');
+    expect(link).not.toBeNull();
+    expect(link!.textContent!.trim()).toBe('My fleet');
+  });
+
+  it('hides the My fleet menu item from a session without the fleet capability', () => {
+    fleetAdmin.set(false);
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('[data-menu="my-fleet"]')).toBeNull();
+  });
+
+  it('hides the superadmin-only Fleet entitlements menu item from a non-superadmin', () => {
+    superadmin.set(false);
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('[data-menu="fleet-entitlements"]')).toBeNull();
+  });
+
+  it('surfaces the Fleet entitlements menu item for a superadmin', () => {
+    superadmin.set(true);
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    const link = el.querySelector('[data-menu="fleet-entitlements"]');
+    expect(link).not.toBeNull();
+    expect(link!.textContent!.trim()).toBe('Fleet entitlements');
   });
 
   it('hides the superadmin-only Egress VPN menu item from a non-superadmin', () => {
@@ -260,7 +297,7 @@ describe('AdminComponent menu — resolved navigation targets', () => {
     await TestBed.configureTestingModule({
       providers: [
         { provide: BffService, useValue: bff },
-        { provide: SessionService, useValue: { isSuperadmin: signal(true) } },
+        { provide: SessionService, useValue: { isSuperadmin: signal(true), isFleetAdmin: signal(true) } },
         provideRouter([{ path: 'admin', children: ADMIN_ROUTES }]),
       ],
     }).compileComponents();

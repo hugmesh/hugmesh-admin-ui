@@ -73,7 +73,7 @@ describe('PhoneFleetComponent', () => {
 
   beforeEach(async () => {
     bff = jasmine.createSpyObj<BffService>('BffService',
-      ['phones', 'setPhoneManagement', 'lockPhone', 'unlockPhone']);
+      ['phones', 'setPhoneManagement', 'lockPhone', 'unlockPhone', 'setPhoneOwner']);
     bff.phones.and.resolveTo(fixturePhones());
     await TestBed.configureTestingModule({
       imports: [PhoneFleetComponent],
@@ -476,6 +476,102 @@ describe('PhoneFleetComponent', () => {
 
       resolveLock({ ...fixturePhones()[0], lockState: 'locked' } as PhoneDevice);
       await pending;
+    });
+  });
+
+  describe('fleet owner assignment (SUPERADMIN, step-up gated)', () => {
+    /** A fixture whose first row already carries an assigned owner (changeset-305 columns). */
+    function ownedFixture(): PhoneDevice[] {
+      const phones = fixturePhones();
+      phones[0].physicalOwner = 'casdoor:owner-x';
+      phones[0].ownerDomain = 'owner-domain-x';
+      return phones;
+    }
+
+    it('surfaces the current owner in the detail and PREFILLS the assign inputs from it', async () => {
+      bff.phones.and.resolveTo(ownedFixture());
+      await init();
+      clickExpand('phone-a1b2c3');
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.querySelector('[data-testid="pf-owner"]')!.textContent).toContain('casdoor:owner-x');
+      expect(el.querySelector('[data-testid="pf-owner-domain"]')!.textContent).toContain('owner-domain-x');
+      // The inputs are prefilled with the current owner so an edit starts from the current value.
+      expect(component.ownerPhysical).toBe('casdoor:owner-x');
+      expect(component.ownerDomain).toBe('owner-domain-x');
+      // The owner-assign affordance IS present here (the superadmin provisioning surface).
+      expect(el.querySelector('[data-owner-assign="phone-a1b2c3"]')).not.toBeNull();
+    });
+
+    it('shows a dash and blank inputs when the device has no owner yet', async () => {
+      await init();   // default fixture: no physicalOwner/ownerDomain
+      clickExpand('phone-a1b2c3');
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.querySelector('[data-testid="pf-owner"]')!.textContent!.trim()).toBe('—');
+      expect(component.ownerPhysical).toBe('');
+      expect(component.ownerDomain).toBe('');
+    });
+
+    it('assigns the owner via setPhoneOwner(deviceId, {physicalOwner, ownerDomain}) and swaps the row', async () => {
+      await init();
+      clickExpand('phone-a1b2c3');
+      const assigned: PhoneDevice = {
+        ...fixturePhones()[0], physicalOwner: 'casdoor:new', ownerDomain: 'brand-new',
+      };
+      bff.setPhoneOwner.and.resolveTo(assigned);
+
+      component.ownerPhysical = 'casdoor:new';
+      component.ownerDomain = 'brand-new';
+      await component.assignOwner(component.phones()[0]);
+      fixture.detectChanges();
+
+      expect(bff.setPhoneOwner).toHaveBeenCalledWith('phone-a1b2c3',
+        { physicalOwner: 'casdoor:new', ownerDomain: 'brand-new' });
+      expect(component.phones()[0].physicalOwner).toBe('casdoor:new');
+      expect(component.phones()[0].ownerDomain).toBe('brand-new');
+      expect(component.actionNote()?.kind).toBe('ok');
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.querySelector('[data-testid="pf-owner"]')!.textContent).toContain('casdoor:new');
+    });
+
+    it('refuses to assign with a blank field — no BFF call, an error note surfaces', async () => {
+      await init();
+      clickExpand('phone-a1b2c3');
+      component.ownerPhysical = '   ';
+      component.ownerDomain = 'brand-new';
+      await component.assignOwner(component.phones()[0]);
+      expect(bff.setPhoneOwner).not.toHaveBeenCalled();
+      expect(component.actionNote()?.kind).toBe('err');
+    });
+
+    it('opens the inline MFA step-up dialog on a "requires step-up" 403 and retries the SAME owner assignment on success', async () => {
+      await init();
+      clickExpand('phone-a1b2c3');
+      component.ownerPhysical = 'casdoor:new';
+      component.ownerDomain = 'brand-new';
+      bff.setPhoneOwner.and.rejectWith(
+        new Error('owner requires step-up re-authentication (present X-PhoneLock-StepUp)'));
+
+      await component.assignOwner(component.phones()[0]);
+      fixture.detectChanges();
+
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.querySelector('[data-testid="mfa-stepup-dialog"]')).not.toBeNull();
+      expect(component.stepUpChallenge()).not.toBeNull();
+
+      const assigned: PhoneDevice = {
+        ...fixturePhones()[0], physicalOwner: 'casdoor:new', ownerDomain: 'brand-new',
+      };
+      bff.setPhoneOwner.and.resolveTo(assigned);
+      await component.onStepUpSatisfied();
+      fixture.detectChanges();
+
+      expect(bff.setPhoneOwner).toHaveBeenCalledTimes(2);
+      expect(bff.setPhoneOwner.calls.allArgs()).toEqual([
+        ['phone-a1b2c3', { physicalOwner: 'casdoor:new', ownerDomain: 'brand-new' }],
+        ['phone-a1b2c3', { physicalOwner: 'casdoor:new', ownerDomain: 'brand-new' }],
+      ]);
+      expect(component.phones()[0].physicalOwner).toBe('casdoor:new');
+      expect(el.querySelector('[data-testid="mfa-stepup-dialog"]')).toBeNull();
     });
   });
 

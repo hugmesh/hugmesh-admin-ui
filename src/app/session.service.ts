@@ -56,6 +56,19 @@ export class SessionService {
   readonly isSuperadmin = computed(() => (this.session()?.roles ?? []).includes('superadmin'));
 
   /**
+   * True when the session may reach the FLEET-OWNER surface (`/my-fleet`, the public
+   * `/bff/admin/phone-fleet/**` plane). Mirrors the admin-bff's coarse gate
+   * `hasAnyRole('FLEET_ADMIN','ADMIN','SUPERADMIN')`: a dedicated `fleet_admin` capability
+   * OR the broader `admin`/`superadmin` roles (a superadmin/admin is a superset). The BFF is
+   * the authoritative gate — it additionally enforces the per-subject ENTITLEMENT (an
+   * un-entitled admin sees a fail-soft empty fleet), so this only governs UI reachability.
+   */
+  readonly isFleetAdmin = computed(() => {
+    const roles = this.session()?.roles ?? [];
+    return roles.includes('fleet_admin') || roles.includes('admin') || roles.includes('superadmin');
+  });
+
+  /**
    * Games app-store DERIVED roles (materialised in Casdoor; surfaced lowercased,
    * `ROLE_`-prefix-stripped, in `session.roles`).
    *

@@ -60,6 +60,12 @@ export class PhoneFleetComponent implements OnInit {
   /** The reason typed for a Lock action (bound to the expanded row's inline input). Cleared on a
    *  successful lock and whenever the open row changes. */
   lockReason = '';
+  /** The physicalOwner (Casdoor subject) typed for an owner-assignment on the expanded row.
+   *  Prefilled from the row's current owner on expand; cleared/re-prefilled when the open row
+   *  changes. */
+  ownerPhysical = '';
+  /** The ownerDomain (brand/domain) typed for an owner-assignment on the expanded row. */
+  ownerDomain = '';
 
   async ngOnInit(): Promise<void> {
     await this.load();
@@ -92,12 +98,17 @@ export class PhoneFleetComponent implements OnInit {
   toggle(deviceId: string): void {
     const next = this.expandedDeviceId() === deviceId ? '' : deviceId;
     this.expandedDeviceId.set(next);
-    // The action state (note, typed lock reason) is shared across rows since only one detail
-    // is ever open — reset it on every open/close so a stale note from another row can't bleed
-    // through under the newly-expanded phone.
+    // The action state (note, typed lock reason, owner-assignment inputs) is shared across rows
+    // since only one detail is ever open — reset it on every open/close so a stale note from
+    // another row can't bleed through under the newly-expanded phone. The owner inputs are
+    // PREFILLED from the newly-expanded row's current owner (so an edit starts from the current
+    // value, not blank).
     this.actionNote.set(null);
     this.stepUpChallenge.set(null);
     this.lockReason = '';
+    const opened = next ? this.phones().find((p) => p.deviceId === next) : undefined;
+    this.ownerPhysical = opened?.physicalOwner ?? '';
+    this.ownerDomain = opened?.ownerDomain ?? '';
   }
 
   /**
@@ -251,6 +262,36 @@ export class PhoneFleetComponent implements OnInit {
       const updated = await this.bff.unlockPhone(p.deviceId);
       this.updateRow(updated);
       this.actionNote.set({ kind: 'ok', text: `${updated.deviceId} unlocked.` });
+    });
+  }
+
+  /**
+   * Assign this phone's OPERATOR-AUTHORITATIVE fleet owner (physicalOwner Casdoor subject +
+   * ownerDomain brand) — the two changeset-305 columns that ARE the tenancy wall for the public
+   * fleet-owner surface. SUPERADMIN provisioning, step-up gated (via {@link runGated}). BOTH
+   * fields are required (the BFF rejects a blank one with 400); validated here so an empty
+   * submit surfaces an inline error instead of a network round-trip. Not destructive → no
+   * confirm(). Once assigned, the FLEET_ADMIN/ADMIN owner (with an active entitlement) can
+   * manage the device from their own "My fleet" console.
+   */
+  async assignOwner(p: PhoneDevice): Promise<void> {
+    if (this.busy()) return;
+    const physicalOwner = this.ownerPhysical.trim();
+    const ownerDomain = this.ownerDomain.trim();
+    if (!physicalOwner || !ownerDomain) {
+      this.actionNote.set({
+        kind: 'err',
+        text: 'Enter both a physical owner (Casdoor subject) and an owner domain.',
+      });
+      return;
+    }
+    await this.runGated('Assigning the fleet owner', async () => {
+      const updated = await this.bff.setPhoneOwner(p.deviceId, { physicalOwner, ownerDomain });
+      this.updateRow(updated);
+      this.actionNote.set({
+        kind: 'ok',
+        text: `${updated.deviceId} owner set to ${updated.physicalOwner} (${updated.ownerDomain}).`,
+      });
     });
   }
 

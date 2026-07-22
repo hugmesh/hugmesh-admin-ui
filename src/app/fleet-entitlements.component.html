@@ -1,0 +1,146 @@
+<section class="snap-fleet-entitlements" data-testid="fleet-entitlements-view" aria-labelledby="fe-heading">
+  <h2 id="fe-heading">Fleet entitlements</h2>
+  <p class="fe-intro">
+    Grant a subject the FLEET-ADMIN subscription that lets them manage their own owned phones on
+    the “My fleet” console. A subject reaches that console only while an ACTIVE, unexpired
+    entitlement exists. Seats is an advisory count (not enforced); expiry is optional. Superadmins
+    are always exempt.
+  </p>
+
+  <button
+    type="button"
+    data-testid="fe-refresh"
+    (click)="load()"
+    [disabled]="loading()"
+  >Refresh</button>
+
+  <span
+    *ngIf="loadError()"
+    class="field-error"
+    data-testid="fe-error"
+    role="alert"
+    aria-live="assertive"
+  >{{ loadError() }}</span>
+
+  <form class="fe-grant" (ngSubmit)="grant()" novalidate aria-labelledby="fe-grant-heading">
+    <h3 id="fe-grant-heading">Grant / update an entitlement</h3>
+    <div class="fe-grant-fields">
+      <label for="fe-subject">Subject (Casdoor identity)</label>
+      <input
+        id="fe-subject"
+        data-testid="fe-subject"
+        type="text"
+        [(ngModel)]="subject"
+        name="subject"
+        placeholder="casdoor:alice"
+        [disabled]="actionsLocked()"
+      />
+
+      <label for="fe-active" class="fe-check">
+        <input
+          id="fe-active"
+          data-testid="fe-active"
+          type="checkbox"
+          [(ngModel)]="active"
+          name="active"
+          [disabled]="actionsLocked()"
+        />
+        Active
+      </label>
+
+      <label for="fe-seats">Seats (optional)</label>
+      <input
+        id="fe-seats"
+        data-testid="fe-seats"
+        type="number"
+        min="0"
+        [(ngModel)]="seats"
+        name="seats"
+        placeholder="e.g. 25"
+        [disabled]="actionsLocked()"
+      />
+
+      <label for="fe-expires">Expires (optional)</label>
+      <input
+        id="fe-expires"
+        data-testid="fe-expires"
+        type="datetime-local"
+        [(ngModel)]="expiresAt"
+        name="expiresAt"
+        [disabled]="actionsLocked()"
+      />
+
+      <button
+        type="submit"
+        data-testid="fe-grant"
+        [disabled]="actionsLocked()"
+      >Grant / update</button>
+    </div>
+  </form>
+
+  <p
+    *ngIf="actionNote() as note"
+    data-testid="fe-action-note"
+    class="fe-action-note"
+    [class.fe-action-note--err]="note.kind === 'err'"
+    [attr.role]="note.kind === 'err' ? 'alert' : 'status'"
+    [attr.aria-live]="note.kind === 'err' ? 'assertive' : 'polite'"
+  >{{ note.text }}</p>
+
+  <!-- Inline MFA step-up dialog for a grant/revoke that 403s "requires step-up". -->
+  <snap-mfa-step-up-dialog
+    *ngIf="stepUpChallenge() as challenge"
+    [action]="challenge.action"
+    (satisfied)="onStepUpSatisfied()"
+    (dismissed)="onStepUpDismissed()"
+  ></snap-mfa-step-up-dialog>
+
+  <p *ngIf="loading()" class="fe-muted" data-testid="fe-loading" role="status" aria-live="polite">
+    Loading fleet entitlements…
+  </p>
+
+  <p
+    *ngIf="!loading() && !loadError() && !entitlements().length"
+    class="fe-muted"
+    data-testid="fe-empty"
+  >No fleet entitlements have been granted yet.</p>
+
+  <table *ngIf="entitlements().length" class="fe-table" data-testid="fe-table" aria-labelledby="fe-heading">
+    <caption class="sr">Fleet-admin entitlements with subject, state, seats, expiry and last-updated.</caption>
+    <thead>
+      <tr>
+        <th scope="col">Subject</th>
+        <th scope="col">State</th>
+        <th scope="col">Seats</th>
+        <th scope="col">Expires</th>
+        <th scope="col">Updated</th>
+        <th scope="col"><span class="sr">Actions</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let e of entitlements()" [attr.data-entitlement]="e.subject" class="fe-row">
+        <td class="fe-subject-cell"><strong>{{ e.subject }}</strong></td>
+        <td class="fe-state">
+          <span
+            class="fe-chip"
+            [attr.data-state]="stateLabel(e)"
+            [class.fe-chip--ok]="stateLabel(e) === 'active'"
+            [class.fe-chip--err]="stateLabel(e) !== 'active'"
+          >{{ stateLabel(e) }}</span>
+        </td>
+        <td class="fe-seats-cell">{{ e.seats ?? '—' }}</td>
+        <td class="fe-expires-cell">{{ e.expiresAt ? (e.expiresAt | date: 'short') : 'never' }}</td>
+        <td class="fe-updated-cell">{{ e.updatedAt ? (e.updatedAt | date: 'short') : '—' }}</td>
+        <td class="fe-actions">
+          <button
+            type="button"
+            [attr.data-revoke]="e.subject"
+            [disabled]="actionsLocked()"
+            [attr.aria-label]="'Revoke the fleet entitlement for ' + e.subject"
+            (click)="revoke(e)"
+          >Revoke</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</section>

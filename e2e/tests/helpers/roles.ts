@@ -20,7 +20,7 @@ import { Browser, BrowserContext, Page } from '@playwright/test';
  * `process.env.E2E_PASSWORD` (or `e2e-pass`) unless a per-user override env var
  * is exported.
  */
-export type RoleKind = 'admin' | 'superadmin' | 'mod' | 'games-admin' | 'games-runner' | 'user';
+export type RoleKind = 'admin' | 'superadmin' | 'mod' | 'games-admin' | 'games-runner' | 'fleet-admin' | 'user';
 
 export interface SeedUser {
   /** CLI-friendly username referenced from .feature lines. */
@@ -55,6 +55,13 @@ export const SEED_USERS: SeedUser[] = [
   //    `gs-runner-help` helptext (the real ALLOW+DENY+helptext surface).
   { username: 'games-admin',  passwordEnv: 'E2E_GAMES_ADMIN_PASSWORD',  provider: 'google',  roles: ['admin', 'games_services_admin'],  kind: 'games-admin',  domain: 'domain-a' },
   { username: 'games-runner', passwordEnv: 'E2E_GAMES_RUNNER_PASSWORD', provider: 'discord', roles: ['games_services_runner'],           kind: 'games-runner', domain: 'domain-a' },
+
+  // ── Fleet owner — a NON-superadmin FLEET_ADMIN (no admin/superadmin role). Reaches the
+  //    PUBLIC "My fleet" ({@code /bff/admin/phone-fleet}) owner surface via fleetAdminGuard, but
+  //    is DENIED every superadmin-only console (phone-fleet, fleet-entitlements) and the
+  //    superadmin phone-devices/fleet-entitlements BFF plane (403). The BFF ALSO gates the
+  //    fleet surface on a per-subject entitlement + owner-within-domain wall.
+  { username: 'fleet-owner-a', passwordEnv: 'E2E_FLEET_OWNER_PASSWORD', provider: 'google', roles: ['fleet_admin'], kind: 'fleet-admin', domain: 'domain-a' },
 
   // ── Mod — the SIBLING role, not a subset of admin. A mod carries real
   //    moderation power over their domain (mod-ui / mod-bff) but must be DENIED

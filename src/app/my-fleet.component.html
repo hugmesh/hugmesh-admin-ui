@@ -1,0 +1,189 @@
+<section class="snap-my-fleet" data-testid="my-fleet-view" aria-labelledby="mf-heading">
+  <h2 id="mf-heading">My fleet</h2>
+  <p class="mf-intro">
+    The phones your organisation owns. Expand a row to see its details and, for a managed
+    device, to lock or unlock it. You see only your own devices — provisioning (assigning an
+    owner, marking a device managed) is done by a platform superadmin.
+  </p>
+
+  <button
+    type="button"
+    data-testid="mf-refresh"
+    (click)="load()"
+    [disabled]="loading()"
+  >Refresh</button>
+
+  <span
+    *ngIf="loadError()"
+    class="field-error"
+    data-testid="mf-error"
+    role="alert"
+    aria-live="assertive"
+  >{{ loadError() }}</span>
+
+  <p *ngIf="loading()" class="mf-muted" data-testid="mf-loading" role="status" aria-live="polite">
+    Loading your fleet…
+  </p>
+
+  <p
+    *ngIf="!loading() && !loadError() && !phones().length"
+    class="mf-muted"
+    data-testid="mf-empty"
+  >You have no phones in your fleet yet.</p>
+
+  <table *ngIf="phones().length" class="mf-table" data-testid="mf-table" aria-labelledby="mf-heading">
+    <caption class="sr">
+      Your owned phones with OS, role, management mode, lock state and attached domain.
+    </caption>
+    <thead>
+      <tr>
+        <th scope="col">Device</th>
+        <th scope="col">OS</th>
+        <th scope="col">Role</th>
+        <th scope="col">Management</th>
+        <th scope="col">Lock</th>
+        <th scope="col">Attached domain</th>
+        <th scope="col">Last ingested</th>
+        <th scope="col"><span class="sr">Details</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      <ng-container *ngFor="let p of phones()">
+        <tr [attr.data-phone-id]="p.deviceId" class="mf-row">
+          <td class="p-device">
+            <strong>{{ p.deviceId }}</strong>
+            <small *ngIf="deviceName(p)" class="mf-muted">{{ deviceName(p) }}</small>
+          </td>
+          <td class="p-os">{{ p.os || '—' }} {{ p.osVersion }}</td>
+          <td class="p-role">{{ p.role || '—' }}</td>
+          <td class="p-management">
+            <span
+              class="mf-chip"
+              [attr.data-management]="p.managementMode || 'unmanaged'"
+              [class.mf-chip--ok]="p.managementMode === 'mesh_owned'"
+            >{{ managementLabel(p) }}</span>
+          </td>
+          <td class="p-lock">
+            <span
+              class="mf-chip"
+              [attr.data-lock-state]="p.lockState || 'unlocked'"
+              [class.mf-chip--err]="p.lockState === 'locked'"
+            >{{ p.lockState === 'locked' ? 'locked' : 'unlocked' }}</span>
+            <small
+              *ngIf="p.lockState === 'locked' && p.lockPropagationState"
+              class="mf-muted"
+              [attr.data-lock-prop]="p.lockPropagationState"
+            >{{ p.lockPropagationState }}</small>
+          </td>
+          <td class="p-domain">{{ p.attachedDomain || '—' }}</td>
+          <td class="p-last-ingested">{{ p.lastIngestedAt | date: 'short' }}</td>
+          <td class="p-actions">
+            <button
+              type="button"
+              class="link"
+              [attr.data-expand]="p.deviceId"
+              [attr.aria-expanded]="isExpanded(p.deviceId)"
+              [attr.aria-controls]="detailDomId(p)"
+              [attr.aria-label]="(isExpanded(p.deviceId) ? 'Hide details for phone ' : 'Show details for phone ') + p.deviceId"
+              (click)="toggle(p.deviceId)"
+            >{{ isExpanded(p.deviceId) ? 'Hide details' : 'Details' }}</button>
+          </td>
+        </tr>
+
+        <tr *ngIf="isExpanded(p.deviceId)" class="mf-detail" [attr.data-phone-detail]="p.deviceId">
+          <td colspan="8" [attr.id]="detailDomId(p)">
+            <div class="mf-detail-grid">
+              <div class="mf-block">
+                <h3>Identity</h3>
+                <dl>
+                  <dt>Device id</dt><dd>{{ p.deviceId }}</dd>
+                  <dt>Class</dt><dd>{{ p.deviceClass || '—' }}</dd>
+                  <dt>Serial</dt><dd>{{ p.serial || '—' }}</dd>
+                  <dt>Codename</dt><dd>{{ p.codename || '—' }}</dd>
+                  <dt>Marketing name</dt><dd>{{ p.marketingName || '—' }}</dd>
+                  <dt>OS</dt><dd>{{ p.os || '—' }} {{ p.osVersion }}</dd>
+                  <dt>Role</dt><dd>{{ p.role || '—' }}</dd>
+                </dl>
+              </div>
+
+              <div class="mf-block" data-block="owner">
+                <h3>Ownership</h3>
+                <dl>
+                  <dt>Physical owner</dt><dd data-testid="mf-owner">{{ p.physicalOwner || '—' }}</dd>
+                  <dt>Owner domain</dt><dd data-testid="mf-owner-domain">{{ p.ownerDomain || '—' }}</dd>
+                  <dt>Attached domain</dt><dd>{{ p.attachedDomain || '—' }}</dd>
+                </dl>
+              </div>
+
+              <div class="mf-block mf-block--wide" data-block="lock">
+                <h3>Lock</h3>
+                <dl>
+                  <dt>Management mode</dt>
+                  <dd data-testid="mf-mgmt-mode">
+                    {{ p.managementMode === 'mesh_owned' ? 'managed (mesh-owned)' : 'unmanaged (BYOD)' }}
+                  </dd>
+                  <dt>Lock state</dt><dd data-testid="mf-lock-state">{{ p.lockState || 'unlocked' }}</dd>
+                  <dt>Propagation</dt><dd>{{ p.lockPropagationState || '—' }}</dd>
+                  <dt>Lock reason</dt><dd>{{ p.lockReason || '—' }}</dd>
+                  <dt>Lock updated</dt><dd>{{ p.lockUpdatedAt ? (p.lockUpdatedAt | date: 'short') : '—' }}</dd>
+                </dl>
+
+                <div class="mf-actions">
+                  <ng-container *ngIf="p.lockState !== 'locked'">
+                    <input
+                      type="text"
+                      data-testid="mf-lock-reason"
+                      [attr.data-lock-reason]="p.deviceId"
+                      [(ngModel)]="lockReason"
+                      placeholder="reason for lock"
+                      aria-label="Reason for locking this phone"
+                      [disabled]="actionsLocked() || !canLock(p)"
+                    />
+                    <button
+                      type="button"
+                      [attr.data-lock-action]="p.deviceId"
+                      [disabled]="actionsLocked() || !canLock(p)"
+                      [attr.aria-label]="'Lock phone ' + p.deviceId"
+                      (click)="lock(p)"
+                    >Lock</button>
+                    <span
+                      *ngIf="!canLock(p)"
+                      class="mf-muted"
+                      data-testid="mf-lock-help"
+                      [attr.data-lock-help]="p.deviceId"
+                    >BYOD device — not lockable</span>
+                  </ng-container>
+                  <button
+                    *ngIf="p.lockState === 'locked'"
+                    type="button"
+                    [attr.data-unlock-action]="p.deviceId"
+                    [disabled]="actionsLocked()"
+                    [attr.aria-label]="'Unlock phone ' + p.deviceId"
+                    (click)="unlock(p)"
+                  >Unlock</button>
+                </div>
+
+                <p
+                  *ngIf="actionNote() as note"
+                  data-testid="mf-action-note"
+                  class="mf-action-note"
+                  [class.mf-action-note--err]="note.kind === 'err'"
+                  [attr.role]="note.kind === 'err' ? 'alert' : 'status'"
+                  [attr.aria-live]="note.kind === 'err' ? 'assertive' : 'polite'"
+                >{{ note.text }}</p>
+
+                <!-- Inline MFA step-up dialog for a lock/unlock that 403s "requires step-up". -->
+                <snap-mfa-step-up-dialog
+                  *ngIf="stepUpChallenge() as challenge"
+                  [action]="challenge.action"
+                  (satisfied)="onStepUpSatisfied()"
+                  (dismissed)="onStepUpDismissed()"
+                ></snap-mfa-step-up-dialog>
+              </div>
+            </div>
+          </td>
+        </tr>
+      </ng-container>
+    </tbody>
+  </table>
+</section>

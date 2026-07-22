@@ -1684,6 +1684,110 @@ export class BffService {
     if (r.ok) return r.json();
     throw new Error(await this.errorOf(r));
   }
+
+  // ── Fleet-OWNER surface (PUBLIC fe-gateway, non-superadmin FLEET_ADMIN/ADMIN) ──────
+  // The tenancy-walled twin of the SUPERADMIN /bff/superadmin/phone-devices plane above:
+  // /bff/admin/phone-fleet/** returns ONLY the caller's own+own-domain devices (the BFF
+  // predicates every read + mutation on physical_owner = caller AND owner_domain = caller-
+  // domain; a superadmin is unscoped). A fleet owner may lock/unlock an already-owned,
+  // already-managed device — but can NEVER mark-managed or assign an owner (those are
+  // SUPERADMIN provisioning). The lock/unlock mutations reuse the SAME X-PhoneLock-StepUp
+  // step-up posture as the superadmin plane (via {@link phoneLockMutate}), so a
+  // "requires step-up" 403 surfaces verbatim for {@link isStepUpRequiredError}. Endpoints
+  // (admin-bff PhoneFleetOwnerController):
+  //   GET  /bff/admin/phone-fleet              → { phones } (own+own-domain; superadmin: all)
+  //   GET  /bff/admin/phone-fleet/{deviceId}   → PhoneDevice (404 if not owned-in-domain)
+  //   POST /bff/admin/phone-fleet/{deviceId}/lock   {reason} → PhoneDevice (404 not owned; 409 BYOD)
+  //   POST /bff/admin/phone-fleet/{deviceId}/unlock          → PhoneDevice (404 not owned)
+
+  /** The caller's OWN phone fleet (own+own-domain; the BFF is the scoping authority — the UI
+   *  never re-implements the owner/domain predicate, it just renders what the BFF returned).
+   *  Fail-soft [] on a denied/failed read (an un-entitled fleet-admin's 403 shows an honest
+   *  empty fleet, never an error), mirroring {@link phones}. */
+  async ownedPhones(): Promise<PhoneDevice[]> {
+    const r = await fetch(`${CFG.bff}/bff/admin/phone-fleet`, { credentials: 'include' });
+    if (!r.ok) return [];
+    const body = await r.json();
+    return body.phones ?? [];
+  }
+
+  /** Lock one of the caller's OWN managed phones with a reason (fleet-owner surface). The
+   *  optional step-up token rides X-PhoneLock-StepUp; throws the BFF {error} on a non-2xx (403
+   *  "requires step-up", 404 if not owned-in-domain, 409 if BYOD) so a step-up 403 can be
+   *  detected and offered the inline MFA dialog. Returns the updated row. */
+  async lockOwnedPhone(deviceId: string, reason: string, stepUpToken?: string): Promise<PhoneDevice> {
+    return this.phoneLockMutate('POST',
+      `/bff/admin/phone-fleet/${encodeURIComponent(deviceId)}/lock`, { reason }, stepUpToken);
+  }
+
+  /** Unlock one of the caller's OWN phones (fleet-owner surface; reversible). Throws the BFF
+   *  {error} on a non-2xx (404 if not owned-in-domain). Returns the updated row. */
+  async unlockOwnedPhone(deviceId: string, stepUpToken?: string): Promise<PhoneDevice> {
+    return this.phoneLockMutate('POST',
+      `/bff/admin/phone-fleet/${encodeURIComponent(deviceId)}/unlock`, undefined, stepUpToken);
+  }
+
+  // ── SUPERADMIN owner assignment (provisioning; changeset 305) ─────────────────────
+  // PUT /bff/superadmin/phone-devices/{deviceId}/owner {physicalOwner, ownerDomain} — sets
+  // the two OPERATOR-AUTHORITATIVE 305 columns that ARE the fleet tenancy wall. SUPERADMIN +
+  // step-up (X-PhoneLock-StepUp, the same PhoneLockStepUpGate as management/lock). Both fields
+  // are REQUIRED at the BFF (@NotBlank). Returns the updated PhoneDevice.
+
+  /** Assign a phone's OPERATOR-AUTHORITATIVE fleet owner (physicalOwner Casdoor subject +
+   *  ownerDomain brand). SUPERADMIN provisioning; a fleet-admin can never set its own owner.
+   *  Throws the BFF {error} on a non-2xx (403 "requires step-up", 400 on a blank field). */
+  async setPhoneOwner(deviceId: string, owner: { physicalOwner: string; ownerDomain: string },
+                      stepUpToken?: string): Promise<PhoneDevice> {
+    return this.phoneLockMutate('PUT',
+      `/bff/superadmin/phone-devices/${encodeURIComponent(deviceId)}/owner`, owner, stepUpToken);
+  }
+
+  // ── SUPERADMIN fleet-entitlement admin (changeset 306) ────────────────────────────
+  // The per-subject FLEET-ADMIN subscription a superadmin grants/updates/revokes so a
+  // non-superadmin FLEET_ADMIN may reach the public owner surface. GET list is a plain
+  // SUPERADMIN read (fail-soft []); the two MUTATIONS (PUT upsert / DELETE revoke) require
+  // step-up (X-PhoneLock-StepUp OR a fresh Casdoor-MFA stamp) and THROW the BFF {error} on a
+  // non-2xx so a "requires step-up" 403 surfaces for {@link isStepUpRequiredError}. Endpoints
+  // (admin-bff FleetEntitlementSuperadminController):
+  //   GET    /bff/superadmin/fleet-entitlements          → { entitlements:[FleetEntitlement] }
+  //   PUT    /bff/superadmin/fleet-entitlements/{subject} {active?, seats?, expiresAt?} → FleetEntitlement
+  //   DELETE /bff/superadmin/fleet-entitlements/{subject} → { deleted }
+
+  /** Every fleet-admin entitlement (SUPERADMIN read). Fail-soft [] on a denied/failed read
+   *  (no existence leak), unwrapping the { entitlements } envelope. */
+  async listFleetEntitlements(): Promise<FleetEntitlement[]> {
+    const r = await fetch(`${CFG.bff}/bff/superadmin/fleet-entitlements`, { credentials: 'include' });
+    if (!r.ok) return [];
+    const body = await r.json();
+    return body.entitlements ?? [];
+  }
+
+  /** Grant OR update a subject's fleet-admin entitlement (upsert; SUPERADMIN + step-up). The
+   *  optional step-up token rides X-PhoneLock-StepUp; throws the BFF {error} on a non-2xx (403
+   *  "requires step-up", 400 on a negative seats). Returns the persisted entitlement row. */
+  async upsertFleetEntitlement(subject: string,
+                               body: { active: boolean; seats?: number | null; expiresAt?: string | null },
+                               stepUpToken?: string): Promise<FleetEntitlement> {
+    const headers: Record<string, string> = { 'content-type': 'application/json' };
+    if (stepUpToken) headers['X-PhoneLock-StepUp'] = stepUpToken;
+    const r = await fetch(`${CFG.bff}/bff/superadmin/fleet-entitlements/${encodeURIComponent(subject)}`, {
+      method: 'PUT', headers, credentials: 'include', body: JSON.stringify(body),
+    });
+    if (r.ok) return r.json();
+    throw new Error(await this.errorOf(r));
+  }
+
+  /** Revoke a subject's fleet-admin entitlement (SUPERADMIN + step-up). Throws the BFF {error}
+   *  on a non-2xx (403 "requires step-up"). Returns { deleted } (0 = no such subject). */
+  async removeFleetEntitlement(subject: string, stepUpToken?: string): Promise<{ deleted: number }> {
+    const headers: Record<string, string> = {};
+    if (stepUpToken) headers['X-PhoneLock-StepUp'] = stepUpToken;
+    const r = await fetch(`${CFG.bff}/bff/superadmin/fleet-entitlements/${encodeURIComponent(subject)}`, {
+      method: 'DELETE', headers, credentials: 'include',
+    });
+    if (r.ok) return r.json();
+    throw new Error(await this.errorOf(r));
+  }
 }
 
 // ── Backup & Recovery DTOs (mirror the BFF backup package shapes) ─────
@@ -2702,6 +2806,15 @@ export interface PhoneDevice {
   lockReason: string | null;
   lockActor: string | null;
   lockUpdatedAt: string | null;
+  // ── Fleet ownership (admin-bff changeset 305, OPERATOR-AUTHORITATIVE) ──
+  // physicalOwner is the Casdoor subject the device belongs to; ownerDomain is the
+  // brand/domain. Together they are the SOLE tenancy wall for the PUBLIC fleet-owner
+  // surface (/bff/admin/phone-fleet/**): a non-superadmin FLEET_ADMIN/ADMIN reads +
+  // locks ONLY devices WHERE physicalOwner = caller AND ownerDomain = caller-domain.
+  // Set ONLY via the SUPERADMIN owner-assignment PUT (never the spoofable ingest);
+  // null until a superadmin provisions the device to an owner.
+  physicalOwner?: string | null;
+  ownerDomain?: string | null;
   // MDM device-owner (Headwind) enrolment facts — phone-ingest/v2's `mdm` fold.
   // Null/false for v1 producers and phones that never ran mdm-enroll.
   mdmEnrolled?: boolean | null;
@@ -2714,4 +2827,17 @@ export interface PhoneDevice {
   firstIngestedAt?: string | null;
   lastIngestedAt?: string | null;
   ingestCount: number;
+}
+
+/** One `fleet_entitlement` row (admin-bff changeset 306) — the per-subject FLEET-ADMIN
+ *  subscription the superadmin grants/revokes. A non-superadmin FLEET_ADMIN may reach the
+ *  public /bff/admin/phone-fleet owner surface ONLY while an ACTIVE, unexpired entitlement
+ *  exists for their Casdoor subject. `seats` is an advisory count (NOT enforced by the
+ *  tenancy wall); `expiresAt` is an optional ISO-8601 expiry the BFF evaluates fail-closed. */
+export interface FleetEntitlement {
+  subject: string;
+  active: boolean;
+  seats?: number | null;
+  expiresAt?: string | null;
+  updatedAt: string;
 }
