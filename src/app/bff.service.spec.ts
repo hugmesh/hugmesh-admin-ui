@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { BffService, RouteDefinition, RouteRule } from './bff.service';
-import { SessionService, SnapSession } from './session.service';
+import { SessionService, HugSession } from './session.service';
 
 /** Minimal fetch Response stub. */
 function jsonResponse(body: unknown, init?: { ok?: boolean; status?: number }): Response {
@@ -12,7 +12,7 @@ function jsonResponse(body: unknown, init?: { ok?: boolean; status?: number }): 
   } as unknown as Response;
 }
 
-function adminSession(): SnapSession {
+function adminSession(): HugSession {
   return {
     id: 'google:admin@gmail.com',
     label: 'admin@gmail.com',
@@ -25,7 +25,7 @@ function adminSession(): SnapSession {
 describe('BffService', () => {
   let service: BffService;
   let fetchSpy: jasmine.Spy;
-  const sessionSig = signal<SnapSession | null>(null);
+  const sessionSig = signal<HugSession | null>(null);
 
   beforeEach(() => {
     sessionSig.set(adminSession());

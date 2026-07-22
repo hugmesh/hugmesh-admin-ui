@@ -55,7 +55,7 @@ const TARGET_USER_RE = /^[A-Za-z0-9._@\/-]{1,400}$/;
  * inline package-atom fields are the functional fallback when the modal is not mounted.
  */
 @Component({
-  selector: 'snap-image-gen-worklist-wizard',
+  selector: 'hug-image-gen-worklist-wizard',
   standalone: true,
   imports: [CommonModule, FormsModule, MfaStepUpDialogComponent],
   templateUrl: './image-gen-worklist-wizard.component.html',

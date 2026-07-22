@@ -23,7 +23,7 @@ const FOCUSABLE =
  * intentional focus-trap in the app and it satisfies every escape condition.
  */
 @Directive({
-  selector: '[snapFocusTrap]',
+  selector: '[hugFocusTrap]',
   standalone: true,
 })
 export class FocusTrapDirective implements AfterViewInit, OnDestroy {

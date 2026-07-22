@@ -23,7 +23,7 @@ import { PlatformCapabilitiesService } from './platform/platform-capabilities.se
  * a button).
  */
 @Component({
-  selector: 'snap-argocd-dashboard',
+  selector: 'hug-argocd-dashboard',
   standalone: true,
   imports: [CommonModule, FocusTrapDirective, CapabilityGateComponent],
   templateUrl: './argocd-dashboard.component.html',

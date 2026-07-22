@@ -1,4 +1,4 @@
-<section class="snap-mfa" data-testid="mfa-security-view" aria-labelledby="mfa-security-heading">
+<section class="hug-mfa" data-testid="mfa-security-view" aria-labelledby="mfa-security-heading">
   <h2 id="mfa-security-heading">Security — two-factor authentication</h2>
 
   <p class="intro">
@@ -96,12 +96,12 @@
       </section>
 
       <!-- ── Inline MFA step-up dialog for the remove/regenerate mutations ── -->
-      <snap-mfa-step-up-dialog
+      <hug-mfa-step-up-dialog
         *ngIf="stepUpChallenge() as challenge"
         [action]="challenge.description"
         (satisfied)="onStepUpSatisfied()"
         (dismissed)="onStepUpDismissed()"
-      ></snap-mfa-step-up-dialog>
+      ></hug-mfa-step-up-dialog>
     </ng-container>
 
     <!-- ── ENROLL WIZARD ─────────────────────────────────────────────────── -->

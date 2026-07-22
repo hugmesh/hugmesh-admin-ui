@@ -4,12 +4,12 @@
   display: block;
 }
 
-.snap-egress-vpn {
+.hug-egress-vpn {
   display: block;
   padding: 1rem;
 
   .ev-intro {
-    color: var(--sd-text-soft, var(--sd-text));
+    color: var(--hug-text-soft, var(--hug-text));
     max-width: 70ch;
   }
 
@@ -23,20 +23,20 @@
 
   label {
     font-weight: 600;
-    color: var(--sd-text);
+    color: var(--hug-text);
   }
 
   input,
   select,
   textarea {
-    background: var(--sd-bg-1);
-    color: var(--sd-text);
-    border: 1px solid var(--sd-border);
+    background: var(--hug-bg-1);
+    color: var(--hug-text);
+    border: 1px solid var(--hug-border);
     border-radius: t.$radius-sm;
     padding: 0.5rem 0.75rem;
 
     &[aria-invalid='true'] {
-      border-color: var(--sd-error);
+      border-color: var(--hug-error);
     }
 
     &:disabled {
@@ -52,9 +52,9 @@
   }
 
   button {
-    background: var(--sd-accent);
-    color: var(--sd-text);
-    border: 1px solid var(--sd-accent-soft);
+    background: var(--hug-accent);
+    color: var(--hug-text);
+    border: 1px solid var(--hug-accent-soft);
     border-radius: t.$radius-sm;
     padding: 0.4rem 0.8rem;
     cursor: pointer;

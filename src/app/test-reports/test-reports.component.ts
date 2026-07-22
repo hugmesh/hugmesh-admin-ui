@@ -19,7 +19,7 @@ import { TestReportsStore } from './test-reports-store.service';
  * ReadableStream reader (NOT EventSource) so the HttpOnly bff_ cookie rides the request.
  */
 @Component({
-  selector: 'snap-test-reports',
+  selector: 'hug-test-reports',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './test-reports.component.html',

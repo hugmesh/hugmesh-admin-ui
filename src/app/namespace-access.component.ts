@@ -4,13 +4,13 @@ import { FormsModule } from '@angular/forms';
 import { BffService } from './bff.service';
 
 /**
- * Admin "Namespace access" view (own repo: snapdragon-admin-ui). Admin-only
+ * Admin "Namespace access" view (own repo: hugmesh-admin-ui). Admin-only
  * (route-guarded). Lets an admin grant registered users access to specific
  * cluster namespaces — which scopes what each user sees in Uptrace/observability
  * and (in production) maps to Casdoor groups + k8s RBAC via the Spring admin API.
  */
 @Component({
-  selector: 'snap-namespace-access',
+  selector: 'hug-namespace-access',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './namespace-access.component.html',

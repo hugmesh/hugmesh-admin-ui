@@ -1,4 +1,4 @@
-<section class="snap-argocd" data-testid="argocd-view" aria-labelledby="argocd-heading">
+<section class="hug-argocd" data-testid="argocd-view" aria-labelledby="argocd-heading">
   <h2 id="argocd-heading">ArgoCD — Applications</h2>
 
   <p id="argocd-help" class="hint" data-testid="argocd-help">
@@ -9,7 +9,7 @@
 
   <!-- Capability gate: ArgoCD (the GitOps reconciler) is absent on this deployment. Show the
        graceful-degradation notice INSTEAD of the dashboard + actions, never an error. -->
-  <snap-capability-gate
+  <hug-capability-gate
     *ngIf="capabilitiesReady() && !argocdPresent()"
     capability="argocd"
     [warning]="argocdWarning()"
@@ -107,7 +107,7 @@
     aria-labelledby="argocd-confirm-heading"
     aria-describedby="argocd-confirm-body"
     tabindex="-1"
-    snapFocusTrap
+    hugFocusTrap
     (dismiss)="cancelSync()"
   >
     <div class="dialog">

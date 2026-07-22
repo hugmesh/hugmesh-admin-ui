@@ -34,7 +34,7 @@ type Method = 'totp' | 'recovery' | 'webauthn';
  * the form it gates).
  */
 @Component({
-  selector: 'snap-mfa-step-up-dialog',
+  selector: 'hug-mfa-step-up-dialog',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './mfa-step-up-dialog.component.html',

@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { BffService, CreateDomainRequest, DomainResponse } from './bff.service';
 
 /**
- * Superadmin "Domains" console (own repo: snapdragon-admin-ui) — the multi-tenancy PR9
+ * Superadmin "Domains" console (own repo: hugmesh-admin-ui) — the multi-tenancy PR9
  * SUPERADMIN surface over {@code domain_registry}, the RUNTIME source of truth for which
  * brands/domains exist in the cluster (the twin of the build-time brands/domains.conf the
  * generator bakes in). SUPERADMIN-only (route-guarded by {@link superadminGuard}); a
@@ -19,7 +19,7 @@ import { BffService, CreateDomainRequest, DomainResponse } from './bff.service';
  * soft-disabled via PUT enabled:false — not wired in this MVP create+list surface).
  */
 @Component({
-  selector: 'snap-superadmin-domains',
+  selector: 'hug-superadmin-domains',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './superadmin-domains.component.html',

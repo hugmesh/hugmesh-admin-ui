@@ -1,7 +1,7 @@
 {
-  "name": "@snapdragon/admin",
+  "name": "@hugmesh/admin",
   "version": "0.1.0",
-  "description": "Admin console (allowlist, usage, namespace access) — Angular micro-frontend (native-federation remote) for the snapdragon.systems host.",
+  "description": "Admin console (allowlist, usage, namespace access) — Angular micro-frontend (native-federation remote) for the hugmesh.systems host.",
   "license": "MIT",
   "private": true,
   "scripts": {

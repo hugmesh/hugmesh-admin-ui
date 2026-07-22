@@ -9,7 +9,7 @@ import {
 
 /**
  * Service-layer specs for the hand-written cloud-backups client. They assert the
- * EXACT bff paths + bodies + headers the snapdragon-admin-bff-api `cloudbackup`
+ * EXACT bff paths + bodies + headers the hugmesh-admin-bff-api `cloudbackup`
  * package documents (PR #74), the CROSS-DOMAIN rule (no domain/createdBy/scope is
  * ever sent on a write), the X-Backup-StepUp header on restore, and the graceful
  * mapping of the bff's 401/403/404/400 + 204.

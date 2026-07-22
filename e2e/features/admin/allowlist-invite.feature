@@ -1,12 +1,12 @@
 # ADMIN-INVITE leg of the cross-service "admin invites -> user registers ->
 # lands with correct access" loop (wave 3). This console (admin.component.ts)
 # is the front door of the loop: POST /bff/admin/allowlist writes the DURABLE
-# allowlist row snapdragon-login-ui's registration gate reads
+# allowlist row hugmesh-login-ui's registration gate reads
 # (AuthController.registerGoogle/registerDiscord -> store.isEmailInvited /
 # isDiscordInvited); a handle absent here is refused registration outright.
 # The rest of the loop (the invited identity actually registering, and the
 # uninvited-refusal) is covered on the OTHER side of the gate, in
-# snapdragon-login-ui's e2e suite (register-invite-gate.feature) — that suite
+# hugmesh-login-ui's e2e suite (register-invite-gate.feature) — that suite
 # seeds through THIS same real POST /bff/admin/allowlist endpoint, so both
 # repos exercise the identical, real cross-service contract.
 #

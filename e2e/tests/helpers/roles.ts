@@ -2,9 +2,9 @@ import { Browser, BrowserContext, Page } from '@playwright/test';
 
 /**
  * Catalogue of Casdoor seed users for the admin-ui e2e matrix. Adapted from the
- * proven snapdragon.games/e2e helper, but keyed to THIS app's session model:
- * the admin-ui (and its host) persist a {@link SnapSession} under the
- * `snap.session` localStorage key (see src/app/session.service.ts), whose
+ * proven hugmesh.games/e2e helper, but keyed to THIS app's session model:
+ * the admin-ui (and its host) persist a {@link HugSession} under the
+ * `hug.session` localStorage key (see src/app/session.service.ts), whose
  * `roles: string[]` drives every guard — adminGuard, superadminGuard,
  * gamesServicesGuard — and the lowercased, ROLE_-prefix-stripped role flags.
  *
@@ -29,7 +29,7 @@ export interface SeedUser {
   passwordEnv: string;
   /** Identity provider — admin-ui sessions are google- or discord-backed. */
   provider: 'google' | 'discord';
-  /** The lowercased Casdoor roles this user carries in `snap.session.roles`. */
+  /** The lowercased Casdoor roles this user carries in `hug.session.roles`. */
   roles: string[];
   /** Drives role-specific assertions. */
   kind: RoleKind;
@@ -93,7 +93,7 @@ export async function newE2eContext(browser: Browser): Promise<BrowserContext> {
 }
 
 /**
- * Drive the federated login form and wait for `snap.session` in localStorage.
+ * Drive the federated login form and wait for `hug.session` in localStorage.
  *
  * @cluster-only — this helper hits a LIVE Casdoor + host shell, so it is only
  * exercised by scenarios tagged `@cluster` today (they ship dark: the default
@@ -102,15 +102,15 @@ export async function newE2eContext(browser: Browser): Promise<BrowserContext> {
  * rewrite needed.
  *
  * The admin-ui's host shell renders the login micro-frontend; on success the
- * SessionService writes `snap.session` (see set()/broadcast()) and the gateway
+ * SessionService writes `hug.session` (see set()/broadcast()) and the gateway
  * sets the HttpOnly `bff_` cookie via Set-Cookie. We wait for the non-secret
- * `snap.session` key to appear so a follow-up guarded navigation doesn't race the
+ * `hug.session` key to appear so a follow-up guarded navigation doesn't race the
  * write (the bearer no longer lives in the browser — auth rides the cookie).
  */
 export async function login(page: Page, user: SeedUser): Promise<void> {
   await page.goto('/login', { waitUntil: 'domcontentloaded' });
   // The login remote exposes its form via formControlName selectors (the public
-  // selector contract shared across the Snapdragon UIs).
+  // selector contract shared across the HugMesh UIs).
   await page.locator('input[formControlName="username"]').waitFor({ state: 'visible', timeout: 15_000 });
   await page.fill('input[formControlName="username"]', user.username);
   await page.fill('input[formControlName="password"]', passwordFor(user));
@@ -118,7 +118,7 @@ export async function login(page: Page, user: SeedUser): Promise<void> {
   await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 60_000 });
   await page.waitForFunction(
     () => {
-      const raw = window.localStorage.getItem('snap.session');
+      const raw = window.localStorage.getItem('hug.session');
       if (!raw) return false;
       try {
         return Boolean(JSON.parse(raw).id);
@@ -132,7 +132,7 @@ export async function login(page: Page, user: SeedUser): Promise<void> {
 }
 
 /**
- * Seed a {@link SnapSession} directly into localStorage WITHOUT a Casdoor round
+ * Seed a {@link HugSession} directly into localStorage WITHOUT a Casdoor round
  * trip. Mirrors the shape SessionService.set() writes, so guards reading the
  * `roles` array behave exactly as in production. Used by the offline/dark
  * scenarios that assert pure client-side guard behaviour (skip-link focus,
@@ -151,12 +151,12 @@ export async function seedSession(page: Page, user: SeedUser): Promise<void> {
     ([key, value]) => {
       window.localStorage.setItem(key, value);
     },
-    ['snap.session', JSON.stringify(session)] as const,
+    ['hug.session', JSON.stringify(session)] as const,
   );
 }
 
 /** Clear the session — used between role swaps so a stale identity doesn't carry
  *  into the next scenario's guard check. */
 export async function clearSession(page: Page): Promise<void> {
-  await page.evaluate(() => window.localStorage.removeItem('snap.session'));
+  await page.evaluate(() => window.localStorage.removeItem('hug.session'));
 }

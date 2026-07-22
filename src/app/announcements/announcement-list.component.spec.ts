@@ -4,9 +4,9 @@ import { By } from '@angular/platform-browser';
 import { AnnouncementListComponent } from './announcement-list.component';
 import { AnnouncementEditorComponent } from './announcement-editor.component';
 import { Announcement, AnnouncementsStore } from './announcements.service';
-import { SessionService, SnapSession } from '../session.service';
+import { SessionService, HugSession } from '../session.service';
 
-function session(): SnapSession {
+function session(): HugSession {
   return {
     id: 'google:admin@gmail.com', label: 'admin@gmail.com', provider: 'google',
     roles: ['admin'], registrationComplete: true,
@@ -26,7 +26,7 @@ describe('AnnouncementListComponent', () => {
   let fixture: ComponentFixture<AnnouncementListComponent>;
   let component: AnnouncementListComponent;
   let store: AnnouncementsStore;
-  const sessionSig = signal<SnapSession | null>(session());
+  const sessionSig = signal<HugSession | null>(session());
 
   const published = announcement({
     id: 'pub', title: 'Live one', state: 'published', target_home: true, target_login: true,

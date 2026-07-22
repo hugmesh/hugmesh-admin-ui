@@ -1,4 +1,4 @@
-<section class="snap-device-licenses" data-testid="device-licenses-view" aria-labelledby="dl-heading">
+<section class="hug-device-licenses" data-testid="device-licenses-view" aria-labelledby="dl-heading">
   <h2 id="dl-heading">Device licenses</h2>
   <p class="dl-intro">
     Grant or revoke SSH operate-licenses across the device registry — the single source
@@ -69,12 +69,12 @@
   </form>
 
   <!-- Inline MFA step-up dialog for an ssh-issuance action that 403s "requires step-up". -->
-  <snap-mfa-step-up-dialog
+  <hug-mfa-step-up-dialog
     *ngIf="sshStepUpChallenge() as challenge"
     [action]="challenge.action"
     (satisfied)="onSshStepUpSatisfied()"
     (dismissed)="onSshStepUpDismissed()"
-  ></snap-mfa-step-up-dialog>
+  ></hug-mfa-step-up-dialog>
 
   <ul data-testid="dl-devices" aria-label="Registered devices and their SSH operate-licenses">
     <li *ngFor="let d of devices()" [attr.data-device-id]="d.id">

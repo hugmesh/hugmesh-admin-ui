@@ -41,7 +41,7 @@ function splitAtoms(s: string): string[] {
  * freshness off this session).
  */
 @Component({
-  selector: 'snap-image-gen',
+  selector: 'hug-image-gen',
   standalone: true,
   imports: [
     CommonModule,

@@ -11,7 +11,7 @@ import { RovingFocusDirective } from './roving-focus.directive';
   standalone: true,
   imports: [RovingFocusDirective],
   template: `
-    <div role="tablist" snapRovingFocus>
+    <div role="tablist" hugRovingFocus>
       <button type="button" role="tab" [attr.aria-selected]="active === 0" data-i="0">One</button>
       <button type="button" role="tab" [attr.aria-selected]="active === 1" data-i="1">Two</button>
       <button type="button" role="tab" [attr.aria-selected]="active === 2" data-i="2">Three</button>

@@ -71,7 +71,7 @@ export function credentialToJson(credential: PublicKeyCredential): string {
  * set (ES256 + RS256) covers virtually every authenticator.
  */
 export async function createPasskey(opts: WebAuthnOptions, account: string): Promise<string> {
-  const accountName = account || 'snapdragon-user';
+  const accountName = account || 'hugmesh-user';
   const encoded = new TextEncoder().encode(accountName);
   const userId = new Uint8Array(new ArrayBuffer(encoded.length));
   userId.set(encoded);

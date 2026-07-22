@@ -1,4 +1,4 @@
-<section class="snap-desktop-gov" data-testid="desktop-ssh-terminal-view" aria-labelledby="dst-heading">
+<section class="hug-desktop-gov" data-testid="desktop-ssh-terminal-view" aria-labelledby="dst-heading">
   <h2 id="dst-heading">SSH terminal (in-UI)</h2>
   <p class="dg-intro">
     Open an interactive SSH terminal into a desktop device, riding your device-SSH license.
@@ -35,12 +35,12 @@
   <!-- ── Inline MFA step-up dialog: the WS denial is a bodyless POLICY_VIOLATION close, so the
        dialog is hooked on the step-up MINT 403 that names step-up. On success the live terminal is
        re-opened (token-less — the BFF reads the fresh MFA stamp off this session). ── -->
-  <snap-mfa-step-up-dialog
+  <hug-mfa-step-up-dialog
     *ngIf="stepUpChallenge() as challenge"
     [action]="challenge.action"
     (satisfied)="onStepUpSatisfied()"
     (dismissed)="onStepUpDismissed()"
-  ></snap-mfa-step-up-dialog>
+  ></hug-mfa-step-up-dialog>
 
   <p *ngIf="error()" id="dst-err" data-testid="dst-error" role="alert" aria-live="assertive" class="field-error"
     >{{ error() }}</p>

@@ -38,7 +38,7 @@ import { superadminGuard } from './superadmin.guard';
 import { gamesServicesGuard } from './games-services.guard';
 import { workloadConsoleGuard } from './workload-console.guard';
 
-/** Routes exposed by the Admin native-federation remote. The snapdragon.systems
+/** Routes exposed by the Admin native-federation remote. The hugmesh.systems
  *  host mounts these at /admin, so they resolve to /admin (allowlist),
  *  /admin/usage (ClickHouse usage dashboard), /admin/namespaces (namespace
  *  access grants), /admin/delegation (access-role suspend/ban + lift, domain-lock
@@ -92,7 +92,7 @@ import { workloadConsoleGuard } from './workload-console.guard';
  *  superadmin-guarded), and
  *  /admin/security (the self-service Security console: enroll/list/remove your OWN MFA factors
  *  — TOTP authenticator or WebAuthn passkey — and regenerate recovery codes, over the shared
- *  snapdragon-auth-core /bff/mfa/* contract; the SAME inline step-up dialog this console uses
+ *  hugmesh-auth-core /bff/mfa/* contract; the SAME inline step-up dialog this console uses
  *  for its own step-up-gated remove/regenerate mutations is reusable by any privileged admin
  *  action elsewhere in this app — see {@code MfaStepUpDialogComponent}).
  *  Casdoor-admin-role guarded by the host. */
@@ -125,7 +125,7 @@ export const ADMIN_ROUTES: Routes = [
   { path: 'appeals', component: AppealsComponent },
   { path: 'account-appeals', component: AccountAppealsComponent },
   // Self-service Security console: enroll/list/remove your OWN MFA factors (TOTP +
-  // WebAuthn passkey) and regenerate recovery codes, over the shared snapdragon-auth-core
+  // WebAuthn passkey) and regenerate recovery codes, over the shared hugmesh-auth-core
   // /bff/mfa/* contract (the same one login-ui's /login/security already uses). ANY
   // authenticated admin/superadmin may reach it (no additional guard) — the BFF is the
   // authoritative owner scope (a caller only ever sees/mutates their own factors).

@@ -5,7 +5,7 @@ import {
   BffService,
   DomainLock,
 } from './bff.service';
-import { SessionService, SnapSession } from './session.service';
+import { SessionService, HugSession } from './session.service';
 
 /**
  * Delegation BFF transport tests — the wired AdminController access-roles +
@@ -23,7 +23,7 @@ function jsonResponse(body: unknown, init?: { ok?: boolean; status?: number }): 
   } as unknown as Response;
 }
 
-function adminSession(): SnapSession {
+function adminSession(): HugSession {
   return {
     id: 'google:admin@gmail.com',
     label: 'admin@gmail.com',
@@ -61,7 +61,7 @@ const lock: DomainLock = {
 describe('BffService delegation transport', () => {
   let service: BffService;
   let fetchSpy: jasmine.Spy;
-  const sessionSig = signal<SnapSession | null>(null);
+  const sessionSig = signal<HugSession | null>(null);
 
   beforeEach(() => {
     sessionSig.set(adminSession());

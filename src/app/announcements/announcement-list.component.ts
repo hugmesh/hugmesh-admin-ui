@@ -16,7 +16,7 @@ import { AnnouncementEditorComponent } from './announcement-editor.component';
  * a confirm-before-delete guard; errors announced in a `role=alert` live region.
  */
 @Component({
-  selector: 'snap-announcement-list',
+  selector: 'hug-announcement-list',
   standalone: true,
   imports: [CommonModule, AnnouncementEditorComponent],
   templateUrl: './announcement-list.component.html',

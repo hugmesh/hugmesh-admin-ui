@@ -9,7 +9,7 @@ import { isStepUpRequiredError } from '../mfa/step-up-error';
 interface DialNote { deviceId: string; kind: 'ok' | 'err'; text: string; }
 
 /**
- * The SSH-DIAL MANAGEMENT sub-tab (own repo: snapdragon-admin-ui). The SUPERADMIN-only front-end
+ * The SSH-DIAL MANAGEMENT sub-tab (own repo: hugmesh-admin-ui). The SUPERADMIN-only front-end
  * for the desktop-governance dial control plane (admin-bff at
  * {@code /bff/superadmin/desktop/dials}). Each {@code device_ssh_dial} row is the per-device
  * BFF&rarr;device SSH trust: the BFF authenticates to the device as the dial user using a
@@ -34,7 +34,7 @@ interface DialNote { deviceId: string; kind: 'ok' | 'err'; text: string; }
  * collapses to an empty list (no existence leak).
  */
 @Component({
-  selector: 'snap-desktop-dials',
+  selector: 'hug-desktop-dials',
   standalone: true,
   imports: [CommonModule, MfaStepUpDialogComponent],
   templateUrl: './desktop-dials.component.html',

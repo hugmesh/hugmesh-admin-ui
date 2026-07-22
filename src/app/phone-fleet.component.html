@@ -1,4 +1,4 @@
-<section class="snap-phone-fleet" data-testid="phone-fleet-view" aria-labelledby="pf-heading">
+<section class="hug-phone-fleet" data-testid="phone-fleet-view" aria-labelledby="pf-heading">
   <h2 id="pf-heading">Phone fleet</h2>
   <p class="pf-intro">
     Every MDM phone that has ingested — self-reported its provisioning snapshot to the
@@ -257,12 +257,12 @@
                 >{{ note.text }}</p>
 
                 <!-- Inline MFA step-up dialog for an action that 403s "requires step-up". -->
-                <snap-mfa-step-up-dialog
+                <hug-mfa-step-up-dialog
                   *ngIf="stepUpChallenge() as challenge"
                   [action]="challenge.action"
                   (satisfied)="onStepUpSatisfied()"
                   (dismissed)="onStepUpDismissed()"
-                ></snap-mfa-step-up-dialog>
+                ></hug-mfa-step-up-dialog>
               </div>
 
               <div class="pf-block">

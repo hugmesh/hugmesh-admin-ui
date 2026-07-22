@@ -4,7 +4,7 @@ import { BffService, DeviceSshDial } from '../bff.service';
 import { SessionService } from '../session.service';
 
 const dial = (over: Partial<DeviceSshDial> = {}): DeviceSshDial => ({
-  deviceId: 'dev-1', dialUser: 'snap-dial', hostKeyFp: 'SHA256:host', dialPubFp: 'SHA256:pub',
+  deviceId: 'dev-1', dialUser: 'hug-dial', hostKeyFp: 'SHA256:host', dialPubFp: 'SHA256:pub',
   vaultRef: 'vault://dial/dev-1', k8sSecretName: 'dial-dev-1', status: 'PENDING', generation: 1, ...over,
 });
 

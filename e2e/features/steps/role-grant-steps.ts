@@ -2,7 +2,7 @@
 // standalone Casdoor role grant/revoke (AdminController#grantRole/#revokeRole,
 // POST/DELETE /bff/admin/roles/{roleName}/{user}). This is the REAL lever the
 // cross-service "grant ROLE_MATRIX -> Matrix surface unlocks" loop rests on
-// (see snapdragon-matrix-ui's access/role-grant-unlock-loop.feature for the
+// (see hugmesh-matrix-ui's access/role-grant-unlock-loop.feature for the
 // other leg).
 //
 // BFF write: fires the same same-origin fetch the app's BffService fires

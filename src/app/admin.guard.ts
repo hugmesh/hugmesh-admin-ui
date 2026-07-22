@@ -4,7 +4,7 @@ import { SessionService } from './session.service';
 
 /**
  * Route guard — allows activation only when the session carries the Casdoor `admin` role
- * (ROLE_ADMIN or higher in the Snapdragon role hierarchy).
+ * (ROLE_ADMIN or higher in the HugMesh role hierarchy).
  *
  * This is a **presentation-only** check. The BFF enforces `@PreAuthorize("hasRole('ADMIN')")` on
  * every `/bff/admin/**` endpoint, so even if this guard were bypassed the server remains

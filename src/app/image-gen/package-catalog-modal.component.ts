@@ -90,7 +90,7 @@ const ATOM_RE = /^[a-z0-9][a-z0-9+._-]*\/[A-Za-z0-9+._-]+$/;
  * every atom/option is a labelled checkbox; the selected count is an `aria-live` region.
  */
 @Component({
-  selector: 'snap-package-catalog-modal',
+  selector: 'hug-package-catalog-modal',
   standalone: true,
   imports: [FocusTrapDirective],
   templateUrl: './package-catalog-modal.component.html',

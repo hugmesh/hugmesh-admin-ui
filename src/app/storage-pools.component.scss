@@ -4,12 +4,12 @@
   display: block;
 }
 
-.snap-storage-pools {
+.hug-storage-pools {
   display: block;
   padding: 1rem;
 
   .sp-intro {
-    color: var(--sd-text-soft, var(--sd-text));
+    color: var(--hug-text-soft, var(--hug-text));
     max-width: 60ch;
   }
 
@@ -28,19 +28,19 @@
 
   label {
     font-weight: 600;
-    color: var(--sd-text);
+    color: var(--hug-text);
   }
 
   input,
   select {
-    background: var(--sd-bg-1);
-    color: var(--sd-text);
-    border: 1px solid var(--sd-border);
+    background: var(--hug-bg-1);
+    color: var(--hug-text);
+    border: 1px solid var(--hug-border);
     border-radius: t.$radius-sm;
     padding: 0.5rem 0.75rem;
 
     &[aria-invalid='true'] {
-      border-color: var(--sd-error);
+      border-color: var(--hug-error);
     }
 
     &:disabled {
@@ -50,27 +50,27 @@
   }
 
   button {
-    background: var(--sd-accent);
-    color: var(--sd-text);
-    border: 1px solid var(--sd-accent-soft);
+    background: var(--hug-accent);
+    color: var(--hug-text);
+    border: 1px solid var(--hug-accent-soft);
     border-radius: t.$radius-sm;
     padding: 0.4rem 0.8rem;
     cursor: pointer;
   }
 
   .field-error {
-    color: var(--sd-error);
+    color: var(--hug-error);
     flex-basis: 100%;
   }
 
   .field-warning {
-    color: var(--sd-warn, #b8860b);
+    color: var(--hug-warn, #b8860b);
     flex-basis: 100%;
     max-width: 60ch;
   }
 
   .sp-muted {
-    color: var(--sd-text-soft, var(--sd-text));
+    color: var(--hug-text-soft, var(--hug-text));
     font-size: 0.9em;
   }
 
@@ -81,7 +81,7 @@
     > li.sp-pool {
       margin-block: 1rem;
       padding: 0.5rem 0.75rem;
-      border: 1px solid var(--sd-border);
+      border: 1px solid var(--hug-border);
       border-radius: t.$radius-sm;
     }
 
@@ -105,20 +105,20 @@
     letter-spacing: 0.03em;
     padding: 0.1rem 0.5rem;
     border-radius: 999px;
-    border: 1px solid var(--sd-border);
-    background: var(--sd-bg-1);
+    border: 1px solid var(--hug-border);
+    background: var(--hug-bg-1);
 
     &--ok {
-      border-color: var(--sd-ok, #2e7d32);
-      color: var(--sd-ok, #2e7d32);
+      border-color: var(--hug-ok, #2e7d32);
+      color: var(--hug-ok, #2e7d32);
     }
     &--warn {
-      border-color: var(--sd-warn, #b8860b);
-      color: var(--sd-warn, #b8860b);
+      border-color: var(--hug-warn, #b8860b);
+      color: var(--hug-warn, #b8860b);
     }
     &--err {
-      border-color: var(--sd-error);
-      color: var(--sd-error);
+      border-color: var(--hug-error);
+      color: var(--hug-error);
     }
   }
 
@@ -126,8 +126,8 @@
     height: 0.6rem;
     width: 100%;
     max-width: 32rem;
-    background: var(--sd-bg-1);
-    border: 1px solid var(--sd-border);
+    background: var(--hug-bg-1);
+    border: 1px solid var(--hug-border);
     border-radius: 999px;
     overflow: hidden;
     margin-block: 0.35rem 0.15rem;
@@ -135,7 +135,7 @@
     .sp-bar-fill {
       display: block;
       height: 100%;
-      background: var(--sd-accent);
+      background: var(--hug-accent);
     }
   }
 }

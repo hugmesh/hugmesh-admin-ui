@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
-import { SessionService, SnapSession } from './session.service';
+import { SessionService, HugSession } from './session.service';
 
-function makeSession(over: Partial<SnapSession> = {}): SnapSession {
+function makeSession(over: Partial<HugSession> = {}): HugSession {
   return {
     id: 'google:alice@gmail.com',
     label: 'alice@gmail.com',
@@ -31,14 +31,14 @@ describe('SessionService', () => {
   });
 
   it('hydrates an existing session from localStorage on construction', () => {
-    localStorage.setItem('snap.session', JSON.stringify(makeSession({ roles: ['admin'] })));
+    localStorage.setItem('hug.session', JSON.stringify(makeSession({ roles: ['admin'] })));
     const fresh = TestBed.runInInjectionContext(() => new SessionService());
     expect(fresh.loggedIn()).toBeTrue();
     expect(fresh.isAdmin()).toBeTrue();
   });
 
   it('tolerates malformed JSON in localStorage and reports logged-out', () => {
-    localStorage.setItem('snap.session', '{not valid json');
+    localStorage.setItem('hug.session', '{not valid json');
     const fresh = TestBed.runInInjectionContext(() => new SessionService());
     expect(fresh.session()).toBeNull();
     expect(fresh.loggedIn()).toBeFalse();
@@ -49,7 +49,7 @@ describe('SessionService', () => {
     expect(service.loggedIn()).toBeTrue();
     expect(service.isAdmin()).toBeTrue();
     expect(service.fullyRegistered()).toBeTrue();
-    expect(JSON.parse(localStorage.getItem('snap.session')!).roles).toEqual(['admin']);
+    expect(JSON.parse(localStorage.getItem('hug.session')!).roles).toEqual(['admin']);
   });
 
   it('isAdmin only when the roles array includes "admin"', () => {
@@ -83,15 +83,15 @@ describe('SessionService', () => {
     service.set(makeSession());
     service.clear();
     expect(service.session()).toBeNull();
-    expect(localStorage.getItem('snap.session')).toBeNull();
+    expect(localStorage.getItem('hug.session')).toBeNull();
   });
 
   it('re-reads localStorage when another in-page instance broadcasts a change', () => {
     expect(service.loggedIn()).toBeFalse();
     // Simulate another SessionService instance (host or sibling remote) writing
     // the shared key and broadcasting the same-document change event.
-    localStorage.setItem('snap.session', JSON.stringify(makeSession({ roles: ['admin'] })));
-    window.dispatchEvent(new Event('snap-session-change'));
+    localStorage.setItem('hug.session', JSON.stringify(makeSession({ roles: ['admin'] })));
+    window.dispatchEvent(new Event('hug-session-change'));
     expect(service.isAdmin()).toBeTrue();
   });
 });

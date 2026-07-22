@@ -4,18 +4,18 @@
   display: block;
 }
 
-.snap-delegation {
+.hug-delegation {
   display: block;
   padding: 1rem;
 
   .intro {
-    color: var(--sd-text-muted, #{t.$light});
+    color: var(--hug-text-muted, #{t.$light});
     margin-block: 0.25rem 1rem;
     max-width: 48rem;
   }
 
   .hint {
-    color: var(--sd-text-muted, #{t.$muted});
+    color: var(--hug-text-muted, #{t.$muted});
     font-size: 0.9rem;
   }
 
@@ -23,7 +23,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0.35rem;
-    border-bottom: 1px solid var(--sd-border, #{t.$mid});
+    border-bottom: 1px solid var(--hug-border, #{t.$mid});
     margin-block: 0.75rem 1rem;
   }
 
@@ -32,24 +32,24 @@
     cursor: pointer;
     padding: 0.45rem 0.85rem;
     border-radius: t.$radius-sm t.$radius-sm 0 0;
-    color: var(--sd-text-muted, #{t.$light});
+    color: var(--hug-text-muted, #{t.$light});
     border: 1px solid transparent;
     border-bottom: none;
 
-    &:focus-visible { outline: 2px solid var(--sd-text, #{t.$offwhite}); outline-offset: 2px; }
+    &:focus-visible { outline: 2px solid var(--hug-text, #{t.$offwhite}); outline-offset: 2px; }
     &.is-active {
-      color: var(--sd-text, #{t.$offwhite});
-      background: var(--sd-bg-1, #{t.$surface});
-      border-color: var(--sd-border, #{t.$mid});
+      color: var(--hug-text, #{t.$offwhite});
+      background: var(--hug-bg-1, #{t.$surface});
+      border-color: var(--hug-border, #{t.$mid});
       font-weight: 700;
     }
   }
 
   .panel {
-    border: 1px solid var(--sd-border, #{t.$mid});
+    border: 1px solid var(--hug-border, #{t.$mid});
     border-radius: t.$radius-card;
     padding: 0.85rem 1rem;
-    background: var(--sd-bg-1, #{t.$surface});
+    background: var(--hug-bg-1, #{t.$surface});
   }
 
   .form {
@@ -58,22 +58,22 @@
     max-width: 34rem;
     margin-block: 0.5rem 1rem;
 
-    label { font-weight: 600; color: var(--sd-text, #{t.$offwhite}); }
+    label { font-weight: 600; color: var(--hug-text, #{t.$offwhite}); }
 
     input,
     select {
-      background: var(--sd-bg-0, #{t.$charcoal});
-      color: var(--sd-text, #{t.$offwhite});
-      border: 1px solid var(--sd-border, #{t.$mid});
+      background: var(--hug-bg-0, #{t.$charcoal});
+      color: var(--hug-text, #{t.$offwhite});
+      border: 1px solid var(--hug-border, #{t.$mid});
       border-radius: t.$radius-sm;
       padding: 0.5rem 0.75rem;
 
-      &[aria-invalid='true'] { border-color: var(--sd-error, #{t.$pastel-rose}); }
+      &[aria-invalid='true'] { border-color: var(--hug-error, #{t.$pastel-rose}); }
     }
 
     button[type='submit'] {
       justify-self: start;
-      background: var(--sd-accent, #{t.$neon});
+      background: var(--hug-accent, #{t.$neon});
       color: t.$black;
       border: none;
       border-radius: t.$radius-sm;
@@ -81,7 +81,7 @@
       font-weight: 700;
       cursor: pointer;
 
-      &:focus-visible { outline: 2px solid var(--sd-text, #{t.$offwhite}); outline-offset: 2px; }
+      &:focus-visible { outline: 2px solid var(--hug-text, #{t.$offwhite}); outline-offset: 2px; }
     }
   }
 
@@ -96,29 +96,29 @@
       text-align: left;
       padding: 0.45rem 0.6rem;
       border-bottom: 1px solid rgba(t.$mid, 0.5);
-      color: var(--sd-text, #{t.$offwhite});
+      color: var(--hug-text, #{t.$offwhite});
       vertical-align: top;
     }
-    thead th { color: var(--sd-text-muted, #{t.$light}); font-weight: 700; }
+    thead th { color: var(--hug-text-muted, #{t.$light}); font-weight: 700; }
 
     button {
-      background: var(--sd-bg-0, #{t.$charcoal});
-      color: var(--sd-text, #{t.$offwhite});
-      border: 1px solid var(--sd-border, #{t.$mid});
+      background: var(--hug-bg-0, #{t.$charcoal});
+      color: var(--hug-text, #{t.$offwhite});
+      border: 1px solid var(--hug-border, #{t.$mid});
       border-radius: t.$radius-sm;
       padding: 0.3rem 0.7rem;
       cursor: pointer;
-      &:focus-visible { outline: 2px solid var(--sd-text, #{t.$offwhite}); outline-offset: 2px; }
+      &:focus-visible { outline: 2px solid var(--hug-text, #{t.$offwhite}); outline-offset: 2px; }
     }
-    .empty { color: var(--sd-text-muted, #{t.$muted}); }
+    .empty { color: var(--hug-text-muted, #{t.$muted}); }
   }
 
   .state {
     font-weight: 600;
-    &[data-state='applied'] { color: var(--sd-success, #{t.$pastel-mint}); }
-    &[data-state='pending'] { color: var(--sd-text-muted, #{t.$light}); }
+    &[data-state='applied'] { color: var(--hug-success, #{t.$pastel-mint}); }
+    &[data-state='pending'] { color: var(--hug-text-muted, #{t.$light}); }
     &[data-state='failed'],
-    &[data-state='degraded'] { color: var(--sd-error, #{t.$pastel-rose}); }
+    &[data-state='degraded'] { color: var(--hug-error, #{t.$pastel-rose}); }
   }
 
   .grant-list {
@@ -133,20 +133,20 @@
     gap: 0.6rem;
     align-items: baseline;
   }
-  .grant-none { color: var(--sd-text-muted, #{t.$muted}); }
+  .grant-none { color: var(--hug-text-muted, #{t.$muted}); }
 
   .link {
     all: unset;
     cursor: pointer;
-    color: var(--sd-accent, #{t.$neon});
+    color: var(--hug-accent, #{t.$neon});
     text-decoration: underline;
-    &:focus-visible { outline: 2px solid var(--sd-text, #{t.$offwhite}); outline-offset: 2px; }
+    &:focus-visible { outline: 2px solid var(--hug-text, #{t.$offwhite}); outline-offset: 2px; }
   }
-  .danger-link { color: var(--sd-error, #{t.$pastel-rose}); }
+  .danger-link { color: var(--hug-error, #{t.$pastel-rose}); }
 
   .gaps {
     margin-top: 1.5rem;
-    border-top: 1px dashed var(--sd-border, #{t.$mid});
+    border-top: 1px dashed var(--hug-border, #{t.$mid});
     padding-top: 0.85rem;
   }
 
@@ -165,9 +165,9 @@
 
   .gap-btn {
     justify-self: start;
-    background: var(--sd-bg-1, #{t.$surface});
-    color: var(--sd-text, #{t.$offwhite});
-    border: 1px solid var(--sd-border, #{t.$mid});
+    background: var(--hug-bg-1, #{t.$surface});
+    color: var(--hug-text, #{t.$offwhite});
+    border: 1px solid var(--hug-border, #{t.$mid});
     border-radius: t.$radius-sm;
     padding: 0.5rem 1rem;
     font-weight: 600;
@@ -176,11 +176,11 @@
     // reaches the helptext (the global [aria-disabled='true'] rule dims + sets
     // cursor); here we also drop the active affordance.
     &[aria-disabled='true'] { pointer-events: none; }
-    &:focus-visible { outline: 2px solid var(--sd-text, #{t.$offwhite}); outline-offset: 2px; }
+    &:focus-visible { outline: 2px solid var(--hug-text, #{t.$offwhite}); outline-offset: 2px; }
   }
 
   .field-error {
-    color: var(--sd-error, #{t.$pastel-rose});
+    color: var(--hug-error, #{t.$pastel-rose});
     font-weight: 600;
   }
 }

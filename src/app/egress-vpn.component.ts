@@ -8,7 +8,7 @@ import {
 } from './bff.service';
 
 /**
- * Superadmin "Egress VPN" console (own repo: snapdragon-admin-ui). The surface over
+ * Superadmin "Egress VPN" console (own repo: hugmesh-admin-ui). The surface over
  * the egress-VPN control plane (admin-bff EgressVpnController) — admins/superadmins
  * import provider-downloaded VPN configs (ProtonVPN WireGuard .conf first-class;
  * OpenVPN .ovpn fallback) that mesh NODES use for OUTGOING / egress traffic on
@@ -24,7 +24,7 @@ import {
  * service via a signed reconcile (later PRs).
  */
 @Component({
-  selector: 'snap-egress-vpn',
+  selector: 'hug-egress-vpn',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './egress-vpn.component.html',

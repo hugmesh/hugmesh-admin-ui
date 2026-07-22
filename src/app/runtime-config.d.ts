@@ -5,5 +5,5 @@
  * a rebuild. Shared by every file that reads one of these globals so they
  * don't each need their own `as any` cast or local `declare const`.
  */
-declare const __SNAP_BFF_URL__: string | undefined;
-declare const __SNAP_UPTRACE_URL__: string | undefined;
+declare const __HUG_BFF_URL__: string | undefined;
+declare const __HUG_UPTRACE_URL__: string | undefined;

@@ -33,7 +33,7 @@ type Tab = 'suspensions' | 'domain-lock' | 'namespaces';
  * truth) — NEVER wired to a non-existent endpoint.
  */
 @Component({
-  selector: 'snap-delegation',
+  selector: 'hug-delegation',
   standalone: true,
   imports: [CommonModule, FormsModule, RovingFocusDirective],
   templateUrl: './delegation.component.html',

@@ -1,6 +1,6 @@
 # FUNCTIONAL/WRITE coverage for the Appeals console (admin-ui #wave2). The console's
 # single seam is the decide-proxy (POST /bff/admin/moderation/{id}/decide?approve=<bool>),
-# which forwards to snapdragon-federation-api's moderation workflow (submit → refer →
+# which forwards to hugmesh-federation-api's moderation workflow (submit → refer →
 # decide). admin-bff proxies ONLY decide — it does not proxy submit/refer — so this
 # feature seeds a REAL referred request through the mod-bff moderation triage endpoints
 # (POST /bff/mod/moderation, POST /bff/mod/moderation/{id}/refer) before an admin decides

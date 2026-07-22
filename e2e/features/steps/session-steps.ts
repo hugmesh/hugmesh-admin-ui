@@ -4,7 +4,7 @@
 //   - `Given "X" is logged in`         — full Casdoor round-trip via login()
 //     (LIVE; only reached by @cluster scenarios, which ship dark behind the
 //     default 'not @cluster' filter).
-//   - `Given "X" has a seeded session` — writes snap.session directly via an
+//   - `Given "X" has a seeded session` — writes hug.session directly via an
 //     addInitScript (OFFLINE-capable; exercises the pure client-side guard
 //     behaviour the host enforces with adminGuard/superadminGuard/gamesGuard).
 //
@@ -78,7 +78,7 @@ When('{string} navigates to {string}', async ({ user }, username: string, path: 
 });
 
 When('a signed-out visitor opens {string}', async ({ page }, path: string) => {
-  // SIGNED-OUT persona: the scenario's default page carries NO snap.session (and
+  // SIGNED-OUT persona: the scenario's default page carries NO hug.session (and
   // no bff_ cookie), so every admin guard must fail-closed on the navigation.
   await page.goto(path, { waitUntil: 'domcontentloaded' });
 });

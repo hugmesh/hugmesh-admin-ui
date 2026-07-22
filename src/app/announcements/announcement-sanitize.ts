@@ -3,7 +3,7 @@
  * announcements editor (see {@link AnnouncementEditorComponent}). Kept as a
  * standalone module (no Angular deps) so the dangerous-input logic is unit
  * testable in isolation and reusable by the iframe-`srcdoc` builder. It mirrors
- * the snapdragon-user-ui card-sanitize two-wall model.
+ * the hugmesh-user-ui card-sanitize two-wall model.
  *
  * SECURITY MODEL — DEFENCE IN DEPTH. An announcement `body_html` is admin-authored
  * HTML that is shown to END USERS, including ANONYMOUS visitors on the public

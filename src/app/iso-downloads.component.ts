@@ -9,7 +9,7 @@ import { BffService } from './bff.service';
  * NEVER part of these images, so nothing secret is exposed on this interface.
  */
 @Component({
-  selector: 'snap-iso-downloads',
+  selector: 'hug-iso-downloads',
   standalone: true,
   imports: [CommonModule],
   templateUrl: './iso-downloads.component.html',

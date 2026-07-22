@@ -19,14 +19,14 @@ import { AfterViewInit, Directive, ElementRef, HostListener, Input, inject } fro
  * container must lay items out in reading order (no positive tabindex needed).
  */
 @Directive({
-  selector: '[snapRovingFocus]',
+  selector: '[hugRovingFocus]',
   standalone: true,
 })
 export class RovingFocusDirective implements AfterViewInit {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   /** 'horizontal' (Left/Right, the default) or 'vertical' (Up/Down). */
-  @Input('snapRovingFocus') orientation: 'horizontal' | 'vertical' | '' = 'horizontal';
+  @Input('hugRovingFocus') orientation: 'horizontal' | 'vertical' | '' = 'horizontal';
 
   /** The roving items in DOM order: enabled, focusable composite children. */
   private items(): HTMLElement[] {

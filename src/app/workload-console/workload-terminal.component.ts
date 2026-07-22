@@ -23,7 +23,7 @@ import { BffService } from '../bff.service';
  * after the session closes (the detection-gap quarantine).
  */
 @Component({
-  selector: 'snap-workload-terminal',
+  selector: 'hug-workload-terminal',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './workload-terminal.component.html',
@@ -32,7 +32,7 @@ import { BffService } from '../bff.service';
   // encapsulation content attribute and Angular-scoped rules would never match them. Loading
   // xterm's stylesheet as a component styleUrl (rather than a repo-local angular.json global
   // style) means it ships bundled INSIDE this component's own JS chunk, so it's present
-  // whether admin-ui is served standalone (dev) or mounted by the snapdragon.systems host as a
+  // whether admin-ui is served standalone (dev) or mounted by the hugmesh.systems host as a
   // native-federation remote (loadRemoteModule only pulls the remote's exposed JS — it never
   // links a remote's separate global stylesheet, which is the federation-safety gap this fixes;
   // see federation.config.js's @xterm/xterm extraSkip note for the sibling federation quirk).
@@ -99,7 +99,7 @@ export class WorkloadTerminalComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    const bffBase = (typeof __SNAP_BFF_URL__ !== 'undefined' && __SNAP_BFF_URL__) ? __SNAP_BFF_URL__ : '';
+    const bffBase = (typeof __HUG_BFF_URL__ !== 'undefined' && __HUG_BFF_URL__) ? __HUG_BFF_URL__ : '';
     const wsBase = this.toWsBase(bffBase);
     // The same-origin WS upgrade carries the HttpOnly bff_ cookie automatically (gateway turns
     // it into the bearer server-side); only the step-up token rides a query param.
@@ -142,8 +142,8 @@ export class WorkloadTerminalComponent implements AfterViewInit, OnDestroy {
    * When `httpBase` is empty, derives the base from `window.location` so the terminal
    * works in both local dev (ws://localhost) and production (wss://...).
    *
-   * @param httpBase - The BFF HTTP origin (e.g. `https://admin.snapdragon.systems`), or `''` for same-origin.
-   * @returns The WebSocket origin (e.g. `wss://admin.snapdragon.systems`).
+   * @param httpBase - The BFF HTTP origin (e.g. `https://admin.hugmesh.systems`), or `''` for same-origin.
+   * @returns The WebSocket origin (e.g. `wss://admin.hugmesh.systems`).
    */
   private toWsBase(httpBase: string): string {
     if (!httpBase) {

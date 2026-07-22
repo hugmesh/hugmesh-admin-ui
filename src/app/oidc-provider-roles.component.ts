@@ -11,11 +11,11 @@ import { BffService, OidcProviderMapping } from './bff.service';
  * Scoped to the acting admin's domain — a brand admin only configures mappings for
  * their own brand's providers; SUPERADMIN sees all domains.
  *
- * The registration-flow hook (snapdragon-actions) will read these mappings and
+ * The registration-flow hook (hugmesh-actions) will read these mappings and
  * assign roles at first login once wired (see feat/oidc-registration-role-hook).
  */
 @Component({
-  selector: 'snap-oidc-provider-roles',
+  selector: 'hug-oidc-provider-roles',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './oidc-provider-roles.component.html',

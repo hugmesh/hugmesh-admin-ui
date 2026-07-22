@@ -46,6 +46,6 @@ Feature: Node-storage console — client-side no-HA warning + attach validation,
     Given "mod-user" is logged in
     When "mod-user" POSTs to "/bff/admin/device-storage-pools/e2e-deny-probe-device/pools" with body:
       """
-      {"diskSerial":"E2E-DENY-PROBE","poolPath":"/var/snapdragon/storage/e2e","reservedBytes":107374182400,"exclusive":false,"filesystem":"ext4"}
+      {"diskSerial":"E2E-DENY-PROBE","poolPath":"/var/hugmesh/storage/e2e","reservedBytes":107374182400,"exclusive":false,"filesystem":"ext4"}
       """
     Then the response status is 403

@@ -14,7 +14,7 @@ import { isStepUpRequiredError } from '../mfa/step-up-error';
 interface RowNote { id: string; kind: 'ok' | 'err'; text: string; }
 
 /**
- * The DESKTOP INSTALL-REQUEST inbox + REMOTE-INSTALL button (own repo: snapdragon-admin-ui).
+ * The DESKTOP INSTALL-REQUEST inbox + REMOTE-INSTALL button (own repo: hugmesh-admin-ui).
  * The admin front-end for the desktop-governance install-request surface (admin-bff
  * {@code DesktopInstallRequestAdminController} at {@code /bff/admin/desktop/install-requests})
  * AND the remote-install trigger ({@code DesktopRemoteInstallController} at
@@ -41,7 +41,7 @@ interface RowNote { id: string; kind: 'ok' | 'err'; text: string; }
  * remote-installing); the remote-install leg is what carries the license gate.
  */
 @Component({
-  selector: 'snap-desktop-install-requests',
+  selector: 'hug-desktop-install-requests',
   standalone: true,
   imports: [CommonModule, FormsModule, MfaStepUpDialogComponent],
   templateUrl: './desktop-install-requests.component.html',

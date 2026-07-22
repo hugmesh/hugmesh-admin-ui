@@ -19,7 +19,7 @@ import { FocusTrapDirective } from './focus-trap.directive';
       role="dialog"
       aria-modal="true"
       tabindex="-1"
-      snapFocusTrap
+      hugFocusTrap
       (dismiss)="open.set(false)"
     >
       <button type="button" id="first">First</button>

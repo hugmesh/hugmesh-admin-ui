@@ -14,7 +14,7 @@ import { BffService, WorkloadLogLine } from '../bff.service';
  * grant guard, and the BFF re-checks the whole predicate.
  */
 @Component({
-  selector: 'snap-workload-logs',
+  selector: 'hug-workload-logs',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './workload-logs.component.html',

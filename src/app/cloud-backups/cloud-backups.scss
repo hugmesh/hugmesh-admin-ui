@@ -26,18 +26,18 @@
 .cb-total {
   display: block;
   padding: 1rem;
-  color: var(--sd-text, #{t.$offwhite});
+  color: var(--hug-text, #{t.$offwhite});
 }
 
 .cb-intro,
 .cb-muted {
-  color: var(--sd-text-muted, #{t.$light});
+  color: var(--hug-text-muted, #{t.$light});
   margin-block: 0.25rem 1rem;
 }
 
 .cb-help,
 .cb-hint {
-  color: var(--sd-text-muted, #{t.$muted});
+  color: var(--hug-text-muted, #{t.$muted});
   font-size: 0.85rem;
   display: block;
 }
@@ -47,7 +47,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
-  border-bottom: 1px solid var(--sd-border, #{t.$mid});
+  border-bottom: 1px solid var(--hug-border, #{t.$mid});
   margin-block: 0.75rem 1rem;
 }
 
@@ -58,18 +58,18 @@
   border-top-left-radius: t.$radius-sm;
   border-top-right-radius: t.$radius-sm;
   padding: 0.45rem 0.9rem;
-  color: var(--sd-text-muted, #{t.$light});
+  color: var(--hug-text-muted, #{t.$light});
   cursor: pointer;
 
   &--active {
-    background: var(--sd-bg-1, #{t.$surface});
-    border-color: var(--sd-border, #{t.$mid});
-    color: var(--sd-text, #{t.$offwhite});
+    background: var(--hug-bg-1, #{t.$surface});
+    border-color: var(--hug-border, #{t.$mid});
+    color: var(--hug-text, #{t.$offwhite});
     font-weight: 700;
   }
 
   &:focus-visible {
-    outline: 2px solid var(--sd-accent, #{t.$neon});
+    outline: 2px solid var(--hug-accent, #{t.$neon});
     outline-offset: 2px;
   }
 }
@@ -80,9 +80,9 @@
 
 // ── groups / fields ──────────────────────────────────────────────────────────
 .cb-group {
-  border: 1px solid var(--sd-border, #{t.$mid});
+  border: 1px solid var(--hug-border, #{t.$mid});
   border-radius: t.$radius-card;
-  background: var(--sd-bg-1, #{t.$surface});
+  background: var(--hug-bg-1, #{t.$surface});
   padding: 0.85rem 1rem;
   margin-block: 0.75rem;
 
@@ -103,15 +103,15 @@
 
   input,
   select {
-    background: var(--sd-bg-0, #{t.$charcoal});
-    border: 1px solid var(--sd-border, #{t.$mid});
+    background: var(--hug-bg-0, #{t.$charcoal});
+    border: 1px solid var(--hug-border, #{t.$mid});
     border-radius: t.$radius-sm;
-    color: var(--sd-text, #{t.$offwhite});
+    color: var(--hug-text, #{t.$offwhite});
     padding: 0.45rem 0.6rem;
   }
 
   input[aria-invalid='true'] {
-    border-color: var(--sd-danger, #{t.$pastel-rose});
+    border-color: var(--hug-danger, #{t.$pastel-rose});
   }
 }
 
@@ -156,12 +156,12 @@
   td {
     text-align: left;
     padding: 0.45rem 0.6rem;
-    border-bottom: 1px solid var(--sd-border, #{t.$mid});
+    border-bottom: 1px solid var(--hug-border, #{t.$mid});
     vertical-align: top;
   }
 
   th {
-    color: var(--sd-text-muted, #{t.$light});
+    color: var(--hug-text-muted, #{t.$light});
     font-weight: 700;
   }
 }
@@ -182,7 +182,7 @@
 }
 
 .cb-this {
-  color: var(--sd-accent, #{t.$neon});
+  color: var(--hug-accent, #{t.$neon});
   font-weight: 700;
 }
 
@@ -197,13 +197,13 @@
   display: inline-block;
   padding: 0.1rem 0.5rem;
   border-radius: t.$radius-sm;
-  border: 1px solid var(--sd-border, #{t.$mid});
+  border: 1px solid var(--hug-border, #{t.$mid});
   font-size: 0.8rem;
   font-weight: 700;
 
   &--total {
-    border-color: var(--sd-accent, #{t.$neon});
-    color: var(--sd-accent, #{t.$neon});
+    border-color: var(--hug-accent, #{t.$neon});
+    color: var(--hug-accent, #{t.$neon});
   }
 }
 
@@ -213,9 +213,9 @@
 
 // ── buttons ──────────────────────────────────────────────────────────────────
 .cb-btn {
-  background: var(--sd-accent, #{t.$neon});
+  background: var(--hug-accent, #{t.$neon});
   color: #{t.$black};
-  border: 1px solid var(--sd-accent, #{t.$neon});
+  border: 1px solid var(--hug-accent, #{t.$neon});
   border-radius: t.$radius-sm;
   padding: 0.45rem 0.9rem;
   font-weight: 700;
@@ -227,19 +227,19 @@
   }
 
   &:focus-visible {
-    outline: 2px solid var(--sd-accent, #{t.$neon-bright});
+    outline: 2px solid var(--hug-accent, #{t.$neon-bright});
     outline-offset: 2px;
   }
 
   &--ghost {
     background: transparent;
-    color: var(--sd-text, #{t.$offwhite});
-    border-color: var(--sd-border, #{t.$mid});
+    color: var(--hug-text, #{t.$offwhite});
+    border-color: var(--hug-border, #{t.$mid});
   }
 
   &--danger {
-    background: var(--sd-danger, #{t.$pastel-rose});
-    border-color: var(--sd-danger, #{t.$pastel-rose});
+    background: var(--hug-danger, #{t.$pastel-rose});
+    border-color: var(--hug-danger, #{t.$pastel-rose});
     color: #{t.$black};
   }
 }
@@ -261,9 +261,9 @@
 
 // ── restore confirm (alertdialog) ────────────────────────────────────────────
 .cb-confirm {
-  border: 1px solid var(--sd-danger, #{t.$pastel-rose});
+  border: 1px solid var(--hug-danger, #{t.$pastel-rose});
   border-radius: t.$radius-card;
-  background: var(--sd-bg-1, #{t.$surface});
+  background: var(--hug-bg-1, #{t.$surface});
   padding: 1rem;
   margin-block: 1rem;
 }

@@ -19,7 +19,7 @@ describe('CloudBackupDestinationComponent', () => {
 
   async function mount(isSuperadmin = false, existing: BackupDestination | undefined = undefined): Promise<void> {
     localStorage.clear();
-    localStorage.setItem('snap.session', JSON.stringify({ roles: [] }));
+    localStorage.setItem('hug.session', JSON.stringify({ roles: [] }));
     api = jasmine.createSpyObj<CloudBackupsService>('CloudBackupsService', ['getDestination', 'putDestination']);
     api.getDestination.and.resolveTo(existing);
     api.putDestination.and.resolveTo(dest());

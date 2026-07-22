@@ -1,4 +1,4 @@
-<section class="snap-worklist-wizard" data-testid="wl-wizard-view" aria-labelledby="wl-heading">
+<section class="hug-worklist-wizard" data-testid="wl-wizard-view" aria-labelledby="wl-heading">
   <h3 id="wl-heading">Build a worklist</h3>
   <p class="intro">
     Build up to {{ maxEntries }} device images in one batch — a mesh of nodes, desktops and
@@ -215,7 +215,7 @@
                           (ngModelChange)="patchEntry(e.key, { brandingPreset: $event })"
                           [name]="'preset-' + e.key"
                           autocomplete="off"
-                          placeholder="e.g. snapdragon-dark"
+                          placeholder="e.g. hugmesh-dark"
                         />
                       </div>
                     } @else {
@@ -472,11 +472,11 @@
         </div>
 
         @if (stepUpChallenge(); as challenge) {
-          <snap-mfa-step-up-dialog
+          <hug-mfa-step-up-dialog
             [action]="challenge.action"
             (satisfied)="onStepUpSatisfied()"
             (dismissed)="onStepUpDismissed()"
-          ></snap-mfa-step-up-dialog>
+          ></hug-mfa-step-up-dialog>
         }
 
         <button

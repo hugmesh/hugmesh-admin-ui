@@ -150,11 +150,11 @@
            "requires step-up" contract. On success the SAME restore is retried automatically
            (token-less — the BFF reads the fresh MFA stamp off this session). ── -->
       @if (stepUpChallenge(); as challenge) {
-        <snap-mfa-step-up-dialog
+        <hug-mfa-step-up-dialog
           [action]="challenge.action"
           (satisfied)="onStepUpSatisfied()"
           (dismissed)="onStepUpDismissed()"
-        ></snap-mfa-step-up-dialog>
+        ></hug-mfa-step-up-dialog>
       }
 
       <div class="cb-confirm-actions">

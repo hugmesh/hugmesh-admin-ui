@@ -4,18 +4,18 @@
   display: block;
 }
 
-.snap-appeals {
+.hug-appeals {
   display: block;
   padding: 1rem;
 
   .intro {
-    color: var(--sd-text-muted, #{t.$light});
+    color: var(--hug-text-muted, #{t.$light});
     margin-block: 0.25rem 1rem;
     max-width: 42rem;
   }
 
   .hint {
-    color: var(--sd-text-muted, #{t.$muted});
+    color: var(--hug-text-muted, #{t.$muted});
     font-size: 0.9rem;
   }
 
@@ -28,16 +28,16 @@
     border-top: 1px solid rgba(t.$mid, 0.5);
 
     h3 { margin: 0; }
-    label { font-weight: 600; color: var(--sd-text, #{t.$offwhite}); }
+    label { font-weight: 600; color: var(--hug-text, #{t.$offwhite}); }
 
     input {
-      background: var(--sd-bg-0, #{t.$charcoal});
-      color: var(--sd-text, #{t.$offwhite});
-      border: 1px solid var(--sd-border, #{t.$mid});
+      background: var(--hug-bg-0, #{t.$charcoal});
+      color: var(--hug-text, #{t.$offwhite});
+      border: 1px solid var(--hug-border, #{t.$mid});
       border-radius: t.$radius-sm;
       padding: 0.5rem 0.75rem;
 
-      &[aria-invalid='true'] { border-color: var(--sd-error, #{t.$pastel-rose}); }
+      &[aria-invalid='true'] { border-color: var(--hug-error, #{t.$pastel-rose}); }
       &:disabled { opacity: 0.6; cursor: not-allowed; }
     }
 
@@ -49,7 +49,7 @@
 
     button {
       justify-self: start;
-      background: var(--sd-accent, #{t.$neon});
+      background: var(--hug-accent, #{t.$neon});
       color: t.$black;
       border: none;
       border-radius: t.$radius-sm;
@@ -57,9 +57,9 @@
       font-weight: 700;
       cursor: pointer;
 
-      &.danger { background: var(--sd-error, #{t.$pastel-rose}); color: t.$black; }
+      &.danger { background: var(--hug-error, #{t.$pastel-rose}); color: t.$black; }
       &:disabled { opacity: 0.6; cursor: not-allowed; }
-      &:focus-visible { outline: 2px solid var(--sd-text, #{t.$offwhite}); outline-offset: 2px; }
+      &:focus-visible { outline: 2px solid var(--hug-text, #{t.$offwhite}); outline-offset: 2px; }
     }
   }
 
@@ -88,13 +88,13 @@
     td {
       text-align: left;
       padding: 0.45rem 0.6rem;
-      border-bottom: 1px solid var(--sd-border, #{t.$mid});
-      color: var(--sd-text, #{t.$offwhite});
+      border-bottom: 1px solid var(--hug-border, #{t.$mid});
+      color: var(--hug-text, #{t.$offwhite});
       font-size: 0.9rem;
     }
 
     th {
-      color: var(--sd-text-muted, #{t.$light});
+      color: var(--hug-text-muted, #{t.$light});
       font-weight: 700;
     }
   }
@@ -105,16 +105,16 @@
     border-radius: t.$radius-sm;
     font-weight: 700;
     font-size: 0.8rem;
-    background: var(--sd-bg-1, #{t.$surface});
-    border: 1px solid var(--sd-border, #{t.$mid});
+    background: var(--hug-bg-1, #{t.$surface});
+    border: 1px solid var(--hug-border, #{t.$mid});
 
     &.is-approved {
-      background: var(--sd-ok, #{t.$pastel-mint});
+      background: var(--hug-ok, #{t.$pastel-mint});
       color: t.$black;
       border-color: transparent;
     }
     &.is-denied {
-      background: var(--sd-error, #{t.$pastel-rose});
+      background: var(--hug-error, #{t.$pastel-rose});
       color: t.$black;
       border-color: transparent;
     }
@@ -122,7 +122,7 @@
 
   .gaps {
     margin-top: 1.5rem;
-    border-top: 1px dashed var(--sd-border, #{t.$mid});
+    border-top: 1px dashed var(--hug-border, #{t.$mid});
     padding-top: 0.85rem;
   }
 
@@ -141,20 +141,20 @@
 
   .gap-btn {
     justify-self: start;
-    background: var(--sd-bg-1, #{t.$surface});
-    color: var(--sd-text, #{t.$offwhite});
-    border: 1px solid var(--sd-border, #{t.$mid});
+    background: var(--hug-bg-1, #{t.$surface});
+    color: var(--hug-text, #{t.$offwhite});
+    border: 1px solid var(--hug-border, #{t.$mid});
     border-radius: t.$radius-sm;
     padding: 0.5rem 1rem;
     font-weight: 600;
 
     // aria-disabled controls stay tab-reachable so AT reaches the helptext.
     &[aria-disabled='true'] { pointer-events: none; opacity: 0.6; }
-    &:focus-visible { outline: 2px solid var(--sd-text, #{t.$offwhite}); outline-offset: 2px; }
+    &:focus-visible { outline: 2px solid var(--hug-text, #{t.$offwhite}); outline-offset: 2px; }
   }
 
   .field-error {
-    color: var(--sd-error, #{t.$pastel-rose});
+    color: var(--hug-error, #{t.$pastel-rose});
     font-weight: 600;
   }
 

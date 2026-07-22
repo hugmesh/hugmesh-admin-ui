@@ -26,7 +26,7 @@ import {
  * loading / empty / error; a 401/403 degrades gracefully.
  */
 @Component({
-  selector: 'snap-cloud-backup-destination',
+  selector: 'hug-cloud-backup-destination',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './cloud-backup-destination.component.html',

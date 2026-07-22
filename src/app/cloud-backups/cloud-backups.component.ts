@@ -23,7 +23,7 @@ interface BackupTab {
 /**
  * The CLOUD BACKUPS console shell (ADMIN/SUPERADMIN, route-guarded by the host's
  * Casdoor admin role on /admin). The UI half of the per-domain + superadmin
- * TOTAL-CLOUD backups feature, over the snapdragon-admin-bff-api `cloudbackup`
+ * TOTAL-CLOUD backups feature, over the hugmesh-admin-bff-api `cloudbackup`
  * surfaces (PR #74). Mounted at /admin/cloud-backups — a DISTINCT route from the
  * LEGACY USB Backup/Recovery/Backups-history module (/admin/backup, /admin/recovery,
  * /admin/backups), mirroring the bff's deliberate distinct /bff/admin/cloud-backups
@@ -46,7 +46,7 @@ interface BackupTab {
  * surface is SUPERADMIN-only. The UI degrades on a 401/403 from the bff.
  */
 @Component({
-  selector: 'snap-cloud-backups',
+  selector: 'hug-cloud-backups',
   standalone: true,
   imports: [
     CommonModule,

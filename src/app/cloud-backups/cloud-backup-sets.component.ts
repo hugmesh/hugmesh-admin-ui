@@ -35,7 +35,7 @@ import {
  * loading / empty / error states; a 401/403 degrades gracefully.
  */
 @Component({
-  selector: 'snap-cloud-backup-sets',
+  selector: 'hug-cloud-backup-sets',
   standalone: true,
   imports: [CommonModule, FormsModule, MfaStepUpDialogComponent],
   templateUrl: './cloud-backup-sets.component.html',

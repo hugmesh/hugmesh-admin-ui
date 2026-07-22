@@ -1,4 +1,4 @@
-# Snapdragon admin-ui — local dev targets.
+# HugMesh admin-ui — local dev targets.
 #
 # `make pentest` mirrors the centralized CI pen-test stage (.gitlab-ci.yml ->
 # generator /tests/pentest/ci/pentest-stage.gitlab-ci.yml) so you can self-scan
@@ -37,7 +37,7 @@ pentest-sca:
 	@if command -v docker >/dev/null 2>&1; then \
 		mkdir -p reports/sca; \
 		docker run --rm -v "$(CURDIR):/src:ro" -v "$(CURDIR)/reports/sca:/report" \
-			$(DC_IMAGE) --scan /src --project "snapdragon-admin-ui" \
+			$(DC_IMAGE) --scan /src --project "hugmesh-admin-ui" \
 			--out /report --enableExperimental --format HTML --format JSON \
 			|| echo "   (dependency-check reported findings/errors — review reports/sca/)"; \
 	else \

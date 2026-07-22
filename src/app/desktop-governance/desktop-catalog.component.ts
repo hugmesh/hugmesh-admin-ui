@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { BffService, DesktopCatalogEntry, DesktopSource } from '../bff.service';
 
 /**
- * The DESKTOP DISCOVER CURATION table (own repo: snapdragon-admin-ui). The admin front-end for
+ * The DESKTOP DISCOVER CURATION table (own repo: hugmesh-admin-ui). The admin front-end for
  * the desktop-governance catalog surface (admin-bff {@code DesktopCatalogAdminController} at
  * {@code /bff/admin/desktop/catalog}). The admin curates which Flatpak/OCI apps a brand's
  * Plasma Discover store MAY offer.
@@ -23,7 +23,7 @@ import { BffService, DesktopCatalogEntry, DesktopSource } from '../bff.service';
  * invisible to a scoped admin).
  */
 @Component({
-  selector: 'snap-desktop-catalog',
+  selector: 'hug-desktop-catalog',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './desktop-catalog.component.html',

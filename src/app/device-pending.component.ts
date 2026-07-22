@@ -24,7 +24,7 @@ import { BffService, PendingNode, RegisterDeviceInput } from './bff.service';
  * node is wired and the BFF flag flipped.
  */
 @Component({
-  selector: 'snap-device-pending',
+  selector: 'hug-device-pending',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './device-pending.component.html',

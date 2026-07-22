@@ -17,7 +17,7 @@ import { BackupStore } from './backup-store.service';
  * are announced via role=status / role=alert live regions.
  */
 @Component({
-  selector: 'snap-recovery',
+  selector: 'hug-recovery',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './recovery.component.html',

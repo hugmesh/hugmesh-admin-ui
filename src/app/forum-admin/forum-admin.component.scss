@@ -4,17 +4,17 @@
   display: block;
 }
 
-.snap-forum-admin {
+.hug-forum-admin {
   display: block;
   padding: 1rem;
 
   .intro {
-    color: var(--sd-text-muted, #{t.$light});
+    color: var(--hug-text-muted, #{t.$light});
     margin-block: 0.25rem 1rem;
   }
 
   .hint {
-    color: var(--sd-text-muted, #{t.$muted});
+    color: var(--hug-text-muted, #{t.$muted});
     font-size: 0.9rem;
   }
 
@@ -22,7 +22,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0.35rem;
-    border-bottom: 1px solid var(--sd-border, #{t.$mid});
+    border-bottom: 1px solid var(--hug-border, #{t.$mid});
     margin-block: 0.75rem 1rem;
   }
 
@@ -31,33 +31,33 @@
     cursor: pointer;
     padding: 0.45rem 0.85rem;
     border-radius: t.$radius-sm t.$radius-sm 0 0;
-    color: var(--sd-text-muted, #{t.$light});
+    color: var(--hug-text-muted, #{t.$light});
     border: 1px solid transparent;
     border-bottom: none;
 
-    &:focus-visible { outline: 2px solid var(--sd-text, #{t.$offwhite}); outline-offset: 2px; }
+    &:focus-visible { outline: 2px solid var(--hug-text, #{t.$offwhite}); outline-offset: 2px; }
     &.is-active {
-      color: var(--sd-text, #{t.$offwhite});
-      background: var(--sd-bg-1, #{t.$surface});
-      border-color: var(--sd-border, #{t.$mid});
+      color: var(--hug-text, #{t.$offwhite});
+      background: var(--hug-bg-1, #{t.$surface});
+      border-color: var(--hug-border, #{t.$mid});
       font-weight: 700;
     }
   }
 
   .panel {
-    border: 1px solid var(--sd-border, #{t.$mid});
+    border: 1px solid var(--hug-border, #{t.$mid});
     border-radius: t.$radius-card;
     padding: 0.85rem 1rem;
-    background: var(--sd-bg-1, #{t.$surface});
+    background: var(--hug-bg-1, #{t.$surface});
   }
 
   .env {
-    background: var(--sd-bg-0, #{t.$charcoal});
-    border: 1px solid var(--sd-border, #{t.$mid});
+    background: var(--hug-bg-0, #{t.$charcoal});
+    border: 1px solid var(--hug-border, #{t.$mid});
     border-radius: t.$radius-sm;
     padding: 0.6rem 0.85rem;
     overflow: auto;
-    color: var(--sd-text, #{t.$offwhite});
+    color: var(--hug-text, #{t.$offwhite});
     font-family: t.$font-mono;
     font-size: 0.85rem;
   }
@@ -71,17 +71,17 @@
     border-top: 1px solid rgba(t.$mid, 0.5);
 
     h4 { margin: 0; }
-    label { font-weight: 600; color: var(--sd-text, #{t.$offwhite}); }
+    label { font-weight: 600; color: var(--hug-text, #{t.$offwhite}); }
 
     input,
     select {
-      background: var(--sd-bg-0, #{t.$charcoal});
-      color: var(--sd-text, #{t.$offwhite});
-      border: 1px solid var(--sd-border, #{t.$mid});
+      background: var(--hug-bg-0, #{t.$charcoal});
+      color: var(--hug-text, #{t.$offwhite});
+      border: 1px solid var(--hug-border, #{t.$mid});
       border-radius: t.$radius-sm;
       padding: 0.5rem 0.75rem;
 
-      &[aria-invalid='true'] { border-color: var(--sd-error, #{t.$pastel-rose}); }
+      &[aria-invalid='true'] { border-color: var(--hug-error, #{t.$pastel-rose}); }
     }
 
     .actions {
@@ -92,7 +92,7 @@
 
     button {
       justify-self: start;
-      background: var(--sd-accent, #{t.$neon});
+      background: var(--hug-accent, #{t.$neon});
       color: t.$black;
       border: none;
       border-radius: t.$radius-sm;
@@ -100,14 +100,14 @@
       font-weight: 700;
       cursor: pointer;
 
-      &.danger { background: var(--sd-error, #{t.$pastel-rose}); color: t.$black; }
-      &:focus-visible { outline: 2px solid var(--sd-text, #{t.$offwhite}); outline-offset: 2px; }
+      &.danger { background: var(--hug-error, #{t.$pastel-rose}); color: t.$black; }
+      &:focus-visible { outline: 2px solid var(--hug-text, #{t.$offwhite}); outline-offset: 2px; }
     }
   }
 
   .gaps {
     margin-top: 1.5rem;
-    border-top: 1px dashed var(--sd-border, #{t.$mid});
+    border-top: 1px dashed var(--hug-border, #{t.$mid});
     padding-top: 0.85rem;
   }
 
@@ -126,9 +126,9 @@
 
   .gap-btn {
     justify-self: start;
-    background: var(--sd-bg-1, #{t.$surface});
-    color: var(--sd-text, #{t.$offwhite});
-    border: 1px solid var(--sd-border, #{t.$mid});
+    background: var(--hug-bg-1, #{t.$surface});
+    color: var(--hug-text, #{t.$offwhite});
+    border: 1px solid var(--hug-border, #{t.$mid});
     border-radius: t.$radius-sm;
     padding: 0.5rem 1rem;
     font-weight: 600;
@@ -137,11 +137,11 @@
     // reaches the helptext (the global [aria-disabled='true'] rule dims + sets
     // cursor); here we also drop the active affordance.
     &[aria-disabled='true'] { pointer-events: none; }
-    &:focus-visible { outline: 2px solid var(--sd-text, #{t.$offwhite}); outline-offset: 2px; }
+    &:focus-visible { outline: 2px solid var(--hug-text, #{t.$offwhite}); outline-offset: 2px; }
   }
 
   .field-error {
-    color: var(--sd-error, #{t.$pastel-rose});
+    color: var(--hug-error, #{t.$pastel-rose});
     font-weight: 600;
   }
 }
