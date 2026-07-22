@@ -116,6 +116,52 @@ describe('MyFleetComponent', () => {
     expect(el.querySelector('[data-testid="mf-owner-domain"]')!.textContent).toContain('owner-brand-a');
   });
 
+  describe('MDM provider (Azure Intune co-equal)', () => {
+    it('shows a Headwind provider chip and no Intune id for a default (headwind) phone', async () => {
+      await init();
+      clickExpand('owned-a1');
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.querySelector('[data-mdm-provider="headwind"]')!.textContent!.trim()).toBe('Headwind');
+      expect(el.querySelector('[data-testid="mf-intune-device-id"]')).toBeNull();
+    });
+
+    it('shows an "Azure Intune" chip + the intuneDeviceId + the unlock-asymmetry note for a LOCKED azure phone', async () => {
+      const azureLocked: PhoneDevice = {
+        ...fixtureOwned()[0],
+        mdmProvider: 'azure-intune',
+        intuneDeviceId: 'intune-own-abc123',
+        lockState: 'locked',
+        lockPropagationState: 'applied',
+      };
+      bff.ownedPhones.and.resolveTo([azureLocked]);
+      await init();
+      clickExpand('owned-a1');
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.querySelector('[data-mdm-provider="azure-intune"]')!.textContent!.trim()).toBe('Azure Intune');
+      expect(el.querySelector('[data-testid="mf-intune-device-id"]')!.textContent!.trim())
+        .toBe('intune-own-abc123');
+      const note = el.querySelector('[data-azure-unlock-note="owned-a1"]');
+      expect(note).not.toBeNull();
+      expect(note!.textContent!).toContain('does not force-unlock the handset');
+    });
+
+    it('does NOT show the azure unlock note for a headwind phone', async () => {
+      const headwindLocked: PhoneDevice = {
+        ...fixtureOwned()[0], lockState: 'locked', lockPropagationState: 'applied',
+      };
+      bff.ownedPhones.and.resolveTo([headwindLocked]);
+      await init();
+      clickExpand('owned-a1');
+      expect((fixture.nativeElement as HTMLElement)
+        .querySelector('[data-azure-unlock-note="owned-a1"]')).toBeNull();
+    });
+
+    it('providerLabel() maps azure-intune → "Azure Intune", else → "Headwind"', () => {
+      expect(component.providerLabel({ mdmProvider: 'azure-intune' } as PhoneDevice)).toBe('Azure Intune');
+      expect(component.providerLabel({} as PhoneDevice)).toBe('Headwind');
+    });
+  });
+
   it('renders an empty state when the caller owns no phones', async () => {
     bff.ownedPhones.and.resolveTo([]);
     await init();

@@ -151,6 +151,12 @@ export class PhoneFleetComponent implements OnInit {
     return p.managementMode === 'mesh_owned' ? 'managed' : 'BYOD';
   }
 
+  /** Human label for a row's DEVICE-REPORTED MDM provider: 'Azure Intune' for the cloud Graph
+   *  backend, 'Headwind' for the sovereign self-hosted DPC (the default when unset/null). */
+  providerLabel(p: PhoneDevice): string {
+    return p.mdmProvider === 'azure-intune' ? 'Azure Intune' : 'Headwind';
+  }
+
   /** Lock is permitted ONLY for a MANAGED (mesh_owned) device — a BYOD/unmanaged phone is not
    *  lockable (the BFF answers a clean 409), so the Lock control is disabled for it. */
   canLock(p: PhoneDevice): boolean {
