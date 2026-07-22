@@ -217,11 +217,16 @@ describe('PhoneFleetComponent', () => {
     expect(text).toContain('systems.snapdragon.auditor'); // auditorPackage
     expect(text).toContain('verified');         // verdict
     // MDM-enrolment block (phone-ingest/v2 fold).
-    const mdm = detail.querySelector('[data-block="mdm"]')!.textContent!;
+    const mdmBlock = detail.querySelector('[data-block="mdm"]')!;
+    const mdm = mdmBlock.textContent!;
     expect(mdm).toContain('enrolled');           // device-owner state
     expect(mdm).toContain('com.hmdm.launcher');  // dpcPackage
     expect(mdm).toContain('https://hmdm-srv.example'); // headwindUrl
     expect(mdm).toContain('adb-device-owner');   // setVia
+    // Provider defaults to Headwind when mdmProvider is unset (this fixture omits it).
+    expect(mdmBlock.querySelector('[data-mdm-provider="headwind"]')!.textContent!.trim()).toBe('Headwind');
+    // No Intune-device-id row for a headwind phone.
+    expect(mdmBlock.querySelector('[data-testid="pf-intune-device-id"]')).toBeNull();
     // Ingest telemetry: first/last ingested + count.
     expect(text).toContain(formatDate('2026-07-01T10:05:00Z', 'short', 'en-US'));
     expect(text).toContain(formatDate('2026-07-18T09:30:00Z', 'short', 'en-US'));
@@ -240,6 +245,64 @@ describe('PhoneFleetComponent', () => {
 
     expect(el.querySelector('[data-phone-detail="phone-a1b2c3"]')).toBeNull();
     expect(el.querySelector('[data-phone-detail="phone-d4e5f6"]')).not.toBeNull();
+  });
+
+  describe('MDM provider (Azure Intune co-equal)', () => {
+    it('renders an "Azure Intune" provider chip + the intuneDeviceId for an azure-intune phone', async () => {
+      const azure: PhoneDevice = {
+        ...fixturePhones()[0],
+        mdmProvider: 'azure-intune',
+        intuneDeviceId: 'intune-dev-9f8e7d',
+      };
+      bff.phones.and.resolveTo([azure]);
+      await init();
+      clickExpand('phone-a1b2c3');
+
+      const el: HTMLElement = fixture.nativeElement;
+      const mdmBlock = el.querySelector('[data-block="mdm"]')!;
+      const chip = mdmBlock.querySelector('[data-mdm-provider="azure-intune"]')!;
+      expect(chip.textContent!.trim()).toBe('Azure Intune');
+      expect(el.querySelector('[data-testid="pf-intune-device-id"]')!.textContent!.trim())
+        .toBe('intune-dev-9f8e7d');
+    });
+
+    it('shows the Azure "unlock is not a force-unlock" asymmetry note only for a LOCKED azure-intune phone', async () => {
+      const azureLocked: PhoneDevice = {
+        ...fixturePhones()[0],
+        mdmProvider: 'azure-intune',
+        intuneDeviceId: 'intune-dev-9f8e7d',
+        lockState: 'locked',
+        lockPropagationState: 'applied',
+      };
+      bff.phones.and.resolveTo([azureLocked]);
+      await init();
+      clickExpand('phone-a1b2c3');
+
+      const el: HTMLElement = fixture.nativeElement;
+      const note = el.querySelector('[data-azure-unlock-note="phone-a1b2c3"]');
+      expect(note).not.toBeNull();
+      expect(note!.textContent!).toContain('does not force-unlock the handset');
+    });
+
+    it('does NOT show the azure unlock note for a headwind phone (default provider)', async () => {
+      const headwindLocked: PhoneDevice = {
+        ...fixturePhones()[0],
+        lockState: 'locked',
+        lockPropagationState: 'applied',
+      };
+      bff.phones.and.resolveTo([headwindLocked]);
+      await init();
+      clickExpand('phone-a1b2c3');
+
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.querySelector('[data-azure-unlock-note="phone-a1b2c3"]')).toBeNull();
+    });
+
+    it('providerLabel() maps azure-intune → "Azure Intune" and everything else → "Headwind"', () => {
+      expect(component.providerLabel({ mdmProvider: 'azure-intune' } as PhoneDevice)).toBe('Azure Intune');
+      expect(component.providerLabel({ mdmProvider: 'headwind' } as PhoneDevice)).toBe('Headwind');
+      expect(component.providerLabel({} as PhoneDevice)).toBe('Headwind');
+    });
   });
 
   describe('device management + lockout', () => {

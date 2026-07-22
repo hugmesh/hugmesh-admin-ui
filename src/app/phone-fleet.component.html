@@ -166,6 +166,19 @@
               <div class="pf-block" data-block="mdm">
                 <h3>MDM enrolment</h3>
                 <dl>
+                  <dt>Provider</dt>
+                  <dd>
+                    <span
+                      class="pf-chip"
+                      data-testid="pf-mdm-provider"
+                      [attr.data-mdm-provider]="p.mdmProvider || 'headwind'"
+                      [class.pf-chip--ok]="(p.mdmProvider || 'headwind') === 'headwind'"
+                    >{{ providerLabel(p) }}</span>
+                  </dd>
+                  <dt *ngIf="p.mdmProvider === 'azure-intune'">Intune device id</dt>
+                  <dd *ngIf="p.mdmProvider === 'azure-intune'" data-testid="pf-intune-device-id">
+                    {{ p.intuneDeviceId || '—' }}
+                  </dd>
                   <dt>Device owner</dt><dd>{{ p.mdmEnrolled ? 'enrolled' : 'not enrolled' }}</dd>
                   <dt>DPC package</dt><dd>{{ p.mdmDpcPackage || '—' }}</dd>
                   <dt>Headwind URL</dt><dd>{{ p.mdmHeadwindUrl || '—' }}</dd>
@@ -291,6 +304,13 @@
                     [attr.aria-label]="'Unlock phone ' + p.deviceId"
                     (click)="unlock(p)"
                   >Unlock</button>
+                  <span
+                    *ngIf="p.lockState === 'locked' && p.mdmProvider === 'azure-intune'"
+                    class="pf-muted"
+                    data-testid="pf-azure-unlock-note"
+                    [attr.data-azure-unlock-note]="p.deviceId"
+                  >Azure Intune: “Unlock” clears the platform lock but does not force-unlock the
+                    handset — a Graph remoteLock is user-unlockable device-side.</span>
                 </div>
 
                 <p

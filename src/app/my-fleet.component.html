@@ -103,6 +103,19 @@
                   <dt>Marketing name</dt><dd>{{ p.marketingName || '—' }}</dd>
                   <dt>OS</dt><dd>{{ p.os || '—' }} {{ p.osVersion }}</dd>
                   <dt>Role</dt><dd>{{ p.role || '—' }}</dd>
+                  <dt>MDM provider</dt>
+                  <dd>
+                    <span
+                      class="mf-chip"
+                      data-testid="mf-mdm-provider"
+                      [attr.data-mdm-provider]="p.mdmProvider || 'headwind'"
+                      [class.mf-chip--ok]="(p.mdmProvider || 'headwind') === 'headwind'"
+                    >{{ providerLabel(p) }}</span>
+                  </dd>
+                  <dt *ngIf="p.mdmProvider === 'azure-intune'">Intune device id</dt>
+                  <dd *ngIf="p.mdmProvider === 'azure-intune'" data-testid="mf-intune-device-id">
+                    {{ p.intuneDeviceId || '—' }}
+                  </dd>
                 </dl>
               </div>
 
@@ -161,6 +174,13 @@
                     [attr.aria-label]="'Unlock phone ' + p.deviceId"
                     (click)="unlock(p)"
                   >Unlock</button>
+                  <span
+                    *ngIf="p.lockState === 'locked' && p.mdmProvider === 'azure-intune'"
+                    class="mf-muted"
+                    data-testid="mf-azure-unlock-note"
+                    [attr.data-azure-unlock-note]="p.deviceId"
+                  >Azure Intune: “Unlock” clears the platform lock but does not force-unlock the
+                    handset — a Graph remoteLock is user-unlockable device-side.</span>
                 </div>
 
                 <p

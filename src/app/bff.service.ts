@@ -2822,6 +2822,15 @@ export interface PhoneDevice {
   mdmHeadwindUrl?: string | null;
   mdmSetVia?: string | null;
   mdmEnrolledAt?: string | null;
+  // ── MDM provider (admin-bff changeset 307, DEVICE-REPORTED / advisory) ──
+  // Which MDM backend the wizard enrolled this phone with: `headwind` (self-hosted DPC, the
+  // sovereign default) or `azure-intune` (Microsoft Graph / Intune, cloud SaaS). Self-report,
+  // like mdmDpcPackage/mdmSetVia — NOT operator-authoritative; the enforcer fans the lock to the
+  // matching DPC leg but the control-plane lock state is authoritative regardless. Defaults to
+  // 'headwind' server-side (backfilled), so it is effectively always present. `intuneDeviceId`
+  // is the Graph managedDevice id the Azure lock leg targets; null for headwind phones.
+  mdmProvider?: 'headwind' | 'azure-intune' | null;
+  intuneDeviceId?: string | null;
   enrolledAt?: string | null;
   generatedAt?: string | null;
   firstIngestedAt?: string | null;
