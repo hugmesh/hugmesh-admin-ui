@@ -32,6 +32,7 @@ import { OidcProviderRolesComponent } from './oidc-provider-roles.component';
 import { GamesServicesComponent } from './games-services/games-services.component';
 import { AnubisAdminComponent } from './anubis-admin.component';
 import { DesktopGovernanceComponent } from './desktop-governance/desktop-governance.component';
+import { BackingServicesComponent } from './backing-services/backing-services.component';
 import { superadminGuard } from './superadmin.guard';
 import { fleetAdminGuard } from './fleet.guard';
 import { gamesServicesGuard } from './games-services.guard';
@@ -90,7 +91,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('superadmin/anubis')!.component).toBe(AnubisAdminComponent);
   });
 
-  it('exposes exactly the thirty-seven admin views the host expects (incl. delegation + appeals + account-appeals + the self-service security/MFA console + device-licenses + device-pending + phone-fleet + my-fleet + fleet-entitlements + node-storage + device-radios + domain-capabilities + desktop governance + egress-vpn + superadmin/domains + oidc-providers + games-services + superadmin/anubis + cloud-backups + image-gen + the HIDDEN-tier workloads console + its logs/terminal sub-views)', () => {
+  it('exposes exactly the thirty-eight admin views the host expects (incl. delegation + appeals + account-appeals + the self-service security/MFA console + device-licenses + device-pending + phone-fleet + my-fleet + fleet-entitlements + node-storage + device-radios + domain-capabilities + desktop governance + egress-vpn + superadmin/domains + oidc-providers + games-services + superadmin/anubis + cloud-backups + backing-services + image-gen + the HIDDEN-tier workloads console + its logs/terminal sub-views)', () => {
     expect(ADMIN_ROUTES.map((r) => r.path)).toEqual([
       '',
       'usage',
@@ -105,6 +106,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
       'recovery',
       'backups',
       'cloud-backups',
+      'backing-services',
       'announcements',
       'test-reports',
       'image-gen',
@@ -184,6 +186,13 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(ev).toBeDefined();
     expect(ev!.component).toBe(EgressVpnComponent);
     expect(ev!.canActivate).toEqual([superadminGuard]);
+  });
+
+  it('superadmin-gates the backing-services console (managed cross-domain infra; behind the superadmin guard)', () => {
+    const bs = byPath('backing-services');
+    expect(bs).toBeDefined();
+    expect(bs!.component).toBe(BackingServicesComponent);
+    expect(bs!.canActivate).toEqual([superadminGuard]);
   });
 
   it('superadmin-gates the domains console (multi-tenancy PR9, behind the superadmin guard)', () => {
