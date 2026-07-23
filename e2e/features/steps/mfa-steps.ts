@@ -95,7 +95,7 @@ When('{string} enrolls and verifies a TOTP factor via the BFF', async ({ user },
   if (!body?.factorId || !body?.secret) throw new Error('enroll/totp returned no factorId/secret');
   // Compute the current code from the server's REAL secret (never a hard-coded passcode).
   const passcode = totp(body.secret);
-  const verify = await page.evaluate(async (code) => {
+  const verifyStatus = await page.evaluate(async (code) => {
     const r = await fetch('/bff/mfa/enroll/totp/verify', {
       method: 'POST',
       credentials: 'include',
@@ -104,7 +104,9 @@ When('{string} enrolls and verifies a TOTP factor via the BFF', async ({ user },
     });
     return r.status;
   }, passcode);
-  expect(verify.status, 'verify must enable the pending factor (200)').toBe(200);
+  // NOTE: this evaluate resolves to the bare status NUMBER (not a {status} object
+  // like the enroll call above), so the assertion must read it directly.
+  expect(verifyStatus, 'verify must enable the pending factor (200)').toBe(200);
   enrolled.set(user(username).username, { factorId: body.factorId, secret: body.secret });
 });
 
