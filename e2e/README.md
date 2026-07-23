@@ -29,6 +29,13 @@ with the deepest cross-user / DENY coverage:
 | MUTATION | `features/admin/phone-management.feature` | Extends phone-fleet with the WRITE seam: superadmin sets the authoritative management mode (managed/BYOD) and locks/unlocks a managed device, SUPERADMIN-only + step-up gated |
 | MULTIUSER | `features/admin/my-fleet.feature` | Fleet-owner "My fleet" console — a non-superadmin FLEET_ADMIN/ADMIN reaches ONLY their own phones (`fleetAdminGuard` ALLOW/DENY), the tenancy-walled twin of the superadmin console |
 | MUTATION | `features/admin/fleet-provisioning.feature` | SUPERADMIN-only: owner assignment (the tenancy wall for My fleet) on the phone-fleet console, and the Fleet-entitlements grant/revoke console — both step-up gated |
+| MULTIUSER | `features/admin/domain-capabilities.feature` | the three-actor CAPABILITY GATE: superadmin **grants** a domain, that domain's admin **enables** it, a domain-B admin's enable of domain-A → 403, no admin may grant (superadmin-only) → 403, and the platform-wide kill switch; `@offline` the ungranted admin's disabled toggle + hint |
+| MULTIUSER | `features/admin/workload-hidden-tier.feature` | the HIDDEN menu tier's causal loop: a superadmin **grant** reveals the workload menu item + route to one admin mid-session; a **revoke** bounces the route back to `/admin` and the item disappears |
+| MULTIUSER | `features/admin/mfa-security.feature` | cross-user MFA factor **isolation** (one admin's enrolled factor invisible to another), the honest **dark** state, and the step-up-gated remove + regenerate **journey** through the shared dialog with a real RFC-6238 code |
+| MULTIUSER | `features/admin/role-revoke-mid-session.feature` | a **live** ROLE_ADMIN session works, a superadmin revokes it, and the SAME session's next admin read is cut off (revoked custody JWT); re-grant restores the seed |
+| MUTATION | `features/admin/concurrent-admin-edits.feature` | two **same-domain** admins on one announcement: a save onto a rival-deleted row is refused (404, not a silent recreate); rival retitles converge on the last write for both |
+| MUTATION | `features/admin/ssh-key-issuance.feature` | SSH credential mint: the ships-**dark** panel state, a domain admin's issue POST → 403 (superadmin-only), and the enabled-feature mint → step-up → **one-time** download journey |
+| EVERY-FUNCTION | `features/admin/device-radios.feature` | `@offline` the per-transport form shape (serial/tcp/mqtt fields) + blank-attach validation; `@cluster` a mod attach POST → 403 |
 
 ## Two lanes: `@offline` (default, runs on `ng serve`) and `@cluster` (dark)
 
@@ -40,7 +47,7 @@ UI behaviour that needs no backend.
   validation, a client-side heuristic warning, empty/degraded states, a disabled
   control. These carry **no `@cluster` tag**, so the default config
   (`tags: 'not @cluster'`) INCLUDES them — `npx bddgen` now generates the offline
-  lane (currently **9 scenarios**). They run against the standalone dev shell
+  lane (currently **11 scenarios**). They run against the standalone dev shell
   (`ng serve admin`, which mounts `ADMIN_ROUTES` at the root — see
   `src/app/app.routes.ts`) with `E2E_BASE_URL` pointed at it. Every assertion is a
   real observable state change that fails against a blank page — never a bare
@@ -79,29 +86,21 @@ the default lane is empty or holds the `@offline` scenarios.
 `@skip` drops a scenario from generation entirely (`bddgen` emits 0 specs for
 it), so a `@skip`-tagged suite cannot be *discovered*. `@cluster` is a plain
 filter tag — the no-filter validation below generates and lists every scenario
-(**130 today across 24 files**), proving the Gherkin compiles, while the default
+(**149 today across 32 files**), proving the Gherkin compiles, while the default
 config keeps the `@cluster` ones dark and surfaces the `@offline` lane.
 
 ## Structural validation (no cluster, no browser)
 
 ```sh
 npm install
-npx bddgen            # default: 'not @cluster' → the 9 @offline specs (run them via
+npx bddgen            # default: 'not @cluster' → the 11 @offline specs (run them via
                       # the Offline UI lane above; @cluster scenarios stay dark)
 
-# Prove every feature compiles + all scenarios are discovered (no filter):
-cat > pw-validate.config.ts <<'EOF'
-import { defineConfig, devices } from '@playwright/test';
-import { defineBddConfig } from 'playwright-bdd';
-const d = defineBddConfig({ features: 'features/**/*.feature',
-  steps: ['features/steps/**/*.ts', 'features/support/**/*.ts'] });
-export default defineConfig({ reporter: [['list']],
-  use: { ignoreHTTPSErrors: true, screenshot: 'on', video: 'on' },
-  projects: [{ name: 'bdd', testDir: d, use: { ...devices['Desktop Chrome'] } }] });
-EOF
+# Prove every feature compiles + all scenarios are discovered (no filter). The
+# no-filter config is committed as pw-validate.config.ts (it drops the `not @cluster`
+# tag filter the default config carries), so validation is just:
 npx bddgen -c pw-validate.config.ts
-npx playwright test --list -c pw-validate.config.ts   # → 130 tests in 24 files
-rm pw-validate.config.ts
+npx playwright test --list -c pw-validate.config.ts   # → 149 tests in 32 files
 ```
 
 ## Running against a live stack (later wave)
