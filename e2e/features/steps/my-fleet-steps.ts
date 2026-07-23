@@ -66,6 +66,75 @@ Then(
   },
 );
 
+// ── Wave-2: co-equal Azure Intune MDM provider surface (owner console twin) ──
+
+/** The device-reported provider fields the wave-2 chip/Intune-id/asymmetry-note surface keys off. */
+type ProviderRow = {
+  deviceId: string;
+  mdmProvider?: 'headwind' | 'azure-intune' | null;
+  intuneDeviceId?: string | null;
+  lockState?: 'unlocked' | 'locked' | null;
+};
+
+/** Re-read the SAME live owned read the console fetched (same-origin, the caller's HttpOnly bff_
+ *  cookie rides it). A non-200 fails loudly — never a masquerading empty fleet. */
+async function liveOwnedPhones(page: Page): Promise<ProviderRow[]> {
+  return page.evaluate(async () => {
+    const r = await fetch('/bff/admin/phone-fleet', { credentials: 'include' });
+    if (!r.ok) throw new Error(`owned phone-fleet read failed: ${r.status}`);
+    return (await r.json()).phones ?? [];
+  });
+}
+
+Then(
+  '{string} sees the {string} provider chip and its Intune device id for an owned azure-reported phone',
+  async ({ user }, username: string, label: string) => {
+    const page = pageOf(user(username).username);
+    const azure = (await liveOwnedPhones(page)).find((p) => p.mdmProvider === 'azure-intune');
+    if (!azure) throw new Error('no owned azure-intune phone in the live fleet to assert the Intune surface');
+    await expandOwned(page, azure.deviceId);
+    const detail = page.locator(`[data-phone-detail="${azure.deviceId}"]`);
+    const chip = detail.locator('[data-testid="mf-mdm-provider"]');
+    await expect(chip).toHaveAttribute('data-mdm-provider', 'azure-intune');
+    await expect(chip).toHaveText(label); // 'Azure Intune'
+    const intune = detail.locator('[data-testid="mf-intune-device-id"]');
+    await expect(intune).toBeVisible();
+    if (azure.intuneDeviceId) await expect(intune).toContainText(azure.intuneDeviceId);
+  },
+);
+
+Then(
+  '{string} sees the {string} provider chip and no Intune id for an owned headwind-reported phone',
+  async ({ user }, username: string, label: string) => {
+    const page = pageOf(user(username).username);
+    const headwind = (await liveOwnedPhones(page)).find((p) => (p.mdmProvider ?? 'headwind') === 'headwind');
+    if (!headwind) throw new Error('no owned headwind (default-provider) phone in the live fleet to assert the chip');
+    await expandOwned(page, headwind.deviceId);
+    const detail = page.locator(`[data-phone-detail="${headwind.deviceId}"]`);
+    const chip = detail.locator('[data-testid="mf-mdm-provider"]');
+    await expect(chip).toHaveAttribute('data-mdm-provider', 'headwind');
+    await expect(chip).toHaveText(label); // 'Headwind'
+    await expect(detail.locator('[data-testid="mf-intune-device-id"]')).toHaveCount(0);
+    await expect(page.locator(`[data-azure-unlock-note="${headwind.deviceId}"]`)).toHaveCount(0);
+  },
+);
+
+Then(
+  '{string} sees the Azure unlock-asymmetry note for a locked owned azure-intune phone',
+  async ({ user }, username: string) => {
+    const page = pageOf(user(username).username);
+    const lockedAzure = (await liveOwnedPhones(page))
+      .find((p) => p.mdmProvider === 'azure-intune' && p.lockState === 'locked');
+    if (!lockedAzure) {
+      throw new Error('no LOCKED owned azure-intune phone in the live fleet to assert the unlock-asymmetry note');
+    }
+    await expandOwned(page, lockedAzure.deviceId);
+    const note = page.locator(`[data-azure-unlock-note="${lockedAzure.deviceId}"]`);
+    await expect(note).toBeVisible();
+    await expect(note).toContainText('does not force-unlock the handset');
+  },
+);
+
 // ── Lock / unlock (own managed device) ───────────────────────────────────────
 
 When(

@@ -55,3 +55,27 @@ Feature: Phone fleet console — superadmin-only read-only MDM phone registry
     Given "admin-domain-a" is logged in
     When "admin-domain-a" GETs "/bff/superadmin/phone-devices"
     Then the response status is 403
+
+  # ── Wave-2: co-equal Azure Intune MDM provider surface ──────────────────────
+  # Each provider scenario re-reads the SAME live /bff/superadmin/phone-devices list the console
+  # fetched, picks a row by its DEVICE-REPORTED mdmProvider, expands it, and holds the DOM to what
+  # the BFF actually reported — the provider chip label, the Intune device id (azure only), and the
+  # unlock-asymmetry note (locked azure only). The picker throws loudly when the seeded fleet has no
+  # such device, so a mis-seeded cluster fails the step rather than passing vacuously.
+  Scenario: an azure-intune phone renders the Azure Intune chip and its Intune device id
+    Given "superadmin" is logged in
+    When "superadmin" navigates to "/admin/phone-fleet"
+    Then "superadmin" sees the "phone-fleet-view" console
+    And "superadmin" sees the "Azure Intune" provider chip and its Intune device id for an azure-reported phone
+
+  Scenario: a headwind phone renders the Headwind chip with no Intune id and no asymmetry note
+    Given "superadmin" is logged in
+    When "superadmin" navigates to "/admin/phone-fleet"
+    Then "superadmin" sees the "phone-fleet-view" console
+    And "superadmin" sees the "Headwind" provider chip and no Intune id for a headwind-reported phone
+
+  Scenario: a LOCKED azure-intune phone shows the unlock-asymmetry note
+    Given "superadmin" is logged in
+    When "superadmin" navigates to "/admin/phone-fleet"
+    Then "superadmin" sees the "phone-fleet-view" console
+    And "superadmin" sees the Azure unlock-asymmetry note for a locked azure-intune phone

@@ -11,7 +11,7 @@
 //     nav). Generic on purpose — any superadmin-only item can reuse them.
 // Session/navigation/guard steps are reused from session-steps.ts.
 
-import { expect } from '@playwright/test';
+import { expect, Page } from '@playwright/test';
 import { Then } from '../support/fixtures';
 import { pageRegistry } from './_registry';
 
@@ -19,6 +19,33 @@ function pageOf(username: string) {
   const page = pageRegistry.get(username);
   if (!page) throw new Error(`No page registered for "${username}" — add a session step first.`);
   return page;
+}
+
+/** The device-reported provider fields the wave-2 chip/Intune-id/asymmetry-note surface keys off. */
+type ProviderRow = {
+  deviceId: string;
+  mdmProvider?: 'headwind' | 'azure-intune' | null;
+  intuneDeviceId?: string | null;
+  lockState?: 'unlocked' | 'locked' | null;
+};
+
+/** Re-read the SAME live superadmin registry the console fetched (same-origin, the caller's
+ *  HttpOnly bff_ cookie rides it). A non-200 fails loudly — never a masquerading empty fleet. */
+async function livePhones(page: Page): Promise<ProviderRow[]> {
+  return page.evaluate(async () => {
+    const r = await fetch('/bff/superadmin/phone-devices', { credentials: 'include' });
+    if (!r.ok) throw new Error(`phone-devices read failed: ${r.status}`);
+    return (await r.json()).phones ?? [];
+  });
+}
+
+/** Expand a phone-fleet row's detail (idempotent). */
+async function expandRow(page: Page, deviceId: string): Promise<void> {
+  const detail = page.locator(`[data-phone-detail="${deviceId}"]`);
+  if ((await detail.count()) === 0) {
+    await page.locator(`[data-expand="${deviceId}"]`).click();
+  }
+  await expect(detail).toBeVisible({ timeout: 15_000 });
 }
 
 // ── Fleet-list honesty (DOM ↔ live BFF read) ────────────────────────────────
@@ -54,6 +81,61 @@ Then(
       await expect(page.locator(`[data-phone-id="${p.deviceId}"]`)).toBeVisible();
     }
     await expect(page.locator('[data-testid="pf-empty"]')).toHaveCount(0);
+  },
+);
+
+// ── Wave-2: co-equal Azure Intune MDM provider surface ──────────────────────
+
+Then(
+  '{string} sees the {string} provider chip and its Intune device id for an azure-reported phone',
+  async ({ user }, username: string, label: string) => {
+    const page = pageOf(user(username).username);
+    const azure = (await livePhones(page)).find((p) => p.mdmProvider === 'azure-intune');
+    if (!azure) throw new Error('no azure-intune phone in the live fleet to assert the Intune surface');
+    await expandRow(page, azure.deviceId);
+    const detail = page.locator(`[data-phone-detail="${azure.deviceId}"]`);
+    const chip = detail.locator('[data-testid="pf-mdm-provider"]');
+    await expect(chip).toHaveAttribute('data-mdm-provider', 'azure-intune');
+    await expect(chip).toHaveText(label); // 'Azure Intune'
+    // The Intune-device-id row renders ONLY for an azure phone; assert it against the BFF value.
+    const intune = detail.locator('[data-testid="pf-intune-device-id"]');
+    await expect(intune).toBeVisible();
+    if (azure.intuneDeviceId) await expect(intune).toContainText(azure.intuneDeviceId);
+  },
+);
+
+Then(
+  '{string} sees the {string} provider chip and no Intune id for a headwind-reported phone',
+  async ({ user }, username: string, label: string) => {
+    const page = pageOf(user(username).username);
+    // A null/unset provider is server-backfilled to 'headwind', so treat both as headwind.
+    const headwind = (await livePhones(page)).find((p) => (p.mdmProvider ?? 'headwind') === 'headwind');
+    if (!headwind) throw new Error('no headwind (default-provider) phone in the live fleet to assert the chip');
+    await expandRow(page, headwind.deviceId);
+    const detail = page.locator(`[data-phone-detail="${headwind.deviceId}"]`);
+    const chip = detail.locator('[data-testid="pf-mdm-provider"]');
+    await expect(chip).toHaveAttribute('data-mdm-provider', 'headwind');
+    await expect(chip).toHaveText(label); // 'Headwind'
+    // No Intune-device-id row and no unlock-asymmetry note for a non-azure phone.
+    await expect(detail.locator('[data-testid="pf-intune-device-id"]')).toHaveCount(0);
+    await expect(page.locator(`[data-azure-unlock-note="${headwind.deviceId}"]`)).toHaveCount(0);
+  },
+);
+
+Then(
+  '{string} sees the Azure unlock-asymmetry note for a locked azure-intune phone',
+  async ({ user }, username: string) => {
+    const page = pageOf(user(username).username);
+    // The note renders ONLY when the row is BOTH azure-intune AND locked.
+    const lockedAzure = (await livePhones(page))
+      .find((p) => p.mdmProvider === 'azure-intune' && p.lockState === 'locked');
+    if (!lockedAzure) {
+      throw new Error('no LOCKED azure-intune phone in the live fleet to assert the unlock-asymmetry note');
+    }
+    await expandRow(page, lockedAzure.deviceId);
+    const note = page.locator(`[data-azure-unlock-note="${lockedAzure.deviceId}"]`);
+    await expect(note).toBeVisible();
+    await expect(note).toContainText('does not force-unlock the handset');
   },
 );
 

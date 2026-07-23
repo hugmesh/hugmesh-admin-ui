@@ -63,3 +63,26 @@ Feature: My fleet — fleet-owner console (own devices only, entitlement + owner
     Given "plain-user" is logged in
     When "plain-user" GETs "/bff/admin/phone-fleet"
     Then the response status is 403
+
+  # ── Wave-2: co-equal Azure Intune MDM provider surface (owner console twin) ──
+  # Same honesty as the superadmin console: each scenario re-reads the SAME live owned
+  # /bff/admin/phone-fleet list, picks an owned row by its device-reported mdmProvider, expands it,
+  # and holds the DOM to the provider chip / Intune id / unlock-asymmetry note the BFF reported. The
+  # picker throws when the owner's seeded fleet has no such device (never a vacuous pass).
+  Scenario: an owned azure-intune phone renders the Azure Intune chip and its Intune device id
+    Given "fleet-owner-a" is logged in
+    When "fleet-owner-a" navigates to "/admin/my-fleet"
+    Then "fleet-owner-a" sees the "my-fleet-view" console
+    And "fleet-owner-a" sees the "Azure Intune" provider chip and its Intune device id for an owned azure-reported phone
+
+  Scenario: an owned headwind phone renders the Headwind chip with no Intune id and no asymmetry note
+    Given "fleet-owner-a" is logged in
+    When "fleet-owner-a" navigates to "/admin/my-fleet"
+    Then "fleet-owner-a" sees the "my-fleet-view" console
+    And "fleet-owner-a" sees the "Headwind" provider chip and no Intune id for an owned headwind-reported phone
+
+  Scenario: a LOCKED owned azure-intune phone shows the unlock-asymmetry note
+    Given "fleet-owner-a" is logged in
+    When "fleet-owner-a" navigates to "/admin/my-fleet"
+    Then "fleet-owner-a" sees the "my-fleet-view" console
+    And "fleet-owner-a" sees the Azure unlock-asymmetry note for a locked owned azure-intune phone
