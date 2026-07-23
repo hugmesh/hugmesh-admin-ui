@@ -52,7 +52,9 @@
 							"es-module-shims"
 						],
 						"tsConfig": "tsconfig.app.json",
-						"assets": [],
+						"assets": [
+							"src/favicon.ico"
+						],
 						"styles": [
 							"src/styles.scss"
 						]

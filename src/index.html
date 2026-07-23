@@ -2,9 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
+  <!-- Dev-shell document only: in production the hugmesh.systems host owns the
+       tab (title/branding), so the "(remote)" suffix is the sanctioned dev-shell
+       convention. The favicon + theme-color below brand the STANDALONE shell
+       (`ng serve admin`, the @offline e2e lane) — favicon.ico is the canonical
+       multi-resolution platform icon copied from the host shell's src/. -->
   <title>HugMesh Admin (remote)</title>
   <base href="/" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="HugMesh platform administration console" />
+  <meta name="theme-color" content="#0a0a12" />
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
 </head>
 <body>
   <hug-admin-root></hug-admin-root>
