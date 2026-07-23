@@ -1,14 +1,19 @@
+// OIDC provider→role mappings console. Styled exclusively against the
+// cross-repo --hug-* HugMesh contract (src/styles.scss). Previously written
+// on the undefined --snap-color-* family (light fallbacks under the dark
+// shell) — same defect family as mfa.component.scss; see the branding-baseline
+// mapping documented there.
 :host {
   display: block;
 }
 
 .form-error {
-  color: var(--snap-color-error, #c62828);
+  color: var(--hug-error, #ff6b6b);
   margin-block-end: 0.75rem;
 }
 
 .empty-state {
-  color: var(--snap-color-muted, #666);
+  color: var(--hug-text-muted, #a8acc4);
   font-style: italic;
 }
 
@@ -20,12 +25,12 @@ table {
   th, td {
     padding: 0.5rem 0.75rem;
     text-align: start;
-    border-block-end: 1px solid var(--snap-color-border, #ddd);
+    border-block-end: 1px solid var(--hug-border, #1e1e32);
   }
 
   th {
     font-weight: 600;
-    background: var(--snap-color-surface, #f5f5f5);
+    background: var(--hug-bg-1, #12121e);
   }
 }
 
@@ -41,18 +46,20 @@ form {
 
   input[type="text"] {
     padding: 0.4rem 0.5rem;
-    border: 1px solid var(--snap-color-border, #ccc);
+    border: 1px solid var(--hug-border, #1e1e32);
     border-radius: 4px;
     font: inherit;
+    background: var(--hug-bg-0, #0a0a12);
+    color: var(--hug-text, #e8e8f0);
   }
 
   .hint {
     font-size: 0.85em;
-    color: var(--snap-color-muted, #666);
+    color: var(--hug-text-muted, #a8acc4);
   }
 
   fieldset {
-    border: 1px solid var(--snap-color-border, #ccc);
+    border: 1px solid var(--hug-border, #1e1e32);
     border-radius: 4px;
     padding: 0.5rem 0.75rem;
 

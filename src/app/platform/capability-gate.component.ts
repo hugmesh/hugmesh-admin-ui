@@ -68,9 +68,13 @@ export type GatedCapability = 'argocd' | 'velero' | 'images' | 'buildNode';
         margin-block-end: 1rem;
         display: block;
       }
+      /* --hug-* contract only (the --snap-color-* family this once used is defined
+       * NOWHERE in the fleet — its light fallbacks fired under the dark shell; see
+       * the mapping note in mfa/mfa.component.scss). Warn accent on a dark panel. */
       .notice--warn {
-        border-color: var(--snap-color-warn, #f57c00);
-        background: var(--snap-color-warn-bg, #fff8e1);
+        border-color: var(--hug-warning, #ffb74d);
+        background: var(--hug-bg-1, #12121e);
+        color: var(--hug-text, #e8e8f0);
       }
       .cap-gate-headline {
         display: block;

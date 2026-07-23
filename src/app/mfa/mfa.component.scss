@@ -1,14 +1,35 @@
+// Shared stylesheet for the MFA Security console AND the inline step-up dialog
+// (MfaSecurityComponent + MfaStepUpDialogComponent both point styleUrl here).
+//
+// Styled EXCLUSIVELY against the cross-repo --hug-* HugMesh contract
+// (defined in src/styles.scss, mirrored from hugmesh.games — the canonical
+// WCAG-AA/AAA palette). This file previously consumed a foreign --snap-color-*
+// token family defined NOWHERE in the fleet, so every value collapsed to its
+// light-theme fallback (#fff surfaces, #fff8e1 step-up panel) under the dark
+// shell's inherited near-white --hug-text — white-on-white controls on a
+// security-critical surface. Mapping applied (branding baseline fix recipe):
+//   --snap-color-primary #1565c0 → var(--hug-accent) backgrounds w/ --hug-text text
+//   --snap-color-error   #b00020 → var(--hug-error)
+//   --snap-color-warn    #f57c00 → var(--hug-warning, #ffb74d) on var(--hug-bg-1)
+//   --snap-color-surface #fff    → var(--hug-bg-1)
+//   --snap-color-border  #ccc    → var(--hug-border)
+// Accent-colored TEXT always uses var(--hug-accent-soft) (7.38:1 AAA), never
+// var(--hug-accent) (3.22:1 as text). The regression guard lives in
+// mfa-security.component.spec.ts ("renders on the --hug-* palette").
+@use '../../styles/tokens' as t;
+
 .hug-mfa {
   display: block;
   max-width: 32rem;
 }
 
 .hug-mfa-stepup {
-  border: 1px solid var(--snap-color-warn, #f57c00);
+  border: 1px solid var(--hug-warning, #ffb74d);
   border-radius: 4px;
   padding: 1rem;
   margin-block: 1rem;
-  background: var(--snap-color-warn-bg, #fff8e1);
+  background: var(--hug-bg-1, #12121e);
+  color: var(--hug-text, #e8e8f0);
 }
 
 .mfa-help {
@@ -17,7 +38,7 @@
 }
 
 .mfa-error {
-  color: var(--snap-color-error, #b00020);
+  color: var(--hug-error, #ff6b6b);
   font-weight: 600;
 }
 
@@ -43,6 +64,14 @@
   margin-block: 0.5rem;
 }
 
+.mfa-verify input {
+  background: var(--hug-bg-0, #0a0a12);
+  color: var(--hug-text, #e8e8f0);
+  border: 1px solid var(--hug-border, #1e1e32);
+  border-radius: 4px;
+  padding: 0.4rem 0.6rem;
+}
+
 .mfa-actions {
   display: flex;
   gap: 0.5rem;
@@ -53,20 +82,21 @@
 .mfa-btn {
   padding: 0.4rem 0.9rem;
   border-radius: 4px;
-  border: 1px solid var(--snap-color-border, #ccc);
-  background: var(--snap-color-surface, #fff);
+  border: 1px solid var(--hug-border, #1e1e32);
+  background: var(--hug-bg-1, #12121e);
+  color: var(--hug-text, #e8e8f0);
   cursor: pointer;
 }
 
 .mfa-btn.primary {
-  background: var(--snap-color-primary, #1565c0);
-  color: #fff;
+  background: var(--hug-accent, #7c4dff);
+  color: var(--hug-text, #e8e8f0);
   border-color: transparent;
 }
 
 .mfa-btn.danger {
-  border-color: var(--snap-color-error, #b00020);
-  color: var(--snap-color-error, #b00020);
+  border-color: var(--hug-error, #ff6b6b);
+  color: var(--hug-error, #ff6b6b);
 }
 
 .mfa-btn:disabled {
@@ -88,7 +118,7 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.5rem 0;
-  border-block-end: 1px solid var(--snap-color-border, #eee);
+  border-block-end: 1px solid var(--hug-border, #1e1e32);
 }
 
 .mfa-factor-type {
@@ -113,10 +143,18 @@
 }
 
 .mfa-recovery {
-  border: 1px dashed var(--snap-color-border, #999);
+  border: 1px dashed var(--hug-border, #1e1e32);
   border-radius: 4px;
   padding: 0.75rem 1rem;
   margin-block: 0.75rem;
+  background: var(--hug-bg-1, #12121e);
+}
+
+// Setup key + recovery codes are transcribed by hand — brand mono stack (the
+// $font-mono token, a REAL monospace since the branding-baseline fix).
+.mfa-secret code,
+.mfa-codes code {
+  font-family: t.$font-mono;
 }
 
 .mfa-qr {
@@ -124,6 +162,12 @@
   width: 12rem;
   height: 12rem;
   margin-block: 0.5rem;
+  // The QR must stay machine-readable: dark cells on a LIGHT quiet zone, so the
+  // grid itself carries an explicit light background (scanners need contrast,
+  // not theme fidelity) — the ONE deliberately light element on this surface.
+  background: #fff;
+  padding: 0.5rem;
+  box-sizing: content-box;
 }
 
 .mfa-qr-cell.dark {
@@ -131,6 +175,6 @@
 }
 
 .mfa-secret {
-  font-family: monospace;
+  font-family: t.$font-mono;
   word-break: break-all;
 }

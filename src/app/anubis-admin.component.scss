@@ -1,16 +1,22 @@
+// Anubis PoW sidecar console. Styled exclusively against the cross-repo --hug-*
+// HugMesh contract (src/styles.scss). Previously written on the undefined
+// --snap-color-* family, collapsing to light-Material fallbacks (#f5f5f5
+// surfaces, #222 hover text) under the dark shell — the same defect family as
+// mfa.component.scss (see the branding-baseline mapping documented there).
+// Accent TEXT uses var(--hug-accent-soft) (AAA), never var(--hug-accent).
 :host {
   display: block;
 }
 
 .intro {
-  color: var(--snap-color-muted, #555);
+  color: var(--hug-text-muted, #a8acc4);
   max-width: 64ch;
 }
 
 .tab-bar {
   display: flex;
   gap: 0;
-  border-block-end: 2px solid var(--snap-color-border, #ddd);
+  border-block-end: 2px solid var(--hug-border, #1e1e32);
   margin-block-end: 1.25rem;
 }
 
@@ -22,16 +28,16 @@
   margin-block-end: -2px;
   cursor: pointer;
   font: inherit;
-  color: var(--snap-color-muted, #555);
+  color: var(--hug-text-muted, #a8acc4);
 
   &.active {
-    border-block-end-color: var(--snap-color-primary, #1565c0);
-    color: var(--snap-color-primary, #1565c0);
+    border-block-end-color: var(--hug-accent, #7c4dff);
+    color: var(--hug-accent-soft, #b388ff);
     font-weight: 600;
   }
 
   &:hover:not(.active) {
-    color: var(--snap-color-text, #222);
+    color: var(--hug-text, #e8e8f0);
   }
 }
 
@@ -42,8 +48,8 @@
   margin-block-end: 1rem;
 
   &--warn {
-    border-color: var(--snap-color-warn, #f57c00);
-    background: var(--snap-color-warn-bg, #fff8e1);
+    border-color: var(--hug-warning, #ffb74d);
+    background: var(--hug-bg-1, #12121e);
   }
 }
 
@@ -56,12 +62,12 @@
   th, td {
     padding: 0.5rem 0.75rem;
     text-align: start;
-    border-block-end: 1px solid var(--snap-color-border, #ddd);
+    border-block-end: 1px solid var(--hug-border, #1e1e32);
   }
 
   th {
     font-weight: 600;
-    background: var(--snap-color-surface, #f5f5f5);
+    background: var(--hug-bg-1, #12121e);
   }
 }
 
@@ -74,9 +80,12 @@
   font-size: 0.85em;
   font-weight: 600;
 
-  &--ok  { background: #e8f5e9; color: #2e7d32; }
-  &--warn { background: #fff8e1; color: #e65100; }
-  &--off  { background: #f5f5f5; color: #757575; }
+  // Status tints on the panel background — --hug-* status hues as text over a
+  // translucent tint of the same hue (readable on the dark shell, unlike the
+  // previous light-Material chips).
+  &--ok  { background: rgba(76, 175, 80, 0.18); color: var(--hug-success, #4caf50); }
+  &--warn { background: rgba(255, 183, 77, 0.18); color: var(--hug-warning, #ffb74d); }
+  &--off  { background: var(--hug-bg-2, #1a1a2e); color: var(--hug-text-muted, #a8acc4); }
 }
 
 .metrics-toolbar {
@@ -97,8 +106,8 @@
 
 .raw-metrics {
   font-size: 0.8em;
-  background: var(--snap-color-surface, #f5f5f5);
-  border: 1px solid var(--snap-color-border, #ddd);
+  background: var(--hug-bg-1, #12121e);
+  border: 1px solid var(--hug-border, #1e1e32);
   border-radius: 4px;
   padding: 0.75rem;
   overflow: auto;
@@ -108,20 +117,21 @@
 
 .loading,
 .empty-state {
-  color: var(--snap-color-muted, #666);
+  color: var(--hug-text-muted, #a8acc4);
   font-style: italic;
 }
 
 .btn-secondary {
   padding: 0.4rem 0.9rem;
-  border: 1px solid var(--snap-color-border, #ccc);
+  border: 1px solid var(--hug-border, #1e1e32);
   border-radius: 4px;
-  background: var(--snap-color-surface, #fafafa);
+  background: var(--hug-bg-1, #12121e);
+  color: var(--hug-text, #e8e8f0);
   cursor: pointer;
   font: inherit;
 
   &:hover:not(:disabled) {
-    background: var(--snap-color-hover, #f0f0f0);
+    background: var(--hug-bg-2, #1a1a2e);
   }
 
   &:disabled {
