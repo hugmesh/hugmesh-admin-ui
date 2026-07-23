@@ -1,7 +1,7 @@
 # hugmesh-admin-ui — e2e (Playwright + playwright-bdd)
 
 Gherkin-driven end-to-end harness for the admin-ui federated remote, copied from
-the proven `hugmesh.games/e2e` pattern (`@playwright/test` +
+the proven `hugmesh-games/e2e` pattern (`@playwright/test` +
 `playwright-bdd`, single-worker serial, `screenshot:'on'`/`video:'on'`, HTML
 reporter, the per-step PNG `AfterStep` hook in
 `features/support/fixtures.ts`).

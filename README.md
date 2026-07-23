@@ -11,7 +11,7 @@ at **/admin**.
 | Concern        | This repo                                                              |
 | -------------- | --------------------------------------------------------------------- |
 | Tier           | Frontend / micro-frontend (a federated **remote**, not a host)        |
-| Namespace      | `snapdragon-frontend` — runs as its own nginx pod                     |
+| Namespace      | `hugmesh-frontend` — runs as its own nginx pod                        |
 | Fronted by     | the **fe-gateway** at `/admin`                                         |
 | Backed by      | **hugmesh-admin-bff-api** (Spring), in the backend namespace, behind the gateway |
 | Auth model     | Casdoor **admin role** for most routes; **superadmin role** for the superadmin-only routes; the host route-guards `/admin` |
@@ -506,7 +506,7 @@ validation.
 > (es-module-shims nonce propagation) — that remains on the live-cluster browser
 > validation list.
 
-The resulting container runs as its own pod in the **snapdragon-frontend**
+The resulting container runs as its own pod in the **hugmesh-frontend**
 namespace, fronted by the **fe-gateway** at `/admin`.
 
 CI (`.gitlab-ci.yml`) runs **four stages** on every push and mirror-sync (CI is
