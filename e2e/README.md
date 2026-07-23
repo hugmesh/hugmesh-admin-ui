@@ -1,7 +1,7 @@
 # hugmesh-admin-ui — e2e (Playwright + playwright-bdd)
 
 Gherkin-driven end-to-end harness for the admin-ui federated remote, copied from
-the proven `hugmesh.games/e2e` pattern (`@playwright/test` +
+the proven `hugmesh-games/e2e` pattern (`@playwright/test` +
 `playwright-bdd`, single-worker serial, `screenshot:'on'`/`video:'on'`, HTML
 reporter, the per-step PNG `AfterStep` hook in
 `features/support/fixtures.ts`).
@@ -25,6 +25,10 @@ with the deepest cross-user / DENY coverage:
 | EVERY-FUNCTION | `features/admin/device-pending.feature` | Pending-devices pick-list: `@offline` register control **disabled** with no candidate + opaque-fp placeholder (superadmin); `@cluster` a domain-admin register-POST → 403 (superadmin-only) |
 | MUTATION | `features/admin/egress-vpn-cross-domain.feature` | Egress-VPN console: superadmin imports a VPN config into a brand that is **not its own** (real cross-domain write, UI evidence) and a domain admin's identical POST → 403 (SUPERADMIN-only, not "any admin") |
 | MUTATION | `features/admin/account-appeals-decide.feature` | Account-ban Appeals console (admin-ui #65): ADMIN approve **actually restores** the appellant's access (re-read via the BFF, not assumed from the 200), ADMIN deny leaves it restricted, SUPERADMIN decides **cross-domain**, and a mod's decide attempt is a real 403 (not merely UI-hidden) |
+| USER-SITUATIONAL | `features/admin/phone-fleet.feature` | Superadmin Phone-fleet console (sovereign MDM registry): guard ALLOW/DENY, menu visibility, BFF role gate, list-read honesty — no write seam here (enrolment/profile management is device-side) |
+| MUTATION | `features/admin/phone-management.feature` | Extends phone-fleet with the WRITE seam: superadmin sets the authoritative management mode (managed/BYOD) and locks/unlocks a managed device, SUPERADMIN-only + step-up gated |
+| MULTIUSER | `features/admin/my-fleet.feature` | Fleet-owner "My fleet" console — a non-superadmin FLEET_ADMIN/ADMIN reaches ONLY their own phones (`fleetAdminGuard` ALLOW/DENY), the tenancy-walled twin of the superadmin console |
+| MUTATION | `features/admin/fleet-provisioning.feature` | SUPERADMIN-only: owner assignment (the tenancy wall for My fleet) on the phone-fleet console, and the Fleet-entitlements grant/revoke console — both step-up gated |
 
 ## Two lanes: `@offline` (default, runs on `ng serve`) and `@cluster` (dark)
 
@@ -75,7 +79,7 @@ the default lane is empty or holds the `@offline` scenarios.
 `@skip` drops a scenario from generation entirely (`bddgen` emits 0 specs for
 it), so a `@skip`-tagged suite cannot be *discovered*. `@cluster` is a plain
 filter tag — the no-filter validation below generates and lists every scenario
-(**107 today across 21 files**), proving the Gherkin compiles, while the default
+(**130 today across 24 files**), proving the Gherkin compiles, while the default
 config keeps the `@cluster` ones dark and surfaces the `@offline` lane.
 
 ## Structural validation (no cluster, no browser)
@@ -96,7 +100,7 @@ export default defineConfig({ reporter: [['list']],
   projects: [{ name: 'bdd', testDir: d, use: { ...devices['Desktop Chrome'] } }] });
 EOF
 npx bddgen -c pw-validate.config.ts
-npx playwright test --list -c pw-validate.config.ts   # → 107 tests in 21 files
+npx playwright test --list -c pw-validate.config.ts   # → 130 tests in 24 files
 rm pw-validate.config.ts
 ```
 

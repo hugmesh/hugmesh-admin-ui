@@ -11,7 +11,7 @@ at **/admin**.
 | Concern        | This repo                                                              |
 | -------------- | --------------------------------------------------------------------- |
 | Tier           | Frontend / micro-frontend (a federated **remote**, not a host)        |
-| Namespace      | `snapdragon-frontend` — runs as its own nginx pod                     |
+| Namespace      | `hugmesh-frontend` — runs as its own nginx pod                        |
 | Fronted by     | the **fe-gateway** at `/admin`                                         |
 | Backed by      | **hugmesh-admin-bff-api** (Spring), in the backend namespace, behind the gateway |
 | Auth model     | Casdoor **admin role** for most routes; **superadmin role** for the superadmin-only routes; the host route-guards `/admin` |
@@ -60,8 +60,9 @@ tokens never leave the cluster.
 > gateway/BFF/UI model with its least-privilege cascade (SUPERADMIN→ADMIN→MOD→USER)
 > means this console is the **per-brand ADMIN surface**. As shipped (✅), the base
 > gate is a Casdoor `admin` role (`roles.includes('admin')`); a handful of routes
-> additionally require `superadmin` (enforced by `SuperadminGuard`); and two routes
-> use the games-services derived roles. **Domain scoping is enforced upstream at the
+> additionally require `superadmin` (enforced by `superadminGuard`); one route
+> uses the games-services derived roles; and one route (`/admin/my-fleet`) uses the
+> fleet-owner capability role (`fleetAdminGuard`). **Domain scoping is enforced upstream at the
 > gateway and BFF** (the BFF stamps every call to the caller's domain) — the
 > client-side role flags are presentation-only, and the BFF/gateway is the authority.
 
@@ -137,6 +138,7 @@ are ✅ shipped on `main`.
 | `/admin/recovery`         | Restore a backup                                    | `RecoveryComponent`         | —                | yes  |
 | `/admin/backups`          | Backup + restore history                            | `BackupHistoryComponent`    | —                | yes  |
 | `/admin/cloud-backups`    | Cloud backups (per-domain + superadmin TOTAL, versioned, step-up restore) | `CloudBackupsComponent` | —          | yes  |
+| `/admin/backing-services` | Managed backing-services console — self-hosted (default) vs managed-cloud mode per closed-catalog infra service | `BackingServicesComponent` | `superadminGuard` | no (route-only) |
 | `/admin/announcements`    | Announcements (create + schedule + target)          | `AnnouncementListComponent` | —                | yes  |
 | `/admin/test-reports`     | Test-architecture run history + on-demand run + download | `TestReportsComponent` | —                | yes  |
 | `/admin/image-gen`        | Image-generation console: worklist BATCH wizard (up to 16 images/step-up, role-aware package tiers) + build history/detail + SSE progress + download, capability-gated | `ImageGenComponent` | —          | yes  |
@@ -146,7 +148,12 @@ are ✅ shipped on `main`.
 | `/admin/security`         | Self-service Security console: enroll/list/remove your OWN MFA factors (TOTP + WebAuthn passkey), regenerate recovery codes; also the inline `MfaStepUpDialogComponent` any privileged action reuses for the "requires step-up" 403 | `MfaSecurityComponent` | — | yes |
 | `/admin/device-licenses`  | Device-ownership / SSH-operate-license registry      | `DeviceLicensesComponent`   | `superadminGuard` | superadmin-only |
 | `/admin/device-pending`   | Pending headscale-node pick-list (assign into registry) | `DevicePendingComponent` | `superadminGuard` | superadmin-only |
+| `/admin/phone-fleet`      | Sovereign MDM phone fleet registry — device management (managed/BYOD) + lock/unlock, device-reported Headwind or Azure Intune provider | `PhoneFleetComponent` | `superadminGuard` | superadmin-only |
+| `/admin/my-fleet`         | Fleet-owner view over the caller's own phones only (lock/unlock, no mark-managed/owner-assignment) — the tenancy-walled twin of Phone fleet | `MyFleetComponent` | `fleetAdminGuard` | fleet-owner only |
+| `/admin/fleet-entitlements` | Grant/update/revoke a subject's FLEET_ADMIN subscription (required to reach My fleet) | `FleetEntitlementsComponent` | `superadminGuard` | superadmin-only |
 | `/admin/node-storage`     | Attach + register additional node-pinned storage     | `StoragePoolsComponent`     | —                | yes  |
+| `/admin/device-radios`    | Attach a Meshtastic LoRa radio (USB serial, LoRa-WiFi TCP, or MQTT-broker WAN mesh) to a mesh node for the mesh↔Matrix bridge | `DeviceRadiosComponent` | — | yes  |
+| `/admin/domain-capabilities` | Per-domain capability gate (first capability: `user-mesh-devices`) — superadmin grant + domain-admin enable, plus a platform-wide kill switch | `DomainCapabilitiesComponent` | — | yes  |
 | `/admin/desktop`          | Desktop governance (Discover curation, sudo toggle, install inbox, remote-install + SSH terminal) | `DesktopGovernanceComponent` | —    | yes  |
 | `/admin/egress-vpn`       | Import provider WireGuard/OpenVPN egress configs     | `EgressVpnComponent`        | `superadminGuard` | superadmin-only |
 | `/admin/superadmin/domains` | Domain-registry (brand list) console + per-row provisioning-state chip | `SuperadminDomainsComponent`| `superadminGuard` | superadmin-only |
@@ -162,17 +169,21 @@ are ✅ shipped on `main`.
 
 - **Superadmin-only items** appear only when the session carries the `superadmin`
   role. The route guard (`superadminGuard`) provides a second layer of enforcement.
+- The **My fleet** item appears only when the session carries the fleet capability
+  (`fleet_admin` role, or the broader `admin`/`superadmin` roles — see
+  `SessionService.isFleetAdmin()`). The route guard (`fleetAdminGuard`) provides a
+  second layer of enforcement.
 - The **Workload Console** is a **HIDDEN tier** entry that appears only after a
   server-confirmed capability probe succeeds (`/bff/admin/workloads/capability`;
   `200` = live grant/role, `404` = dark or denied).
-- A few routes (`/admin/oidc-providers`, `/admin/games-services`,
-  `/admin/superadmin/anubis`) have no top-level menu entry and are reached only
-  by direct navigation or cross-links from other views.
+- A few routes (`/admin/backing-services`, `/admin/oidc-providers`,
+  `/admin/games-services`, `/admin/superadmin/anubis`) have no top-level menu entry
+  and are reached only by direct navigation or cross-links from other views.
 
 ## Role gate & session
 
 The host route-guards `/admin` behind the Casdoor **admin role**. This repo also
-ships four `CanActivateFn` guards for finer-grained in-remote routing (though one,
+ships five `CanActivateFn` guards for finer-grained in-remote routing (though one,
 `adminGuard`, is not currently attached to any route — see the note below the
 table). All client-side role checks are **presentation-only** — the BFF and
 gateway are the authority:
@@ -180,7 +191,8 @@ gateway are the authority:
 | Guard                  | File                          | Allows when                                                                 | Guards |
 | ---------------------- | ----------------------------- | --------------------------------------------------------------------------- | ------ |
 | `adminGuard`           | `src/app/admin.guard.ts`      | `isAdmin()` (`roles` includes `admin`), else `/login`                        | **none today** — defined + unit-tested (`admin.guard.spec.ts`) but not wired into any `canActivate` in `ADMIN_ROUTES` |
-| `superadminGuard`      | `src/app/superadmin.guard.ts` | `isSuperadmin()` (`roles` includes `superadmin`), else `/login`              | device-licenses, device-pending, egress-vpn, superadmin/domains, superadmin/anubis |
+| `superadminGuard`      | `src/app/superadmin.guard.ts` | `isSuperadmin()` (`roles` includes `superadmin`), else `/login`              | device-licenses, device-pending, phone-fleet, fleet-entitlements, egress-vpn, superadmin/domains, superadmin/anubis, backing-services |
+| `fleetAdminGuard`      | `src/app/fleet.guard.ts`      | `isFleetAdmin()` (`roles` includes `fleet_admin`, or `admin`/`superadmin`), else `/login` | my-fleet |
 | `gamesServicesGuard`   | `src/app/games-services.guard.ts` | `isGamesServicesAdmin()` **or** `isGamesServicesRunner()`, else `/login`  | games-services |
 | `workloadConsoleGuard` | `src/app/workload-console.guard.ts` | admin/superadmin **and** a live server-confirmed `workloadCapability()` probe (200); else bounced to `/admin` | workloads + workloads/logs + workloads/terminal |
 
@@ -204,6 +216,8 @@ that writes this key is owned by the login remote (now backed by
 The service exposes role state as **computed signals**:
 
 - `isAdmin` / `isSuperadmin` — derived from the `roles` array.
+- `isFleetAdmin` — the fleet-owner capability gating the My-fleet menu item + route:
+  a dedicated `fleet_admin` role, or the broader `admin`/`superadmin` roles.
 - `isGamesServicesAdmin` / `isGamesServicesRunner` — games-services derived roles,
   materialised in Casdoor and surfaced in `session.roles` with the `ROLE_` prefix
   stripped and lowercased.
@@ -255,8 +269,14 @@ error-handling path as the rest of `BffService`.
 | Device licenses         | `GET /bff/admin/device-licenses`, `POST .../{id}/grant`, `POST .../domains/{domain}/grant`, `DELETE .../licenses/{id}` | **Superadmin**: the source of truth for device ownership / domain-residency / SSH operate-licenses. List is admin-readable (own-domain, BFF-scoped); every mutation is `hasRole('SUPERADMIN')`. Grants pin SSH key fingerprints; revoke is a CAS flip (never a delete). |
 | SSH key issuance        | `GET /bff/admin/ssh-issue/devices/{deviceId}/issued-keys`, `POST /bff/admin/ssh-issue/issue?deviceId=` (`X-SshKeyIssue-StepUp`), `GET .../issued/{id}/private-key`, `DELETE .../issued/{id}` | **Superadmin**, folded into the Device Licenses console (per-device "Issued SSH keys" panel) — distinct from a license grant above: this MINTS a brand-new Ed25519 keypair (rather than pinning an operator-supplied fingerprint), registers it into the same license registry, and streams the private key back ONCE. List is admin-readable; issue/download/revoke require `hasRole('SUPERADMIN')` + a fresh step-up (`X-SshKeyIssue-StepUp` OR a fresh Casdoor-MFA stamp — the A5 unified step-up). A "requires step-up" 403 opens the shared `MfaStepUpDialogComponent` and blindly retries. Ships dark (`app.ssh-issue.enabled=false`): the list response's `enabled` field gates the Issue control and shows a notice rather than surfacing a raw 503. |
 | Device pending pick-list| `GET /bff/admin/device-licenses/pending`, `POST .../register` | **Superadmin**: assign a headscale-enrolled node into the registry. `machineKeyFp` is an **opaque** token from headscale — never typed/edited; the BFF re-validates it against headscale at register. |
+| Phone fleet (superadmin)| `GET /bff/superadmin/phone-devices[/{deviceId}]`, `PUT .../management`, `POST .../lock`, `POST .../unlock`, `PUT .../owner` (`X-PhoneLock-StepUp`) | **Superadmin**: the sovereign MDM phone registry — every Android phone that has self-reported (ingested) its provisioning snapshot. `management`/`lock`/`unlock` are step-up-gated, operator-set mutations (never device-claimed — `managementMode` is authoritative, distinct from the device-reported `mdmEnrolled` advisory hint); the device-reported `mdmProvider` field distinguishes the sovereign Headwind DPC from the co-equal Azure Intune (Graph) leg. `owner` assigns the fleet-tenancy wall (`physicalOwner` + `ownerDomain`) a fleet-owner needs to reach the surface below. |
+| My fleet (fleet-owner)  | `GET /bff/admin/phone-fleet[/{deviceId}]`, `POST .../lock`, `POST .../unlock` (`X-PhoneLock-StepUp`) | The **PUBLIC**, tenancy-walled twin of Phone fleet above — a non-superadmin FLEET_ADMIN/ADMIN sees + locks/unlocks ONLY their own owned-and-managed devices (`physical_owner = caller AND owner_domain = caller-domain`, BFF-scoped); reads are fail-soft (a denied/un-entitled read shows an honest empty fleet). No mark-managed or owner-assignment here — those stay SUPERADMIN-only above. |
+| Fleet entitlements      | `GET /bff/superadmin/fleet-entitlements`, `PUT/DELETE .../{subject}` (`X-PhoneLock-StepUp`) | **Superadmin**: grant/update/revoke the per-subject FLEET_ADMIN subscription (active flag + advisory seats + optional expiry) a non-superadmin needs to reach the "My fleet" owner surface above. |
 | Node storage            | `GET /bff/admin/device-storage-pools`, `POST .../{deviceId}/pools`, `DELETE .../pools/{poolId}`, `POST .../pools/{poolId}/assignments`, `DELETE .../assignments/{id}` | **Admin-capable** (deliberate divergence from device-licenses) but **ownership-gated** downstream: an admin acts only on own-domain admin-owned nodes (403 on deny); superadmin-owned nodes are superadmin-only. Attach node-pinned storage + assign services (capacity-aware; over-subscription → 422). |
+| Device radios            | `GET /bff/admin/device-radios`, `POST .../{deviceId}/radios`, `DELETE .../radios/{radioId}` | Attach a Meshtastic LoRa radio (USB serial, LoRa-WiFi TCP, or an MQTT-broker WAN mesh) to a mesh node so the meshbridge optional service can reach the LoRa mesh. **Admin-capable** like Node storage — ownership-gated downstream (own-domain admin-owned nodes only; superadmin unrestricted); each radio shows a propagation chip (pending/applied/failed/degraded). |
+| Domain capabilities      | `GET /bff/admin/domain-capabilities`, `PUT .../{domain}/{capability}`, `PUT .../{domain}/{capability}/enabled` | Per-domain capability gate — first (and so far only) capability `user-mesh-devices`. Two independent keys (SUPERADMIN grants a domain, that domain's ADMIN enables it) plus a platform-wide kill switch; one route, server-scoped by the list endpoint into a superadmin cross-domain table vs. an admin own-domain toggle. |
 | Egress VPN              | `GET /bff/admin/egress-vpn`, `POST .../configs`, `DELETE .../configs/{id}`, `POST .../configs/{id}/assign/{node\|domain}/{id}`, `DELETE .../assignments/{id}` | **Superadmin** mutations: import provider WireGuard/OpenVPN configs that nodes use for **outgoing** public egress. The `.conf` text is sent for parse-validation only — the BFF stores a `secret_ref` + metadata, never the private key (secrets off-DB / off-git). |
+| Backing services         | `GET /bff/superadmin/backing-services`, `PUT .../{id}/mode` (`X-BackingServices-StepUp`) | **Superadmin**: the managed-vs-self-hosted axis (cloud-deploy Lane M3) over a closed catalog of infra services (object storage, SMTP, Kafka, analytics, Postgres, Cassandra, registry, secrets, PKI). Self-hosted is the byte-identical default; recording a managed mode (hosted endpoint + a creds *reference*, never key bytes) is **intent only** — the generator/effector leg converges it. Tier-3 (docs-only) services render read-only. |
 | Domains (registry)      | `GET /bff/admin/domains[/{clusterDomain}]`, `POST /bff/admin/domains`, `PUT /bff/admin/domains/{clusterDomain}` | **Superadmin** (every endpoint): the runtime brand/domain registry (multi-tenancy PR9), the managed twin of the build-time `domains.conf`. No hard delete — soft-disable via `PUT enabled:false`; duplicate `cluster_domain` → 409. `caRef` is a CA *reference*, never key bytes. Each list row carries three `DomainResponse` provisioning-status fields (`caProvisioned` / `appsetRegistered` / `lastReconciledGeneration`, admin-bff #118) the console renders as a per-row chip: `isProvisioned()` = `caProvisioned && appsetRegistered` ⇒ a subtle "Provisioned" state, else a greyed/degraded "Registered — not yet provisioned" chip + helptext. The fields ship dark (default false until the generator domain-reconcile effector flips them), so at rest every freshly-registered domain reads not-yet-provisioned — the honest current state. Pure presentational (no new BFF call); colour is never the only signal (visible text + `.sr` prefix + `aria-label` + `aria-describedby`, `aria-disabled` on the degraded variant). |
 | OIDC provider roles     | `GET /bff/admin/oidc-providers/roles`, `PUT/DELETE /bff/admin/oidc-providers/{provider}/roles` | Configure which roles new users auto-receive when first registering via a given OIDC identity provider. Domain-scoped for admins, all-domains for superadmin (BFF-enforced). |
 | Games app-store         | `GET /bff/games-services/catalog`, `GET/POST /bff/games-services/instances`, `POST .../instances/{id}/{suspend\|resume\|terminate}` | Games-services control plane: browse the offered+enabled catalog and create/run/stop dockerized FOSS game-server instances. Authz is the games-services derived roles + domain scope at the BFF; the console greys out create for a runner. |
@@ -486,7 +506,7 @@ validation.
 > (es-module-shims nonce propagation) — that remains on the live-cluster browser
 > validation list.
 
-The resulting container runs as its own pod in the **snapdragon-frontend**
+The resulting container runs as its own pod in the **hugmesh-frontend**
 namespace, fronted by the **fe-gateway** at `/admin`.
 
 CI (`.gitlab-ci.yml`) runs **four stages** on every push and mirror-sync (CI is
@@ -549,6 +569,9 @@ read the Routes or BFF contract tables above as covering any of them.
   repos behind the already-shipped Backup/Recovery console.
 - **🔭 Per-node attached storage / egress VPN / device-license registry maturity** —
   the consoles are shipped; the fleet-side effectors continue alongside the generator.
+- **🔭 Managed backing-services effector maturity.** The console (above) is ✅ shipped
+  and records intent; the generator/effector leg that actually converges a service to
+  its managed-cloud target continues alongside the platform's cloud-deploy work.
 
 The **Superadmin Service Catalog** UI is **not** part of this remote — it lives in its own
 federated remote (`hugmesh-superadmin-service-catalog-ui`); its data layer is on the
