@@ -19,7 +19,7 @@ type EnrollStep = 'choose' | 'totp-show' | 'recovery' | 'done' | 'dark';
  * of-another-user surface). Lists the caller's MFA factors, lets them enroll a
  * TOTP authenticator or a WebAuthn passkey, remove a factor, and regenerate
  * recovery codes — reusing login-ui's proven MFA UX (same `/bff/mfa/*` contract,
- * same shared snapdragon-auth-core backend) rendered in admin-ui's own
+ * same shared hugmesh-auth-core backend) rendered in admin-ui's own
  * store-less single-component convention (a signal-only component, no separate
  * store service, matching the `desktop-governance`/`superadmin-domains` family
  * of lighter admin.routes.ts pages rather than the image-gen console's
@@ -41,7 +41,7 @@ type EnrollStep = 'choose' | 'totp-show' | 'recovery' | 'done' | 'dark';
  * persisted by this component.
  */
 @Component({
-  selector: 'snap-mfa-security',
+  selector: 'hug-mfa-security',
   standalone: true,
   imports: [CommonModule, FormsModule, MfaStepUpDialogComponent],
   templateUrl: './mfa-security.component.html',

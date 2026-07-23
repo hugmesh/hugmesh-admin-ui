@@ -4,21 +4,21 @@
   display: block;
 }
 
-.snap-argocd {
+.hug-argocd {
   display: block;
   padding: 1rem;
 
   .notice {
     background: rgba(t.$pastel-peach, 0.12);
-    border: 1px solid var(--sd-border, #{t.$mid});
+    border: 1px solid var(--hug-border, #{t.$mid});
     border-radius: t.$radius-sm;
     padding: 0.75rem 1rem;
-    color: var(--sd-text, #{t.$offwhite});
+    color: var(--hug-text, #{t.$offwhite});
   }
 
   .status-line {
     margin-block: 0.5rem;
-    color: var(--sd-text, #{t.$light});
+    color: var(--hug-text, #{t.$light});
   }
 
   // ArgoCD-familiar app card grid.
@@ -32,9 +32,9 @@
   }
 
   .app-card {
-    border: 1px solid var(--sd-border, #{t.$mid});
+    border: 1px solid var(--hug-border, #{t.$mid});
     border-radius: t.$radius-card;
-    background: var(--sd-bg-1, #{t.$surface});
+    background: var(--hug-bg-1, #{t.$surface});
     display: flex;
     flex-direction: column;
   }
@@ -45,7 +45,7 @@
     display: grid;
     gap: 0.4rem;
     padding: 0.85rem;
-    color: var(--sd-text, #{t.$offwhite});
+    color: var(--hug-text, #{t.$offwhite});
 
     &:focus-visible {
       outline: 2px solid t.$neon;
@@ -53,14 +53,14 @@
     }
 
     .app-name { font-weight: 700; }
-    .app-project { color: var(--sd-text-muted, #{t.$muted}); font-size: 0.85rem; }
-    .app-rev { color: var(--sd-text-muted, #{t.$muted}); font-size: 0.8rem; }
+    .app-project { color: var(--hug-text-muted, #{t.$muted}); font-size: 0.85rem; }
+    .app-rev { color: var(--hug-text-muted, #{t.$muted}); font-size: 0.8rem; }
   }
 
   .sync-button {
     margin: 0 0.85rem 0.85rem;
     align-self: flex-start;
-    background: var(--sd-accent, #{t.$neon});
+    background: var(--hug-accent, #{t.$neon});
     color: t.$black;
     border: none;
     border-radius: t.$radius-sm;
@@ -92,13 +92,13 @@
   // Detail panel.
   .detail {
     margin-top: 1.25rem;
-    border: 1px solid var(--sd-border, #{t.$mid});
+    border: 1px solid var(--hug-border, #{t.$mid});
     border-radius: t.$radius-card;
     padding: 1rem;
 
     .detail-header { display: flex; align-items: center; justify-content: space-between; }
     .detail-status { display: flex; gap: 0.5rem; margin-block: 0.5rem; }
-    .detail-message { color: var(--sd-text-muted, #{t.$light}); }
+    .detail-message { color: var(--hug-text-muted, #{t.$light}); }
   }
 
   .resource-tree {
@@ -111,10 +111,10 @@
       align-items: center;
       gap: 0.6rem;
       padding: 0.35rem 0;
-      border-bottom: 1px solid var(--sd-border, #{t.$mid});
+      border-bottom: 1px solid var(--hug-border, #{t.$mid});
     }
     .node-kind { font-weight: 600; min-width: 8rem; }
-    .empty { color: var(--sd-text-muted, #{t.$muted}); }
+    .empty { color: var(--hug-text-muted, #{t.$muted}); }
   }
 
   // aria-modal dialog.
@@ -129,12 +129,12 @@
   }
 
   .dialog {
-    background: var(--sd-bg-1, #{t.$charcoal});
-    border: 1px solid var(--sd-border, #{t.$neon});
+    background: var(--hug-bg-1, #{t.$charcoal});
+    border: 1px solid var(--hug-border, #{t.$neon});
     border-radius: t.$radius-md;
     padding: 1.25rem;
     max-width: 28rem;
-    color: var(--sd-text, #{t.$offwhite});
+    color: var(--hug-text, #{t.$offwhite});
 
     .dialog-actions { display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 1rem; }
 
@@ -142,11 +142,11 @@
       border-radius: t.$radius-sm;
       padding: 0.4rem 0.9rem;
       cursor: pointer;
-      border: 1px solid var(--sd-border, #{t.$mid});
-      background: var(--sd-bg-2, #{t.$surface});
-      color: var(--sd-text, #{t.$offwhite});
+      border: 1px solid var(--hug-border, #{t.$mid});
+      background: var(--hug-bg-2, #{t.$surface});
+      color: var(--hug-text, #{t.$offwhite});
 
-      &[data-testid='argocd-sync-confirm'] { background: var(--sd-accent, #{t.$neon}); color: t.$black; border: none; }
+      &[data-testid='argocd-sync-confirm'] { background: var(--hug-accent, #{t.$neon}); color: t.$black; border: none; }
       &:focus-visible { outline: 2px solid t.$offwhite; outline-offset: 2px; }
     }
   }

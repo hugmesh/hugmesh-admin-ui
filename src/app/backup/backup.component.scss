@@ -4,25 +4,25 @@
   display: block;
 }
 
-.snap-backup {
+.hug-backup {
   display: block;
   padding: 1rem;
 
   .intro {
-    color: var(--sd-text-muted, #{t.$light});
+    color: var(--hug-text-muted, #{t.$light});
     margin-block: 0.25rem 1rem;
   }
 
   .group {
-    border: 1px solid var(--sd-border, #{t.$mid});
+    border: 1px solid var(--hug-border, #{t.$mid});
     border-radius: t.$radius-card;
-    background: var(--sd-bg-1, #{t.$surface});
+    background: var(--hug-bg-1, #{t.$surface});
     padding: 0.85rem 1rem;
     margin-block: 0.75rem;
 
     legend {
       font-weight: 700;
-      color: var(--sd-text, #{t.$offwhite});
+      color: var(--hug-text, #{t.$offwhite});
       padding-inline: 0.4rem;
     }
   }
@@ -38,19 +38,19 @@
     align-items: baseline;
     gap: 0.4rem 0.6rem;
 
-    .check-label { font-weight: 600; color: var(--sd-text, #{t.$offwhite}); }
+    .check-label { font-weight: 600; color: var(--hug-text, #{t.$offwhite}); }
     .hint { grid-column: 2; }
   }
 
   .hint {
-    color: var(--sd-text-muted, #{t.$muted});
+    color: var(--hug-text-muted, #{t.$muted});
     font-size: 0.85rem;
   }
 
   .radio {
     display: block;
     margin-block: 0.35rem;
-    color: var(--sd-text, #{t.$offwhite});
+    color: var(--hug-text, #{t.$offwhite});
   }
 
   .usb,
@@ -63,28 +63,28 @@
 
   label[for] {
     font-weight: 600;
-    color: var(--sd-text, #{t.$offwhite});
+    color: var(--hug-text, #{t.$offwhite});
   }
 
   input[type='password'],
   input[type='text'],
   select {
-    background: var(--sd-bg-1, #{t.$surface});
-    color: var(--sd-text, #{t.$offwhite});
-    border: 1px solid var(--sd-border, #{t.$mid});
+    background: var(--hug-bg-1, #{t.$surface});
+    color: var(--hug-text, #{t.$offwhite});
+    border: 1px solid var(--hug-border, #{t.$mid});
     border-radius: t.$radius-sm;
     padding: 0.5rem 0.75rem;
   }
 
   .strength {
-    color: var(--sd-text-muted, #{t.$light});
+    color: var(--hug-text-muted, #{t.$light});
     font-size: 0.85rem;
     min-height: 1.2em;
   }
 
   button[type='submit'] {
     margin-top: 0.75rem;
-    background: var(--sd-accent, #{t.$neon});
+    background: var(--hug-accent, #{t.$neon});
     color: t.$black;
     border: none;
     border-radius: t.$radius-sm;
@@ -93,18 +93,18 @@
     cursor: pointer;
 
     &:disabled { opacity: t.$opacity-muted; cursor: progress; }
-    &:focus-visible { outline: 2px solid var(--sd-text, #{t.$offwhite}); outline-offset: 2px; }
+    &:focus-visible { outline: 2px solid var(--hug-text, #{t.$offwhite}); outline-offset: 2px; }
   }
 
   .field-error {
-    color: var(--sd-error, #{t.$pastel-rose});
+    color: var(--hug-error, #{t.$pastel-rose});
     font-weight: 600;
     margin-block: 0.5rem;
   }
 
   .progress {
     margin-top: 1.25rem;
-    border-top: 1px solid var(--sd-border, #{t.$mid});
+    border-top: 1px solid var(--hug-border, #{t.$mid});
     padding-top: 0.75rem;
   }
 
@@ -117,7 +117,7 @@
     .bar-fill {
       display: block;
       height: 100%;
-      background: var(--sd-accent, #{t.$neon});
+      background: var(--hug-accent, #{t.$neon});
       transition: width t.$transition-base;
     }
   }
@@ -128,14 +128,14 @@
     padding: 0;
     display: grid;
     gap: 0.2rem;
-    color: var(--sd-text, #{t.$offwhite});
+    color: var(--hug-text, #{t.$offwhite});
     font-size: 0.9rem;
 
-    strong { color: var(--sd-accent, #{t.$neon-dim}); }
+    strong { color: var(--hug-accent, #{t.$neon-dim}); }
   }
 
   .done {
-    color: var(--sd-success, #{t.$pastel-mint});
+    color: var(--hug-success, #{t.$pastel-mint});
     font-weight: 700;
   }
 }

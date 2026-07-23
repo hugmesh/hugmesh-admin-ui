@@ -5,7 +5,7 @@ import { BffService, DeviceRegistration, DesktopSudoGrant } from '../bff.service
 import { SessionService } from '../session.service';
 
 /**
- * The DESKTOP SUDO toggle (own repo: snapdragon-admin-ui). The admin front-end for the
+ * The DESKTOP SUDO toggle (own repo: hugmesh-admin-ui). The admin front-end for the
  * desktop-governance sudo surface (admin-bff {@code DesktopSudoAdminController} at
  * {@code /bff/admin/desktop/sudo}). Grant / revoke SSO-enforced desktop sudo for a
  * (subject, device) pair. DEFAULT-NONE: the desktop image bakes no sudoers; an ACTIVE grant
@@ -33,7 +33,7 @@ import { SessionService } from '../session.service';
  * license operator).
  */
 @Component({
-  selector: 'snap-desktop-sudo',
+  selector: 'hug-desktop-sudo',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './desktop-sudo.component.html',

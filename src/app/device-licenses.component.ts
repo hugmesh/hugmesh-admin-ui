@@ -6,7 +6,7 @@ import { MfaStepUpDialogComponent } from './mfa/mfa-step-up-dialog.component';
 import { isStepUpRequiredError } from './mfa/step-up-error';
 
 /**
- * Superadmin "Device Licenses" console (own repo: snapdragon-admin-ui). The MVP
+ * Superadmin "Device Licenses" console (own repo: hugmesh-admin-ui). The MVP
  * surface over the device-ownership / SSH-operate-license registry — the single
  * source of truth governing which operator may SSH which mesh node. SUPERADMIN-only
  * (route-guarded by {@link superadminGuard}); a non-superadmin is bounced to /login.
@@ -28,7 +28,7 @@ import { isStepUpRequiredError } from './mfa/step-up-error';
  * mirroring image-gen's capability-gate posture, rather than surfacing a raw 503.
  */
 @Component({
-  selector: 'snap-device-licenses',
+  selector: 'hug-device-licenses',
   standalone: true,
   imports: [CommonModule, FormsModule, MfaStepUpDialogComponent],
   templateUrl: './device-licenses.component.html',

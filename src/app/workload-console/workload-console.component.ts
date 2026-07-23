@@ -31,7 +31,7 @@ import { SessionService } from '../session.service';
  * step-up token (minted via {@link BffService#workloadStepUp}) — the server enforces it.
  */
 @Component({
-  selector: 'snap-workload-console',
+  selector: 'hug-workload-console',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './workload-console.component.html',

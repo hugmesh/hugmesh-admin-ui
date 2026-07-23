@@ -18,7 +18,7 @@ import { PlatformCapabilitiesService } from '../platform/platform-capabilities.s
  * and keyboard operable.
  */
 @Component({
-  selector: 'snap-backup',
+  selector: 'hug-backup',
   standalone: true,
   imports: [CommonModule, FormsModule, CapabilityGateComponent],
   templateUrl: './backup.component.html',

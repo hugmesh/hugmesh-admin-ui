@@ -12,7 +12,7 @@ import { BffService, RouteRule } from './bff.service';
  * the known services. Roles are owned by Casdoor.
  */
 @Component({
-  selector: 'snap-route-access',
+  selector: 'hug-route-access',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './route-access.component.html',

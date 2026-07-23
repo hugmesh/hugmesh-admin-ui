@@ -9,7 +9,7 @@ import { BackupStore } from './backup-store.service';
  * and Recovery views; this is the at-a-glance ledger.
  */
 @Component({
-  selector: 'snap-backup-history',
+  selector: 'hug-backup-history',
   standalone: true,
   imports: [CommonModule],
   templateUrl: './backup-history.component.html',

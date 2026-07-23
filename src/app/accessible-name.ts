@@ -1,7 +1,7 @@
 /**
  * COPIED cross-cutting a11y micro-util (native-federation forbids a shared
  * runtime import across remotes, so each remote ships its OWN byte-identical
- * copy). Mirrors the server's {@code ScreenReaderNames} rule (snapdragon-user-
+ * copy). Mirrors the server's {@code ScreenReaderNames} rule (hugmesh-user-
  * bff-api `web/ScreenReaderNames.java`) so the UI never passes a value the API
  * 422s and the spoken/tab name the UI shows matches what the API persists.
  */

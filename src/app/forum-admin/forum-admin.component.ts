@@ -21,7 +21,7 @@ type Tab = 'stats' | 'users' | 'categories' | 'moderation' | 'styles' | 'audit';
  * surfaces the honest {@code result} marker rather than inventing data.
  */
 @Component({
-  selector: 'snap-forum-admin',
+  selector: 'hug-forum-admin',
   standalone: true,
   imports: [CommonModule, FormsModule, RovingFocusDirective],
   templateUrl: './forum-admin.component.html',

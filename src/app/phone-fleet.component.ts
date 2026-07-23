@@ -6,7 +6,7 @@ import { MfaStepUpDialogComponent } from './mfa/mfa-step-up-dialog.component';
 import { isStepUpRequiredError } from './mfa/step-up-error';
 
 /**
- * Superadmin "Phone fleet" console (own repo: snapdragon-admin-ui). Lists the sovereign
+ * Superadmin "Phone fleet" console (own repo: hugmesh-admin-ui). Lists the sovereign
  * MDM phone registry — every Android phone that has INGESTED (self-reported its provisioning
  * snapshot to the admin BFF) — and gives a superadmin device-management + lockout ACTIONS.
  * SUPERADMIN-only (route-guarded by {@link superadminGuard}; the BFF re-enforces the role on
@@ -28,7 +28,7 @@ import { isStepUpRequiredError } from './mfa/step-up-error';
  * Reads stay fail-soft; mutations throw → an inline note.
  */
 @Component({
-  selector: 'snap-phone-fleet',
+  selector: 'hug-phone-fleet',
   standalone: true,
   imports: [CommonModule, FormsModule, MfaStepUpDialogComponent],
   templateUrl: './phone-fleet.component.html',

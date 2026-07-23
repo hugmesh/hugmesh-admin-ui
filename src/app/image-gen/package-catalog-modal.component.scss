@@ -20,10 +20,10 @@
   flex-direction: column;
   width: min(52rem, 100%);
   max-height: min(88vh, 52rem);
-  background: var(--sd-bg-1, #{t.$charcoal});
-  border: 1px solid var(--sd-border, #{t.$neon});
+  background: var(--hug-bg-1, #{t.$charcoal});
+  border: 1px solid var(--hug-border, #{t.$neon});
   border-radius: t.$radius-md;
-  color: var(--sd-text, #{t.$offwhite});
+  color: var(--hug-text, #{t.$offwhite});
   overflow: hidden;
 }
 
@@ -43,21 +43,21 @@
     margin-inline-start: 0.5rem;
     font-weight: 400;
     font-size: 0.95rem;
-    color: var(--sd-text-muted, #{t.$light});
+    color: var(--hug-text-muted, #{t.$light});
   }
 
   .pkg-close {
     background: transparent;
     border: none;
-    color: var(--sd-text, #{t.$offwhite});
+    color: var(--hug-text, #{t.$offwhite});
     font-size: 1.5rem;
     line-height: 1;
     cursor: pointer;
     padding: 0.1rem 0.4rem;
     border-radius: t.$radius-sm;
 
-    &:hover { color: var(--sd-accent, #{t.$neon}); }
-    &:focus-visible { outline: 2px solid var(--sd-text, #{t.$offwhite}); outline-offset: 2px; }
+    &:hover { color: var(--hug-accent, #{t.$neon}); }
+    &:focus-visible { outline: 2px solid var(--hug-text, #{t.$offwhite}); outline-offset: 2px; }
   }
 }
 
@@ -66,10 +66,10 @@
   padding: 0.5rem 0.75rem;
   border-radius: t.$radius-sm;
   background: rgba(t.$mid, 0.35);
-  color: var(--sd-text-muted, #{t.$light});
+  color: var(--hug-text-muted, #{t.$light});
   font-size: 0.85rem;
 
-  strong { color: var(--sd-text, #{t.$offwhite}); }
+  strong { color: var(--hug-text, #{t.$offwhite}); }
 }
 
 .pkg-body {
@@ -78,13 +78,13 @@
   padding: 0.5rem 1.25rem 1rem;
 }
 
-.pkg-loading { color: var(--sd-text-muted, #{t.$light}); }
-.pkg-error { color: var(--sd-error, #{t.$pastel-rose}); font-weight: 600; }
-.pkg-empty { color: var(--sd-text-muted, #{t.$light}); font-style: italic; }
+.pkg-loading { color: var(--hug-text-muted, #{t.$light}); }
+.pkg-error { color: var(--hug-error, #{t.$pastel-rose}); font-weight: 600; }
+.pkg-empty { color: var(--hug-text-muted, #{t.$light}); font-style: italic; }
 
 .pkg-section,
 .pkg-group {
-  border: 1px solid var(--sd-border, #{t.$mid});
+  border: 1px solid var(--hug-border, #{t.$mid});
   border-radius: t.$radius-sm;
   padding: 0.6rem 0.85rem;
   margin-block: 0.75rem;
@@ -102,26 +102,26 @@
     margin: 0.5rem 0 0.25rem;
     font-size: 0.85rem;
     font-weight: 600;
-    color: var(--sd-text-muted, #{t.$light});
+    color: var(--hug-text-muted, #{t.$light});
   }
 }
 
 .pkg-group.essential {
-  border-color: var(--sd-accent, #{t.$neon-dim});
+  border-color: var(--hug-accent, #{t.$neon-dim});
   background: rgba(t.$neon, 0.05);
 }
 
 .pkg-gate {
   font-size: 0.72rem;
   font-weight: 400;
-  color: var(--sd-text-muted, #{t.$muted});
+  color: var(--hug-text-muted, #{t.$muted});
   font-family: t.$font-mono;
 }
 
 .pkg-locked {
   font-size: 0.72rem;
   font-weight: 700;
-  color: var(--sd-accent, #{t.$neon});
+  color: var(--hug-accent, #{t.$neon});
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
@@ -163,7 +163,7 @@
   .pkg-atom-atoms {
     font-family: t.$font-mono;
     font-size: 0.72rem;
-    color: var(--sd-text-muted, #{t.$muted});
+    color: var(--hug-text-muted, #{t.$muted});
     margin-inline-start: 0.25rem;
   }
 }
@@ -173,30 +173,30 @@
   align-items: center;
   gap: 0.6rem;
   padding: 0.75rem 1.25rem;
-  border-top: 1px solid var(--sd-border, #{t.$mid});
+  border-top: 1px solid var(--hug-border, #{t.$mid});
 
   .pkg-count {
     flex: 1;
     font-size: 0.85rem;
-    color: var(--sd-text-muted, #{t.$light});
+    color: var(--hug-text-muted, #{t.$light});
   }
 
   button {
     border-radius: t.$radius-sm;
     padding: 0.4rem 0.9rem;
     cursor: pointer;
-    border: 1px solid var(--sd-border, #{t.$mid});
-    background: var(--sd-bg-2, #{t.$surface});
-    color: var(--sd-text, #{t.$offwhite});
+    border: 1px solid var(--hug-border, #{t.$mid});
+    background: var(--hug-bg-2, #{t.$surface});
+    color: var(--hug-text, #{t.$offwhite});
 
     &.primary {
-      background: var(--sd-accent, #{t.$neon});
+      background: var(--hug-accent, #{t.$neon});
       color: t.$black;
       border: none;
       font-weight: 600;
     }
 
     &:disabled { opacity: t.$opacity-muted; cursor: not-allowed; }
-    &:focus-visible { outline: 2px solid var(--sd-text, #{t.$offwhite}); outline-offset: 2px; }
+    &:focus-visible { outline: 2px solid var(--hug-text, #{t.$offwhite}); outline-offset: 2px; }
   }
 }

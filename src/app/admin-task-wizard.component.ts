@@ -19,7 +19,7 @@ import { BffService, TaskDef, StepDef, FieldDef, ValidationResult, PreviewResult
  * the progress is announced via an aria-live status.
  */
 @Component({
-  selector: 'snap-admin-task-wizard',
+  selector: 'hug-admin-task-wizard',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './admin-task-wizard.component.html',

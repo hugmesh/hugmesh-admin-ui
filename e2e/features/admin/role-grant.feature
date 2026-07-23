@@ -22,7 +22,7 @@
 # disabled.
 #
 # This is the ADMIN-SIDE leg of the cross-service "grant ROLE_MATRIX -> Matrix
-# surface unlocks" loop; see snapdragon-matrix-ui's
+# surface unlocks" loop; see hugmesh-matrix-ui's
 # access/role-grant-unlock-loop.feature for the leg that proves this SAME
 # grant lever causally flips one target user's Matrix reachability from
 # denied to allowed (same identity, before vs. after a real grant — not two

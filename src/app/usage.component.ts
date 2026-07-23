@@ -3,13 +3,13 @@ import { CommonModule } from '@angular/common';
 import { BffService, UsageStats } from './bff.service';
 
 /**
- * Admin "Usage" micro-frontend view (own repo: snapdragon-admin-ui). Visible
+ * Admin "Usage" micro-frontend view (own repo: hugmesh-admin-ui). Visible
  * only to the Casdoor admin role (route-guarded). Shows live infra usage by
  * users, aggregated by the Spring admin BFF from ClickHouse (events arrive
  * via Kafka in production). Lets admins track active use of our infrastructure.
  */
 @Component({
-  selector: 'snap-usage',
+  selector: 'hug-usage',
   standalone: true,
   imports: [CommonModule],
   templateUrl: './usage.component.html',

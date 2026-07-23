@@ -10,7 +10,7 @@ import { HttpInterceptorFn } from '@angular/common/http';
  * authorises identically (defence-in-depth gateway + resource-server +
  * `@PreAuthorize`). An unauthenticated request (no cookie) is rejected with 401.
  *
- * <p>Mirrors snapdragon-user-ui's `authInterceptor` so the org-wide
+ * <p>Mirrors hugmesh-user-ui's `authInterceptor` so the org-wide
  * ng-openapi-gen adoption is uniform across remotes.
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) =>

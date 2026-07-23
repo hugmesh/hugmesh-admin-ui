@@ -5,7 +5,7 @@ import { BffService, ModerationRequest } from '../bff.service';
  * Datastore for the admin Appeals-Decide console (ROLE_ADMIN only). A signal-backed
  * service (the platform datastore standard) over the admin-bff appeals decide-proxy
  * {@code POST /bff/admin/moderation/{id}/decide?approve=<bool>}, which forwards the
- * admin's Casdoor JWT to snapdragon-federation-api so the decision is scoped to the
+ * admin's Casdoor JWT to hugmesh-federation-api so the decision is scoped to the
  * admin's own domain (a cross-domain row is invisible/404 downstream).
  *
  * <p>DEPENDENCY / GAP (kept HONEST, not faked): there is no admin-bff endpoint that

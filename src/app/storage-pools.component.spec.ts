@@ -27,7 +27,7 @@ const fixturePools = (): StoragePool[] => [
     id: 'pool-1',
     deviceId: 'dev-1',
     diskSerial: 'WWN-AAA',
-    poolPath: '/var/snapdragon/storage/pool-1',
+    poolPath: '/var/hugmesh/storage/pool-1',
     reservedBytes: 100 * GiB,
     isExclusive: false,
     filesystem: 'ext4',
@@ -125,7 +125,7 @@ describe('StoragePoolsComponent', () => {
 
     component.attachDeviceId = 'dev-1';
     component.diskSerial = ' WWN-BBB ';
-    component.poolPath = '/var/snapdragon/storage/x';
+    component.poolPath = '/var/hugmesh/storage/x';
     component.reservedGiB = 50;
     component.exclusive = true;
     component.filesystem = 'xfs';
@@ -133,7 +133,7 @@ describe('StoragePoolsComponent', () => {
 
     expect(bff.attachPool).toHaveBeenCalledWith('dev-1', {
       diskSerial: 'WWN-BBB',
-      poolPath: '/var/snapdragon/storage/x',
+      poolPath: '/var/hugmesh/storage/x',
       reservedBytes: 50 * GiB,
       exclusive: true,
       filesystem: 'xfs',

@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { GamesServicesComponent } from './games-services.component';
 import { BffService, GameInstance, GameOffer } from '../bff.service';
-import { SessionService, SnapSession } from '../session.service';
+import { SessionService, HugSession } from '../session.service';
 
 const offers = (): GameOffer[] => [
   { slug: 'minetest', displayName: 'Luanti', licenseSpdx: 'LGPL-2.1-or-later', protocol: 'udp', maxInstances: 3, summary: 'voxel sandbox' },
@@ -11,11 +11,11 @@ const offers = (): GameOffer[] => [
 const instance = (over: Partial<GameInstance> = {}): GameInstance => ({
   id: 'inst-1', domain: 'brandx', slug: 'minetest', name: 'world1', state: 'active',
   propagationState: 'applied', ownerSubject: 'alice', createdAt: '2026-06-01T00:00:00Z',
-  endingAt: null, namespace: 'snapdragon-games-instances', nodePort: 31000,
+  endingAt: null, namespace: 'hugmesh-games-instances', nodePort: 31000,
   consolePath: '/games/servers/minetest/world1/', updatedAt: '2026-06-01T00:00:00Z', ...over,
 });
 
-function session(roles: string[]): SnapSession {
+function session(roles: string[]): HugSession {
   return {
     id: 'google:alice', label: 'alice', provider: 'google', roles,
     registrationComplete: true,

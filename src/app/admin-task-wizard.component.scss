@@ -4,7 +4,7 @@
   display: block;
 }
 
-.snap-task-wizard {
+.hug-task-wizard {
   display: block;
   padding: 1rem;
 
@@ -25,27 +25,27 @@
       padding: 0.9rem;
       width: 100%;
       box-sizing: border-box;
-      border: 1px solid var(--sd-border, #{t.$mid});
+      border: 1px solid var(--hug-border, #{t.$mid});
       border-radius: t.$radius-card;
-      background: var(--sd-bg-1, #{t.$surface});
-      color: var(--sd-text, #{t.$offwhite});
+      background: var(--hug-bg-1, #{t.$surface});
+      color: var(--hug-text, #{t.$offwhite});
 
       &:focus-visible { outline: 2px solid t.$neon; outline-offset: 2px; }
     }
     .task-title { font-weight: 700; }
-    .task-desc { color: var(--sd-text-muted, #{t.$muted}); font-size: 0.85rem; }
-    .empty { color: var(--sd-text-muted, #{t.$muted}); }
+    .task-desc { color: var(--hug-text-muted, #{t.$muted}); font-size: 0.85rem; }
+    .empty { color: var(--hug-text-muted, #{t.$muted}); }
   }
 
   .link-back {
     all: unset;
     cursor: pointer;
-    color: var(--sd-accent-soft, #{t.$neon});
+    color: var(--hug-accent-soft, #{t.$neon});
     text-decoration: underline;
     &:focus-visible { outline: 2px solid t.$neon; outline-offset: 2px; }
   }
 
-  .progress { color: var(--sd-text, #{t.$light}); font-weight: 600; }
+  .progress { color: var(--hug-text, #{t.$light}); font-weight: 600; }
 
   // Step rail (visual only; the role=status line carries the a11y progress text).
   .step-rail {
@@ -61,13 +61,13 @@
       counter-increment: step;
       padding: 0.25rem 0.7rem;
       border-radius: 999px;
-      border: 1px solid var(--sd-border, #{t.$mid});
-      color: var(--sd-text-muted, #{t.$muted});
+      border: 1px solid var(--hug-border, #{t.$mid});
+      color: var(--hug-text-muted, #{t.$muted});
       font-size: 0.82rem;
 
       &::before { content: counter(step) '. '; }
-      &.active { border-color: t.$neon; color: var(--sd-text, #{t.$offwhite}); }
-      &.done { color: var(--sd-success, #{t.$pastel-mint}); border-color: var(--sd-success, #{t.$pastel-mint}); }
+      &.active { border-color: t.$neon; color: var(--hug-text, #{t.$offwhite}); }
+      &.done { color: var(--hug-success, #{t.$pastel-mint}); border-color: var(--hug-success, #{t.$pastel-mint}); }
     }
   }
 
@@ -77,28 +77,28 @@
     gap: 0.3rem;
     margin-block: 0.6rem;
 
-    label { font-weight: 600; color: var(--sd-text, #{t.$offwhite}); }
+    label { font-weight: 600; color: var(--hug-text, #{t.$offwhite}); }
     .check-inline { font-weight: 400; }
 
     input {
-      background: var(--sd-bg-1, #{t.$surface});
-      color: var(--sd-text, #{t.$offwhite});
-      border: 1px solid var(--sd-border, #{t.$mid});
+      background: var(--hug-bg-1, #{t.$surface});
+      color: var(--hug-text, #{t.$offwhite});
+      border: 1px solid var(--hug-border, #{t.$mid});
       border-radius: t.$radius-sm;
       padding: 0.5rem 0.75rem;
       max-width: 36rem;
 
-      &[aria-invalid='true'] { border-color: var(--sd-error, #{t.$pastel-rose}); }
+      &[aria-invalid='true'] { border-color: var(--hug-error, #{t.$pastel-rose}); }
       &[type='checkbox'] { width: auto; }
     }
   }
 
-  .field-error { color: var(--sd-error, #{t.$pastel-rose}); font-size: 0.85rem; }
+  .field-error { color: var(--hug-error, #{t.$pastel-rose}); font-size: 0.85rem; }
 
   .warnings {
     margin: 0.5rem 0;
     padding-left: 1.1rem;
-    color: var(--sd-text-muted, #{t.$pastel-lemon});
+    color: var(--hug-text-muted, #{t.$pastel-lemon});
     font-size: 0.85rem;
   }
 
@@ -111,15 +111,15 @@
     margin-top: 1rem;
 
     button {
-      background: var(--sd-bg-2, #{t.$surface});
-      color: var(--sd-text, #{t.$offwhite});
-      border: 1px solid var(--sd-border, #{t.$mid});
+      background: var(--hug-bg-2, #{t.$surface});
+      color: var(--hug-text, #{t.$offwhite});
+      border: 1px solid var(--hug-border, #{t.$mid});
       border-radius: t.$radius-sm;
       padding: 0.5rem 0.9rem;
       cursor: pointer;
 
       &[data-testid='wizard-next'],
-      &[data-testid='wizard-apply'] { background: var(--sd-accent, #{t.$neon}); color: t.$black; border: none; }
+      &[data-testid='wizard-apply'] { background: var(--hug-accent, #{t.$neon}); color: t.$black; border: none; }
       &:disabled { opacity: t.$opacity-muted; cursor: not-allowed; }
       &:focus-visible { outline: 2px solid t.$offwhite; outline-offset: 2px; }
     }
@@ -128,18 +128,18 @@
   .review { flex-direction: column; align-items: stretch; }
 
   .preview-box {
-    border: 1px solid var(--sd-border, #{t.$mid});
+    border: 1px solid var(--hug-border, #{t.$mid});
     border-radius: t.$radius-sm;
     padding: 0.75rem 1rem;
-    background: var(--sd-bg-1, #{t.$surface});
+    background: var(--hug-bg-1, #{t.$surface});
 
     .preview-summary { font-weight: 600; }
-    ul { margin: 0.4rem 0 0; padding-left: 1.1rem; color: var(--sd-text-muted, #{t.$light}); }
+    ul { margin: 0.4rem 0 0; padding-left: 1.1rem; color: var(--hug-text-muted, #{t.$light}); }
   }
 
   .apply-result {
     font-weight: 600;
-    &.ok { color: var(--sd-success, #{t.$pastel-mint}); }
-    &.fail { color: var(--sd-error, #{t.$pastel-rose}); }
+    &.ok { color: var(--hug-success, #{t.$pastel-mint}); }
+    &.fail { color: var(--hug-error, #{t.$pastel-rose}); }
   }
 }

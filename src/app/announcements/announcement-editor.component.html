@@ -1,4 +1,4 @@
-<section class="snap-announcement-editor" data-testid="announcement-editor" aria-labelledby="ann-editor-heading">
+<section class="hug-announcement-editor" data-testid="announcement-editor" aria-labelledby="ann-editor-heading">
   <h2 id="ann-editor-heading">{{ editingId() ? 'Edit announcement' : 'New announcement' }}</h2>
 
   <form (ngSubmit)="save()" novalidate class="editor-grid">
@@ -36,7 +36,7 @@
             role="toolbar"
             aria-label="Announcement formatting"
             aria-controls="ann-body"
-            snapRovingFocus
+            hugRovingFocus
           >
             <button type="button" tabindex="0" data-testid="fmt-bold" aria-label="Bold" (click)="format2('bold')">
               <span aria-hidden="true"><strong>B</strong></span>

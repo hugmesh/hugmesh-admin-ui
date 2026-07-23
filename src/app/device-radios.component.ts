@@ -9,7 +9,7 @@ import {
 } from './bff.service';
 
 /**
- * Admin "Device radios" console (own repo: snapdragon-admin-ui). The MVP surface over the
+ * Admin "Device radios" console (own repo: hugmesh-admin-ui). The MVP surface over the
  * NODE RADIO control plane — a Meshtastic LoRa radio an operator ATTACHES to a specific
  * mesh node so the meshbridge optional service (the mesh↔Matrix bridge) can reach the LoRa
  * mesh through that node.
@@ -30,7 +30,7 @@ import {
  * client validates the required set before any call).
  */
 @Component({
-  selector: 'snap-device-radios',
+  selector: 'hug-device-radios',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './device-radios.component.html',

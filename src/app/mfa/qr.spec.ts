@@ -2,7 +2,7 @@ import { encodeQr } from './qr';
 
 describe('encodeQr', () => {
   it('produces a square boolean matrix for a short otpauth URI', () => {
-    const m = encodeQr('otpauth://totp/snapdragon:alice?secret=ABC&issuer=snapdragon');
+    const m = encodeQr('otpauth://totp/hugmesh:alice?secret=ABC&issuer=hugmesh');
     expect(m.length).toBeGreaterThan(0);
     // Square.
     for (const row of m) expect(row.length).toBe(m.length);

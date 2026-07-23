@@ -1,4 +1,4 @@
-<section class="snap-image-gen" data-testid="image-gen-view" aria-labelledby="ig-heading">
+<section class="hug-image-gen" data-testid="image-gen-view" aria-labelledby="ig-heading">
   <h2 id="ig-heading">Image generation</h2>
   <p class="intro">
     Build device images for a mesh of users — full primary nodes, mesh extensions, and laptop /
@@ -7,11 +7,11 @@
   </p>
 
   <!-- ── CAPABILITY GATE: image generation needs an x86 build node ──────────── -->
-  <snap-capability-gate
+  <hug-capability-gate
     *ngIf="capabilitiesReady() && !buildNodePresent()"
     capability="buildNode"
     [warning]="buildNodeWarning()"
-  ></snap-capability-gate>
+  ></hug-capability-gate>
 
   <!-- The whole console is suppressed when the build node is absent (graceful degradation). -->
   <ng-container *ngIf="buildNodePresent()">
@@ -27,13 +27,13 @@
     </p>
 
     <!-- ── Worklist BATCH wizard (the build surface) ──────────── -->
-    <snap-image-gen-worklist-wizard
+    <hug-image-gen-worklist-wizard
       data-testid="ig-wizard"
       (editPackages)="onEditPackages($event)"
-    ></snap-image-gen-worklist-wizard>
+    ></hug-image-gen-worklist-wizard>
 
     <!-- ── item 9: per-image package-catalog modal (host-mediated) ── -->
-    <snap-package-catalog-modal
+    <hug-package-catalog-modal
       [open]="pkgModalOpen()"
       [platform]="pkgModalPlatform()"
       [role]="pkgModalRole()"
@@ -41,7 +41,7 @@
       [selection]="pkgModalSelection()"
       (applied)="onPackagesApplied($event)"
       (dismissed)="onPackagesDismissed()"
-    ></snap-package-catalog-modal>
+    ></hug-package-catalog-modal>
 
     <!-- ── Build history ──────────────────────────────────────────── -->
     <h3 id="ig-history-heading">Recent builds</h3>
@@ -54,12 +54,12 @@
     >{{ downloadNote() }}</p>
 
     <!-- Inline MFA step-up dialog for a keys download that 403s "requires step-up". -->
-    <snap-mfa-step-up-dialog
+    <hug-mfa-step-up-dialog
       *ngIf="stepUpChallenge() as challenge"
       [action]="challenge.action"
       (satisfied)="onStepUpSatisfied()"
       (dismissed)="onStepUpDismissed()"
-    ></snap-mfa-step-up-dialog>
+    ></hug-mfa-step-up-dialog>
 
     <table class="ig-table" data-testid="ig-table" aria-labelledby="ig-history-heading">
       <caption class="sr">Recent image builds with target user, type, timestamp, status and actions.</caption>

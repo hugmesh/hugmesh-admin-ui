@@ -17,7 +17,7 @@ import { BffService, AnubisStatus, AnubisMetric } from './bff.service';
  * the view shows a clear "not configured" banner instead of connection errors.
  */
 @Component({
-  selector: 'snap-anubis-admin',
+  selector: 'hug-anubis-admin',
   standalone: true,
   imports: [CommonModule],
   templateUrl: './anubis-admin.component.html',

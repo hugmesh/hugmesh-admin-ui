@@ -10,7 +10,7 @@
 // calls across multiple files (each loading independently via the steps[] glob)
 // can race — the symptom is hooks that never fire even though they're
 // registered. So the AfterStep per-step screenshot hook lives HERE, verbatim
-// from the proven snapdragon.games/e2e harness.
+// from the proven hugmesh.games/e2e harness.
 
 import { test as base, createBdd } from 'playwright-bdd';
 import { SEED_USERS, SeedUser } from '../../tests/helpers/roles';
@@ -43,7 +43,7 @@ export const { Given, When, Then, Step, Before, After, BeforeStep, AfterStep, Be
 // ─── Step-level screenshot capture ─────────────────────────────────
 // Every step gets a PNG attached to the HTML report, so a reviewer can see the
 // UI state at every transition without re-running. Verbatim from
-// snapdragon.games/e2e/features/support/fixtures.ts.
+// hugmesh.games/e2e/features/support/fixtures.ts.
 
 let stepCounter = 0;
 

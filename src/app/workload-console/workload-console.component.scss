@@ -7,7 +7,7 @@
 
 .wc-intro,
 .wc-hint {
-  color: var(--sd-text-muted);
+  color: var(--hug-text-muted);
   font-size: 0.9rem;
 }
 
@@ -20,12 +20,12 @@
 }
 
 .wc-error {
-  color: var(--sd-error);
+  color: var(--hug-error);
   font-weight: 600;
 }
 
 .wc-status {
-  color: var(--sd-success);
+  color: var(--hug-success);
 }
 
 // Nested under .workload-console (present on every consumer's template root — see
@@ -63,20 +63,20 @@
 }
 
 .wc-danger {
-  color: var(--sd-error);
-  border-color: var(--sd-error);
+  color: var(--hug-error);
+  border-color: var(--hug-error);
 }
 
 .wc-empty {
-  color: var(--sd-text-muted);
+  color: var(--hug-text-muted);
   font-style: italic;
 }
 
 .wc-drawer {
-  border: 1px solid var(--sd-accent);
+  border: 1px solid var(--hug-accent);
   border-radius: 6px;
   padding: 1rem;
-  background: var(--sd-bg-1);
+  background: var(--hug-bg-1);
 }
 
 .wc-drawer-head {
@@ -93,12 +93,12 @@
 }
 
 .wc-tabs button.active {
-  background: var(--sd-accent);
+  background: var(--hug-accent);
   color: #fff;
 }
 
 .wc-log {
-  background: var(--sd-bg-0);
+  background: var(--hug-bg-0);
   padding: 0.75rem;
   border-radius: 4px;
   max-height: 22rem;
@@ -121,8 +121,8 @@
 .wc-term {
   width: 100%;
   min-height: 24rem;
-  background: var(--sd-bg-0);
-  border: 1px solid var(--sd-accent);
+  background: var(--hug-bg-0);
+  border: 1px solid var(--hug-accent);
   border-radius: 4px;
   padding: 0.25rem;
 }

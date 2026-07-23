@@ -5,7 +5,7 @@
   display: block;
 }
 
-.snap-admin {
+.hug-admin {
   display: block;
   padding: 1rem;
 
@@ -24,10 +24,10 @@
     .nav-link {
       display: inline-block;
       padding: 0.4rem 0.75rem;
-      border: 1px solid var(--sd-border);
+      border: 1px solid var(--hug-border);
       border-radius: t.$radius-sm;
-      background: var(--sd-bg-1);
-      color: var(--sd-text);
+      background: var(--hug-bg-1);
+      color: var(--hug-text);
       text-decoration: none;
 
       &:hover,
@@ -37,8 +37,8 @@
       }
 
       &.is-active {
-        border-color: var(--sd-accent);
-        box-shadow: 0 0 0 1px var(--sd-accent) inset;
+        border-color: var(--hug-accent);
+        box-shadow: 0 0 0 1px var(--hug-accent) inset;
       }
     }
   }
@@ -54,25 +54,25 @@
   label {
     flex-basis: 100%;
     font-weight: 600;
-    color: var(--sd-text);
+    color: var(--hug-text);
   }
 
   input {
-    background: var(--sd-bg-1);
-    color: var(--sd-text);
-    border: 1px solid var(--sd-border);
+    background: var(--hug-bg-1);
+    color: var(--hug-text);
+    border: 1px solid var(--hug-border);
     border-radius: t.$radius-sm;
     padding: 0.5rem 0.75rem;
 
     &[aria-invalid='true'] {
-      border-color: var(--sd-error);
+      border-color: var(--hug-error);
     }
   }
 
   button {
-    background: var(--sd-accent);
-    color: var(--sd-text);
-    border: 1px solid var(--sd-accent-soft);
+    background: var(--hug-accent);
+    color: var(--hug-text);
+    border: 1px solid var(--hug-accent-soft);
     border-radius: t.$radius-sm;
     padding: 0.5rem 0.9rem;
     cursor: pointer;

@@ -10,7 +10,7 @@ import { SessionService } from './session.service';
 export const GLOBAL_DOMAIN = ' global';
 
 /**
- * Admin "Domain capabilities" console (own repo: snapdragon-admin-ui) — the per-domain
+ * Admin "Domain capabilities" console (own repo: hugmesh-admin-ui) — the per-domain
  * CAPABILITY GATE over the admin-bff `domain_capability` control plane. First (and so far
  * only) capability: {@link BffService.USER_MESH_DEVICES} — a user may register a mesh
  * radio under their own name only if a SUPERADMIN has GRANTED the capability to their
@@ -38,7 +38,7 @@ export const GLOBAL_DOMAIN = ' global';
  * surface here).
  */
 @Component({
-  selector: 'snap-domain-capabilities',
+  selector: 'hug-domain-capabilities',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './domain-capabilities.component.html',

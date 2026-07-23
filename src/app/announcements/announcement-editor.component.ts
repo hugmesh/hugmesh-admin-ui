@@ -25,7 +25,7 @@ export type EditorAction = 'bold' | 'italic' | 'link' | 'heading' | 'list';
  * the admin BFF (which sanitises `body_html` and, when target_akkoma is published,
  * propagates a local-only akkoma announcement).
  *
- * SANDBOXING (security-critical) — two walls, mirroring the snapdragon-user-ui
+ * SANDBOXING (security-critical) — two walls, mirroring the hugmesh-user-ui
  * card editor:
  *
  *   1. The HTML body is run through {@link sanitizeHtml} (tag/attr allow-list;
@@ -40,7 +40,7 @@ export type EditorAction = 'bold' | 'italic' | 'link' | 'heading' | 'list';
  * `<iframe>` is named; errors are announced in a `role=alert`/assertive live region.
  */
 @Component({
-  selector: 'snap-announcement-editor',
+  selector: 'hug-announcement-editor',
   standalone: true,
   imports: [CommonModule, FormsModule, RovingFocusDirective],
   templateUrl: './announcement-editor.component.html',

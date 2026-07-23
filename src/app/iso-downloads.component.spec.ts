@@ -16,14 +16,14 @@ describe('IsoDownloadsComponent', () => {
   });
 
   it('loads ISOs on init and renders a download link per artifact', async () => {
-    bff.isos.and.resolveTo([{ name: 'snapdragon-1.0.iso', url: 'https://dl/iso/1' }]);
+    bff.isos.and.resolveTo([{ name: 'hugmesh-1.0.iso', url: 'https://dl/iso/1' }]);
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
 
     expect(bff.isos).toHaveBeenCalledTimes(1);
     const el: HTMLElement = fixture.nativeElement;
-    const link = el.querySelector<HTMLAnchorElement>('[data-iso="snapdragon-1.0.iso"] a');
+    const link = el.querySelector<HTMLAnchorElement>('[data-iso="hugmesh-1.0.iso"] a');
     expect(link).not.toBeNull();
     expect(link!.getAttribute('href')).toBe('https://dl/iso/1');
     expect(link!.hasAttribute('download')).toBeTrue();

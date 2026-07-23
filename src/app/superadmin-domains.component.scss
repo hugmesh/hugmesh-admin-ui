@@ -4,12 +4,12 @@
   display: block;
 }
 
-.snap-superadmin-domains {
+.hug-superadmin-domains {
   display: block;
   padding: 1rem;
 
   .sd-intro {
-    color: var(--sd-text-soft, var(--sd-text));
+    color: var(--hug-text-soft, var(--hug-text));
     max-width: 60ch;
   }
 
@@ -24,41 +24,41 @@
 
   label {
     font-weight: 600;
-    color: var(--sd-text);
+    color: var(--hug-text);
     margin-top: 0.4rem;
   }
 
   .field-help {
-    color: var(--sd-text-soft, var(--sd-text));
+    color: var(--hug-text-soft, var(--hug-text));
     font-size: 0.85rem;
     max-width: 60ch;
   }
 
   .field-error {
-    color: var(--sd-error, #{t.$pastel-rose});
+    color: var(--hug-error, #{t.$pastel-rose});
     font-weight: 600;
     margin-top: 0.4rem;
   }
 
   input,
   select {
-    background: var(--sd-bg-1);
-    color: var(--sd-text);
-    border: 1px solid var(--sd-border);
+    background: var(--hug-bg-1);
+    color: var(--hug-text);
+    border: 1px solid var(--hug-border);
     border-radius: t.$radius-sm;
     padding: 0.5rem 0.75rem;
     width: 100%;
     box-sizing: border-box;
 
     &[aria-invalid='true'] {
-      border-color: var(--sd-error);
+      border-color: var(--hug-error);
     }
   }
 
   button {
-    background: var(--sd-accent);
-    color: var(--sd-text);
-    border: 1px solid var(--sd-accent-soft);
+    background: var(--hug-accent);
+    color: var(--hug-text);
+    border: 1px solid var(--hug-accent-soft);
     border-radius: t.$radius-sm;
     padding: 0.4rem 0.8rem;
     cursor: pointer;
@@ -77,10 +77,10 @@
   .sd-status {
     margin-inline: 0.5rem;
     font-weight: 600;
-    color: var(--sd-accent);
+    color: var(--hug-accent);
 
     &.is-disabled {
-      color: var(--sd-text-soft, var(--sd-muted));
+      color: var(--hug-text-soft, var(--hug-muted));
     }
   }
 
@@ -106,8 +106,8 @@
     // Degraded / greyed — registered but not yet provisioned (the honest at-rest state).
     &.is-degraded {
       background: rgba(t.$muted, 0.18);
-      color: var(--sd-text-soft, var(--sd-muted));
-      border-color: var(--sd-border);
+      color: var(--hug-text-soft, var(--hug-muted));
+      border-color: var(--hug-border);
     }
   }
 
@@ -117,7 +117,7 @@
   }
 
   .sd-empty {
-    color: var(--sd-text-soft, var(--sd-text));
+    color: var(--hug-text-soft, var(--hug-text));
     font-style: italic;
   }
 }

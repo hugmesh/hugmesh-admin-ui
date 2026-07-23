@@ -3,13 +3,13 @@ import { SessionService } from './session.service';
 
 const CFG = {
   // Bare references (no globalThis/typeof guard) throw ReferenceError: nothing
-  // in this build ever DECLARES __SNAP_BFF_URL__/__SNAP_UPTRACE_URL__ as real
+  // in this build ever DECLARES __HUG_BFF_URL__/__HUG_UPTRACE_URL__ as real
   // globals — runtime-config.d.ts is a TypeScript-only ambient declaration, not
   // an injection mechanism (unlike login-ui's snap-config.js entrypoint script,
-  // which actually sets window.__SNAP_*__). mfa.service.ts in this same repo
+  // which actually sets window.__HUG_*__). mfa.service.ts in this same repo
   // already uses the correct globalThis-guarded form; this just matches it.
-  bff: (globalThis as any).__SNAP_BFF_URL__ ?? '',
-  uptrace: (globalThis as any).__SNAP_UPTRACE_URL__ ?? 'https://uptrace.snapdragon.systems',
+  bff: (globalThis as any).__HUG_BFF_URL__ ?? '',
+  uptrace: (globalThis as any).__HUG_UPTRACE_URL__ ?? 'https://uptrace.hugmesh.systems',
 };
 
 /** Admin-only usage analytics aggregated by the BFF from ClickHouse (GET /bff/admin/usage). */
@@ -22,10 +22,10 @@ export interface UsageStats {
 
 /**
  * Talks to the Spring admin BFF (backend namespace, behind the gateway), which
- * brokers to Casdoor through the snapdragon-pki gateway. As a federated remote
+ * brokers to Casdoor through the hugmesh-pki gateway. As a federated remote
  * the Admin console only needs the admin-scoped endpoints (allowlist, usage,
  * namespace access); the registration / login / Matrix-Mastodon service-token
- * broker flow lives in the login remote, which writes the shared `snap.session`
+ * broker flow lives in the login remote, which writes the shared `hug.session`
  * (id/label/roles) that this remote reads via SessionService. Every call sends
  * `credentials: 'include'` so the HttpOnly `bff_` cookie rides the request; the
  * gateway's BffCookieToBearerWebFilter turns it into the bearer server-side (the
@@ -198,7 +198,7 @@ export class BffService {
 
   // ── Appeals adjudication / moderation DECIDE (ADMIN-only, decide-proxy) ──
   // The admin-ui Appeals console's DECIDE action. The admin-bff does NOT own the
-  // moderation_requests table — its AdminController PROXIES to snapdragon-federation-
+  // moderation_requests table — its AdminController PROXIES to hugmesh-federation-
   // api's POST /api/federation/moderation/{id}/decide, forwarding the caller's Casdoor
   // JWT so federation-api applies its OWN @PreAuthorize(ADMIN|SUPERADMIN) + per-domain
   // scope (a brand-X admin can only decide brand-X rows; a brand-Y id is invisible/404
@@ -587,7 +587,7 @@ export class BffService {
       headers: { accept: 'application/octet-stream' }, credentials: 'include',
     });
     if (!r.ok) return false;
-    return this.saveBlob(await r.blob(), `snapdragon-image-${id.replace(/[^A-Za-z0-9._-]/g, '_')}.img`);
+    return this.saveBlob(await r.blob(), `hugmesh-image-${id.replace(/[^A-Za-z0-9._-]/g, '_')}.img`);
   }
 
   /**
@@ -606,7 +606,7 @@ export class BffService {
     if (stepUpToken) headers['X-ImageGen-StepUp'] = stepUpToken;
     const r = await fetch(`${CFG.bff}/bff/admin/image-builds/${encodeURIComponent(id)}/keys`, { headers, credentials: 'include' });
     if (!r.ok) throw new Error(await this.errorOf(r));
-    return this.saveBlob(await r.blob(), `snapdragon-keys-${id.replace(/[^A-Za-z0-9._-]/g, '_')}.tar.gz`);
+    return this.saveBlob(await r.blob(), `hugmesh-keys-${id.replace(/[^A-Za-z0-9._-]/g, '_')}.tar.gz`);
   }
 
   /**
@@ -798,7 +798,7 @@ export class BffService {
     const r = await fetch(`${CFG.bff}/bff/admin/ssh-issue/issued/${encodeURIComponent(issuedKeyId)}/private-key`,
       { headers, credentials: 'include' });
     if (!r.ok) throw new Error(await this.errorOf(r));
-    return this.saveBlob(await r.blob(), `snapdragon-ssh-${issuedKeyId.replace(/[^A-Za-z0-9._-]/g, '_')}`);
+    return this.saveBlob(await r.blob(), `hugmesh-ssh-${issuedKeyId.replace(/[^A-Za-z0-9._-]/g, '_')}`);
   }
 
   /** Revoke an issued credential (SUPERADMIN-only, step-up gated). A dark-ships refusal is a

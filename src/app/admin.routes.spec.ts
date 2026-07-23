@@ -43,7 +43,7 @@ import { workloadConsoleGuard } from './workload-console.guard';
 
 /**
  * These specs lock down the federation contract: `./routes` (exposed under the
- * remote name "admin") is the single module the snapdragon.systems host mounts
+ * remote name "admin") is the single module the hugmesh.systems host mounts
  * at /admin. The host depends on these exact paths and components, so a
  * regression here would silently break the host's admin console.
  */

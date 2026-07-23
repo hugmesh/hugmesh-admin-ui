@@ -12,7 +12,7 @@ import { SessionService } from '../session.service';
 type DesktopTab = 'catalog' | 'sudo' | 'requests' | 'terminal' | 'dials';
 
 /**
- * The DESKTOP GOVERNANCE console (own repo: snapdragon-admin-ui). The single native-federation
+ * The DESKTOP GOVERNANCE console (own repo: hugmesh-admin-ui). The single native-federation
  * admin module for the desktop-app-governance feature, mounted at {@code /admin/desktop}. It
  * gathers the four governance surfaces over the admin-bff {@code /bff/admin/desktop/**} foundation
  * (admin-bff PR #70, ships dark) behind an in-page tab nav, consistent with how the workload
@@ -31,7 +31,7 @@ type DesktopTab = 'catalog' | 'sudo' | 'requests' | 'terminal' | 'dials';
  * own-domain on every endpoint.
  */
 @Component({
-  selector: 'snap-desktop-governance',
+  selector: 'hug-desktop-governance',
   standalone: true,
   imports: [
     CommonModule,

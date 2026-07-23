@@ -1,4 +1,4 @@
-<section class="snap-desktop-gov" data-testid="desktop-dials-view" aria-labelledby="dd-heading">
+<section class="hug-desktop-gov" data-testid="desktop-dials-view" aria-labelledby="dd-heading">
   <h2 id="dd-heading">SSH dial management</h2>
   <p class="dg-intro">
     Each device's BFF&rarr;device SSH <strong>dial</strong> must be <strong>active</strong> before
@@ -12,12 +12,12 @@
   <!-- ── Inline MFA step-up dialog: shown when an activate/revoke (or its step-up mint) 403s with
        the platform's "requires step-up" contract. On success the SAME action is retried
        automatically (token-less — the BFF reads the fresh MFA stamp off this session). ── -->
-  <snap-mfa-step-up-dialog
+  <hug-mfa-step-up-dialog
     *ngIf="stepUpChallenge() as challenge"
     [action]="challenge.action"
     (satisfied)="onStepUpSatisfied()"
     (dismissed)="onStepUpDismissed()"
-  ></snap-mfa-step-up-dialog>
+  ></hug-mfa-step-up-dialog>
 
   <table data-testid="dd-table" aria-labelledby="dd-heading">
     <thead>

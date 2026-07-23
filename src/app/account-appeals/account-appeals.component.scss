@@ -4,12 +4,12 @@
   display: block;
 }
 
-.snap-account-appeals {
+.hug-account-appeals {
   display: block;
   padding: 1rem;
 
   .aa-intro {
-    color: var(--sd-text-muted, #{t.$light});
+    color: var(--hug-text-muted, #{t.$light});
     margin-block: 0.25rem 1rem;
     max-width: 42rem;
   }
@@ -24,7 +24,7 @@
   }
 
   .aa-card {
-    border: 1px solid var(--sd-border, #{t.$mid});
+    border: 1px solid var(--hug-border, #{t.$mid});
     border-radius: t.$radius-sm;
     padding: 0.75rem 1rem;
     display: grid;
@@ -47,7 +47,7 @@
   }
 
   .aa-meta {
-    color: var(--sd-text-muted, #{t.$muted});
+    color: var(--hug-text-muted, #{t.$muted});
     font-size: 0.85rem;
   }
 
@@ -60,6 +60,6 @@
     gap: 0.5rem;
   }
 
-  .aa-note-ok { color: var(--sd-success, #{t.$pastel-mint}); }
-  .aa-note-err { color: var(--sd-error, #{t.$pastel-rose}); }
+  .aa-note-ok { color: var(--hug-success, #{t.$pastel-mint}); }
+  .aa-note-err { color: var(--hug-error, #{t.$pastel-rose}); }
 }

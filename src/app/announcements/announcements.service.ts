@@ -10,7 +10,7 @@ export type AnnouncementState = 'draft' | 'published' | 'archived';
 
 /**
  * An admin announcement. Mirrors the SHARED API CONTRACT model exposed by
- * snapdragon-admin-bff-api at /bff/admin/announcements. `body_html` is the
+ * hugmesh-admin-bff-api at /bff/admin/announcements. `body_html` is the
  * SERVER-SANITISED HTML (the BFF is the authority); every surface still renders
  * it inside a sandboxed null-origin iframe. The PER-SURFACE target flags let one
  * announcement appear on any combination of the logged-in HOME banner, the public
@@ -29,7 +29,7 @@ export interface Announcement {
   target_login: boolean;
   /** Propagated to akkoma/Mastodon as a LOCAL-ONLY (not federated-out) admin announcement. */
   target_akkoma: boolean;
-  /** FORUM main page banner (consumed later by snapdragon-forum-ui). */
+  /** FORUM main page banner (consumed later by hugmesh-forum-ui). */
   target_forum: boolean;
   /** Display priority, descending (higher shows first). */
   priority: number;

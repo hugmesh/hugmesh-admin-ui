@@ -9,7 +9,7 @@ import {
 
 /** BFF base URL, provided by the host at runtime (same source as {@link BffService}). */
 const CFG = {
-  bff: (globalThis as any).__SNAP_BFF_URL__ ?? '',
+  bff: (globalThis as any).__HUG_BFF_URL__ ?? '',
 };
 
 /** The HTTP status the admin-bff returns for EVERY `/bff/mfa/*` call while the
@@ -22,7 +22,7 @@ const DARK_STATUS = 503;
  * BffService}'s plain-`fetch` style (no generated client; the generated OpenAPI
  * `mfa-enrollment-controller` stubs under `src/app/api/**` are UNUSED — kept only
  * because they are auto-regenerated from the shared spec). Byte-similar to
- * login-ui's `MfaService` (same shared snapdragon-auth-core backend contract),
+ * login-ui's `MfaService` (same shared hugmesh-auth-core backend contract),
  * minus the cookie/CSRF plumbing admin-ui's {@link BffService} does not use
  * either (the gateway's BffCookieToBearerWebFilter turns the HttpOnly `bff_`
  * cookie into the upstream bearer server-side; the browser never holds one).

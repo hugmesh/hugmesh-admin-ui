@@ -1,4 +1,4 @@
-<section class="snap-storage-pools" data-testid="storage-pools-view" aria-labelledby="sp-heading">
+<section class="hug-storage-pools" data-testid="storage-pools-view" aria-labelledby="sp-heading">
   <h2 id="sp-heading">Node storage</h2>
   <p class="sp-intro">
     Attach additional storage to a specific mesh node and assign services to use that
@@ -27,7 +27,7 @@
     />
 
     <label for="sp-path">Node-local path</label>
-    <input id="sp-path" data-testid="sp-path" [(ngModel)]="poolPath" name="poolPath" placeholder="/var/snapdragon/storage/…" />
+    <input id="sp-path" data-testid="sp-path" [(ngModel)]="poolPath" name="poolPath" placeholder="/var/hugmesh/storage/…" />
 
     <label for="sp-reserved">Reserved (GiB)</label>
     <input id="sp-reserved" data-testid="sp-reserved" type="number" min="1" [(ngModel)]="reservedGiB" name="reservedGiB" />

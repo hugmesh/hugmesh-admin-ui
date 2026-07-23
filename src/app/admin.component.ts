@@ -14,10 +14,10 @@ import { SessionService } from './session.service';
 interface AdminMenuItem { path: string; label: string; superadminOnly?: boolean; fleetOnly?: boolean; hidden?: boolean; }
 
 /**
- * Admin micro-frontend (own repo: snapdragon-admin-ui). Visible only to Casdoor
+ * Admin micro-frontend (own repo: hugmesh-admin-ui). Visible only to Casdoor
  * ROLE_ADMIN users (route-guarded). Manages the registration allowlist by Gmail
  * address OR Discord username, calling the Spring admin API behind the gateway,
- * which invites the identity in Casdoor via the snapdragon-pki gateway.
+ * which invites the identity in Casdoor via the hugmesh-pki gateway.
  *
  * <p>This landing view also carries the admin MENU — the nav that surfaces every
  * admin own-component module (usage, namespaces, route-access, routes, ISOs,
@@ -26,7 +26,7 @@ interface AdminMenuItem { path: string; label: string; superadminOnly?: boolean;
  * admin modules are surfaced.
  */
 @Component({
-  selector: 'snap-admin',
+  selector: 'hug-admin',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, RouterLinkActive],
   templateUrl: './admin.component.html',

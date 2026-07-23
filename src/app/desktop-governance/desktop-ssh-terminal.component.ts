@@ -8,7 +8,7 @@ import { MfaStepUpDialogComponent } from '../mfa/mfa-step-up-dialog.component';
 import { isStepUpRequiredError } from '../mfa/step-up-error';
 
 /**
- * The in-UI SSH TERMINAL (own repo: snapdragon-admin-ui). The admin front-end for the
+ * The in-UI SSH TERMINAL (own repo: hugmesh-admin-ui). The admin front-end for the
  * desktop-governance SSH-terminal surface. The PRE-HANDSHAKE descriptor is fetched from
  * {@code POST /bff/admin/desktop/ssh-terminal/sessions?deviceId=...}; the live TTY then opens to
  * the descriptor's {@code wsPath} ({@code /bff/admin/device-terminal/{deviceId}} — deviceId in the
@@ -35,7 +35,7 @@ import { isStepUpRequiredError } from '../mfa/step-up-error';
  * re-enforces and a server 403 is surfaced verbatim.
  */
 @Component({
-  selector: 'snap-desktop-ssh-terminal',
+  selector: 'hug-desktop-ssh-terminal',
   standalone: true,
   imports: [CommonModule, FormsModule, MfaStepUpDialogComponent],
   templateUrl: './desktop-ssh-terminal.component.html',
@@ -174,7 +174,7 @@ export class DesktopSshTerminalComponent implements OnInit, AfterViewInit, OnDes
       return;
     }
 
-    const bffBase = (typeof __SNAP_BFF_URL__ !== 'undefined' && __SNAP_BFF_URL__) ? __SNAP_BFF_URL__ : '';
+    const bffBase = (typeof __HUG_BFF_URL__ !== 'undefined' && __HUG_BFF_URL__) ? __HUG_BFF_URL__ : '';
     const wsBase = this.toWsBase(bffBase);
     const path = descriptor.wsPath || `/bff/admin/device-terminal/${encodeURIComponent(descriptor.deviceId)}`;
     const q = new URLSearchParams({ cols: '80', rows: '24' });

@@ -33,7 +33,7 @@ export type GatedCapability = 'argocd' | 'velero' | 'images' | 'buildNode';
  * even when the visible text is styled as a banner.
  */
 @Component({
-  selector: 'snap-capability-gate',
+  selector: 'hug-capability-gate',
   standalone: true,
   template: `
     <div

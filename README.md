@@ -1,8 +1,8 @@
-# snapdragon-admin-ui
+# hugmesh-admin-ui
 
-Admin console for the Snapdragon platform. This repo is an **Angular 22
+Admin console for the HugMesh platform. This repo is an **Angular 22
 native-federation REMOTE** (remote name `admin`) that was split out of
-snapdragon-social-ui. At runtime the **snapdragon.systems host** loads this
+hugmesh-social-ui. At runtime the **hugmesh.systems host** loads this
 remote's single exposed module (`./routes`) and mounts its `ADMIN_ROUTES`
 at **/admin**.
 
@@ -13,24 +13,24 @@ at **/admin**.
 | Tier           | Frontend / micro-frontend (a federated **remote**, not a host)        |
 | Namespace      | `snapdragon-frontend` — runs as its own nginx pod                     |
 | Fronted by     | the **fe-gateway** at `/admin`                                         |
-| Backed by      | **snapdragon-admin-bff-api** (Spring), in the backend namespace, behind the gateway |
+| Backed by      | **hugmesh-admin-bff-api** (Spring), in the backend namespace, behind the gateway |
 | Auth model     | Casdoor **admin role** for most routes; **superadmin role** for the superadmin-only routes; the host route-guards `/admin` |
-| Federation host| **snapdragon.systems** (loads `remoteName: 'admin', exposedModule: './routes'`) |
+| Federation host| **hugmesh.systems** (loads `remoteName: 'admin', exposedModule: './routes'`) |
 
 ```mermaid
 flowchart LR
-  subgraph host["snapdragon.systems host (shell)"]
+  subgraph host["hugmesh.systems host (shell)"]
     H["loads remote 'admin'<br/>exposedModule './routes'"]
   end
 
-  subgraph remote["snapdragon-admin-ui (this repo) — federated REMOTE"]
+  subgraph remote["hugmesh-admin-ui (this repo) — federated REMOTE"]
     UI["ADMIN_ROUTES<br/>(AdminComponent + modules)"]
-    SS["SessionService<br/>(reads snap.session — id/roles only, no token)"]
+    SS["SessionService<br/>(reads hug.session — id/roles only, no token)"]
     BS["BffService<br/>(hand-written fetch client)"]
   end
 
   subgraph backend["backend namespace (behind the gateway)"]
-    BFF["snapdragon-admin-bff-api (Spring)<br/>single cluster contract"]
+    BFF["hugmesh-admin-bff-api (Spring)<br/>single cluster contract"]
   end
 
   CAS["Casdoor (owns identity + roles, SSO IdP)"]
@@ -40,19 +40,19 @@ flowchart LR
   UI --> SS
   UI --> BS
   BS -->|"opaque bff_ session (gateway swaps to internal custody JWT)"| BFF
-  BFF -->|"via snapdragon-pki gateway"| CAS
+  BFF -->|"via hugmesh-pki gateway"| CAS
   BFF -->|"role-secured proxy"| CLUSTER
 ```
 
 > The diagram shows the **shipped** wiring. Roles are **owned by Casdoor**; this UI
 > never mints or evaluates authority on its own — it only reflects the
-> `snap.session` roles and lets the BFF/gateway enforce. See the **Roadmap** section
+> `hug.session` roles and lets the BFF/gateway enforce. See the **Roadmap** section
 > for surfaces that are designed/in-flight but not yet shipped here.
 
 This is the admin surface of the multi-brand / multi-tenant platform. It is a
 *presentation layer only*: every privileged action is brokered by the admin BFF,
 which is the single cluster contract. The BFF reaches **Casdoor through the
-snapdragon-pki gateway** for identity and role operations, and proxies in-cluster
+hugmesh-pki gateway** for identity and role operations, and proxies in-cluster
 systems (ArgoCD, ClickHouse, the gateway route registries) so their URLs and
 tokens never leave the cluster.
 
@@ -83,10 +83,10 @@ session bridge, recently unified across the platform:
 - **Login is native, not a Casdoor redirect.** The old OIDC authorization-code
   (PKCE) browser-redirect flow has been superseded platform-wide: each service's
   own login-ui remote posts credentials to a login-style endpoint on that
-  service's own BFF, and **`snapdragon-user-bff` holds per-session JWT
+  service's own BFF, and **`hugmesh-user-bff` holds per-session JWT
   custody/refresh server-side.** **Casdoor is internal-only and never redirects
   the browser.** The browser holds only the opaque, HttpOnly **`bff_` cookie**
-  (never readable by JS) plus the identity/roles `snap.session` localStorage
+  (never readable by JS) plus the identity/roles `hug.session` localStorage
   payload. **The user never sees their own Casdoor JWT.**
 - **The gateway is a pure Casdoor-JWT OAuth2 resource server.** A pre-security
   exchange filter swaps the opaque `bff_` session → the internal custody JWT, so
@@ -99,16 +99,16 @@ session bridge, recently unified across the platform:
   fronts prod.
 - **Login / session / account logic is being RELOCATED from admin-bff to
   user-bff**, with the shared account/session/MFA/Casdoor-admin infra extracted
-  into the new **`snapdragon-auth-core`** Maven artifact (2.3.0, consumed by
+  into the new **`hugmesh-auth-core`** Maven artifact (2.3.0, consumed by
   user-bff + admin-bff only). **Account / session DATA still lives in
   admin-bff-db**; user-bff reaches it via admin-bff `/bff/internal` over
   mTLS + `X-Internal-Token`.
 - Backend baseline (recently unified): **Spring Boot 4.0.7 / Spring Cloud
-  2025.1.2 / Java 25 LTS**, on `snapdragon-parent` (metapom 2.7.0) +
-  `snapdragon-commons` (2.7.0).
+  2025.1.2 / Java 25 LTS**, on `hugmesh-parent` (metapom 2.7.0) +
+  `hugmesh-commons` (2.7.0).
 
 > Implication for this UI: the opaque **`bff_` session lives in an HttpOnly
-> cookie**, not a field on `snap.session` — the gateway performs the `bff_`→JWT
+> cookie**, not a field on `hug.session` — the gateway performs the `bff_`→JWT
 > swap server-side. `BffService` continues to send it automatically via
 > `credentials: 'include'` on every call; the registration / login /
 > service-token broker flow lives in the **login remote** (now backed by user-bff),
@@ -191,7 +191,7 @@ gateway are the authority:
 > this exact function). See the `TODO` on `adminGuard` itself for the wire-in-or-remove
 > decision.
 
-`SessionService` (`src/app/session.service.ts`) reads the shared **`snap.session`**
+`SessionService` (`src/app/session.service.ts`) reads the shared **`hug.session`**
 localStorage key written by the **login remote**. The key carries identity
 (`id`, `label`, `provider`), `roles`, and `registrationComplete`. It **no longer
 carries a bearer token or provider credentials** — the browser holds only the
@@ -199,7 +199,7 @@ opaque, HttpOnly `bff_` cookie (never readable by JS); every `/bff/*` call rides
 that cookie (`credentials: 'include'`) and the gateway's `BffCookieToBearerWebFilter`
 swaps it for the internal custody JWT server-side. The login/registration flow
 that writes this key is owned by the login remote (now backed by
-`snapdragon-user-bff`, which holds the per-session JWT custody).
+`hugmesh-user-bff`, which holds the per-session JWT custody).
 
 The service exposes role state as **computed signals**:
 
@@ -211,14 +211,14 @@ The service exposes role state as **computed signals**:
 
 The host shell and every remote each hold their own `SessionService` instance over
 the same localStorage key. All instances re-read on a same-document broadcast
-(`snap-session-change`) and on cross-tab `storage` events, so a session change —
+(`hug-session-change`) and on cross-tab `storage` events, so a session change —
 for example, registration completing inside the login remote — propagates
 immediately without a page reload.
 
 ## BFF contract
 
 `BffService` (`src/app/bff.service.ts`) is the hand-written typed client against
-**snapdragon-admin-bff-api**. Every call sends `credentials: 'include'` so the
+**hugmesh-admin-bff-api**. Every call sends `credentials: 'include'` so the
 opaque, HttpOnly `bff_` cookie rides the request (the browser never holds a
 bearer token); the gateway's `BffCookieToBearerWebFilter` swaps it for the
 internal Casdoor custody JWT server-side. Calls target the admin-scoped (and a
@@ -226,7 +226,7 @@ few superadmin-scoped) endpoints — the registration/login/Matrix-Mastodon
 service-token broker flow lives in the login remote (backed by user-bff).
 
 The BFF base URL and the Uptrace URL are read from runtime globals
-(`__SNAP_BFF_URL__`, `__SNAP_UPTRACE_URL__`).
+(`__HUG_BFF_URL__`, `__HUG_UPTRACE_URL__`).
 
 SSE streams (backup/restore progress, test-run progress, live workload logs) are
 read with a `fetch({ credentials: 'include' })` + `ReadableStream` reader rather
@@ -246,12 +246,12 @@ error-handling path as the rest of `BffService`.
 | Backup & Recovery       | `POST /bff/admin/backups`, `POST /bff/admin/restores`, `GET /bff/admin/backups`, `GET /bff/admin/usb-devices`, SSE `GET /bff/admin/backups/{id}/events` | Cloud/USB targets with optional AES-256 encryption. The BFF orchestrates a k8s backup/restore worker Job and streams progress over SSE (read via `fetch`, not `EventSource`, so the bearer token can be sent). The plaintext password is sent ONCE and never stored client-side; only the BFF stores a PBKDF2 verifier and the worker derives the key. |
 | Announcements           | `GET/POST/PUT/DELETE /bff/admin/announcements`             | See below. |
 | Delegation / access-roles | `GET/POST/DELETE /bff/admin/access-roles/{role}/{user}`, `GET/POST/DELETE /bff/admin/domain-lock/{role}/{user}` | The narrow, AdminController-verified delegation surface: access-role suspend/ban (+ TTL or permanent) + lift, and domain-lock add/remove (force local-only, keeps the base role). Closed role vocabularies (`ROLE_MATRIX`/`ROLE_MASTODON`/`PROFILE`; `*_DOMAINLOCKED`). No general role grant/revoke exists. |
-| Appeals (decide-proxy)  | `POST /bff/admin/moderation/{id}/decide?approve=<bool>`    | Approve/deny a referred moderation request — **CONTENT**-moderation (posts/profiles). The admin-bff does NOT own the table — it **proxies** to snapdragon-federation-api, forwarding the caller's JWT so federation-api applies its own `@PreAuthorize(ADMIN\|SUPERADMIN)` + **per-domain scope** (a row in another brand is invisible/404). No list endpoint yet — the console drives the decide action by known id. |
+| Appeals (decide-proxy)  | `POST /bff/admin/moderation/{id}/decide?approve=<bool>`    | Approve/deny a referred moderation request — **CONTENT**-moderation (posts/profiles). The admin-bff does NOT own the table — it **proxies** to hugmesh-federation-api, forwarding the caller's JWT so federation-api applies its own `@PreAuthorize(ADMIN\|SUPERADMIN)` + **per-domain scope** (a row in another brand is invisible/404). No list endpoint yet — the console drives the decide action by known id. |
 | Account appeals         | `GET /bff/admin/account-appeals`, `POST .../{id}/decide?status=APPROVED\|DENIED` | The **ACCOUNT**-ban appeal inbox — distinct from Appeals above. Decides `account_appeal` rows a curtailed user files (via login-ui's `/login/appeal` → `POST /bff/me/appeal`) against their own `access_suspension` PROFILE ban. An `APPROVED` decide **clears the underlying suspension server-side first** (`SuspensionService.clear`) — the call fails outright if that restore fails, so a failed approve is surfaced as an error, never a false success. MOD is deliberately not gated in (MOD cannot ban/unban an account, so it cannot approve an appeal against one). |
 | Forum admin             | `GET/POST/DELETE /bff/admin/forum/**`                      | Proxies the phpBB ACP capability (stats/usage/users/categories/moderation-queue/audit + ban/groups/categories/moderation approve-reject/styles/extensions). Every response is the `ForumOutcome` envelope with a `result` marker (`ok` / `stubbed` / `degraded:<reason>`). |
 | Test reports            | `GET /bff/admin/test-reports[/{id}]`, `GET .../{id}/download`, `POST .../run`, SSE `GET .../{id}/events` | Durable test-architecture run history + on-demand trigger + bearer-gated `tar.gz` download + live SSE progress. |
 | Image generation        | `GET /bff/admin/image-builds`, `GET .../{id}`, `POST .../batch` (up to 16 entries, one step-up), SSE `GET .../{id}/events`, `GET .../{id}/image`, `GET .../{id}/keys` (`X-ImageGen-StepUp`), `GET .../catalog` | See *Image generation* below. |
-| MFA (self-service + step-up) | `POST /bff/mfa/enroll/totp[/verify]`, `POST /bff/mfa/enroll/webauthn/options`, `POST /bff/mfa/enroll/webauthn/verify`, `POST /bff/mfa/assert/webauthn/options`, `GET /bff/mfa/factors`, `DELETE /bff/mfa/factors/{id}`, `POST /bff/mfa/recovery/regenerate`, `POST /bff/mfa/challenge` | Own hand-written client (`MfaService`, `src/app/mfa/mfa.service.ts` — NOT part of `BffService`, mirroring login-ui's `MfaService` against the same shared `snapdragon-auth-core` `MfaEnrollmentController`/`MfaChallengeController`). `/admin/security` (`MfaSecurityComponent`) is enroll/list/remove/regenerate; `MfaStepUpDialogComponent` is the reusable inline step-up challenge any privileged action shows on the platform's "requires step-up" 403 (see `isStepUpRequiredError`). Ships dark: every call 503s while `app.casdoor.mfa.enabled=false`. |
+| MFA (self-service + step-up) | `POST /bff/mfa/enroll/totp[/verify]`, `POST /bff/mfa/enroll/webauthn/options`, `POST /bff/mfa/enroll/webauthn/verify`, `POST /bff/mfa/assert/webauthn/options`, `GET /bff/mfa/factors`, `DELETE /bff/mfa/factors/{id}`, `POST /bff/mfa/recovery/regenerate`, `POST /bff/mfa/challenge` | Own hand-written client (`MfaService`, `src/app/mfa/mfa.service.ts` — NOT part of `BffService`, mirroring login-ui's `MfaService` against the same shared `hugmesh-auth-core` `MfaEnrollmentController`/`MfaChallengeController`). `/admin/security` (`MfaSecurityComponent`) is enroll/list/remove/regenerate; `MfaStepUpDialogComponent` is the reusable inline step-up challenge any privileged action shows on the platform's "requires step-up" 403 (see `isStepUpRequiredError`). Ships dark: every call 503s while `app.casdoor.mfa.enabled=false`. |
 | Device licenses         | `GET /bff/admin/device-licenses`, `POST .../{id}/grant`, `POST .../domains/{domain}/grant`, `DELETE .../licenses/{id}` | **Superadmin**: the source of truth for device ownership / domain-residency / SSH operate-licenses. List is admin-readable (own-domain, BFF-scoped); every mutation is `hasRole('SUPERADMIN')`. Grants pin SSH key fingerprints; revoke is a CAS flip (never a delete). |
 | SSH key issuance        | `GET /bff/admin/ssh-issue/devices/{deviceId}/issued-keys`, `POST /bff/admin/ssh-issue/issue?deviceId=` (`X-SshKeyIssue-StepUp`), `GET .../issued/{id}/private-key`, `DELETE .../issued/{id}` | **Superadmin**, folded into the Device Licenses console (per-device "Issued SSH keys" panel) — distinct from a license grant above: this MINTS a brand-new Ed25519 keypair (rather than pinning an operator-supplied fingerprint), registers it into the same license registry, and streams the private key back ONCE. List is admin-readable; issue/download/revoke require `hasRole('SUPERADMIN')` + a fresh step-up (`X-SshKeyIssue-StepUp` OR a fresh Casdoor-MFA stamp — the A5 unified step-up). A "requires step-up" 403 opens the shared `MfaStepUpDialogComponent` and blindly retries. Ships dark (`app.ssh-issue.enabled=false`): the list response's `enabled` field gates the Issue control and shows a notice rather than surfacing a raw 503. |
 | Device pending pick-list| `GET /bff/admin/device-licenses/pending`, `POST .../register` | **Superadmin**: assign a headscale-enrolled node into the registry. `machineKeyFp` is an **opaque** token from headscale — never typed/edited; the BFF re-validates it against headscale at register. |
@@ -286,7 +286,7 @@ client-side for display only.
 so it is **sanitised server-side by the BFF** (the authority) and the editor
 **never uses raw `innerHTML`**: the live preview renders the sanitised body inside
 a **sandboxed null-origin `srcdoc` iframe** (`sandbox=""` — no `allow-scripts`, no
-`allow-same-origin`), mirroring the snapdragon-user-ui card-builder two-wall model.
+`allow-same-origin`), mirroring the hugmesh-user-ui card-builder two-wall model.
 
 `AnnouncementsStore` is the signal-backed typed client. Note (✅):
 `ng-openapi-gen` **is** wired AND the generated client **is committed** to
@@ -390,7 +390,7 @@ The live log stream uses SSE via a cookie-authenticated `fetch`; the pod TTY use
 ## OpenAPI client generation ✅ (wired + committed)
 
 `ng-openapi-gen` is a devDependency and **is wired**: `npm run gen:spec` copies the
-admin BFF's committed OpenAPI spec (`../snapdragon-admin-bff-api/.../openapi.json`,
+admin BFF's committed OpenAPI spec (`../hugmesh-admin-bff-api/.../openapi.json`,
 overridable via `ADMIN_BFF_SPEC`) to `openapi.json`, and `npm run gen` regenerates a
 typed client into `src/app/api/` (config in `ng-openapi-gen.json`). The generated
 output **is committed** to `src/app/api/` (per-controller services + models). The
@@ -415,7 +415,7 @@ The standalone dev shell also provides a skip link and a `<main id="main">` land
 
 ## Federation
 
-`federation.config.js` (composed via `federation-base.js`, the shared Snapdragon
+`federation.config.js` (composed via `federation-base.js`, the shared HugMesh
 federation base) exposes one module:
 
 ```
@@ -436,7 +436,7 @@ npm install
 npm start            # ng serve admin → http://localhost:4204 (standalone dev shell)
 ```
 
-The standalone dev shell (`AppComponent`, selector `snap-admin-root`) mounts
+The standalone dev shell (`AppComponent`, selector `hug-admin-root`) mounts
 `ADMIN_ROUTES` at `/`, making the remote browsable in isolation. In production the
 host loads the `./routes` module directly and the dev shell is not used.
 
@@ -503,7 +503,7 @@ CI (`.gitlab-ci.yml`) runs **four stages** on every push and mirror-sync (CI is
    the in-cluster GitLab registry, tagged with the release tag / git SHA plus a
    moving branch tag. The image build only starts after `test` passes (`e2e:bdd` is
    not in its `needs`, so it cannot block the build).
-4. **`pentest`** — includes the centralised OWASP harness from `snapdragon-generator`:
+4. **`pentest`** — includes the centralised OWASP harness from `hugmesh-generator`:
    `pentest:sca` runs Dependency-Check (SCA) and `pentest:dast` runs an authenticated
    ZAP baseline scan plus custom probes and nuclei templates. Both jobs use
    `allow_failure: true`, so findings appear in the MR security widget without
@@ -551,7 +551,7 @@ read the Routes or BFF contract tables above as covering any of them.
   the consoles are shipped; the fleet-side effectors continue alongside the generator.
 
 The **Superadmin Service Catalog** UI is **not** part of this remote — it lives in its own
-federated remote (`snapdragon-superadmin-service-catalog-ui`); its data layer is on the
+federated remote (`hugmesh-superadmin-service-catalog-ui`); its data layer is on the
 admin-bff `main` and its infra legs (AddService effector, ArgoCD create/delete,
 ✅ Kaniko in-cluster builder (KanikoBuildLauncher — admin-bff PR #152), tailnet superadmin-gateway + federation registration) — all except Kaniko are 🚧 in-flight.
 Readers should not expect those screens here.

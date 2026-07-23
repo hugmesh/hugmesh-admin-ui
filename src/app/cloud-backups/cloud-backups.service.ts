@@ -1,18 +1,18 @@
 import { Injectable, InjectionToken, inject } from '@angular/core';
 
 /** Base URL of the admin BFF. The fe-gateway proxies same-origin /bff/** to
- *  snapdragon-admin-bff-api, so the default is the empty string = same origin.
- *  `globalThis.__SNAP_BFF_URL__` lets the host override the target at runtime
- *  (mirrors the other remotes' __SNAP_*_URL__ globals + bff.service.ts CFG). */
+ *  hugmesh-admin-bff-api, so the default is the empty string = same origin.
+ *  `globalThis.__HUG_BFF_URL__` lets the host override the target at runtime
+ *  (mirrors the other remotes' __HUG_*_URL__ globals + bff.service.ts CFG). */
 export const CLOUD_BACKUPS_BASE_URL = new InjectionToken<string>('CLOUD_BACKUPS_BASE_URL', {
   // The bare identifier (no globalThis guard) throws ReferenceError — nothing
-  // actually declares __SNAP_BFF_URL__ as a real global; the comment above
+  // actually declares __HUG_BFF_URL__ as a real global; the comment above
   // already documented the intended globalThis form, the code just diverged.
-  factory: () => (globalThis as any).__SNAP_BFF_URL__ ?? '',
+  factory: () => (globalThis as any).__HUG_BFF_URL__ ?? '',
 });
 
 // ---------------------------------------------------------------------------
-// Contract — HAND-WRITTEN to mirror the snapdragon-admin-bff-api `cloudbackup`
+// Contract — HAND-WRITTEN to mirror the hugmesh-admin-bff-api `cloudbackup`
 // package (PR #74 "backups foundation"). The bff's /v3/api-docs was unreachable
 // for the superadmin-service-catalog-ui too, so this follows that precedent: a typed
 // hand-written client over the EXACT bff paths/DTOs. The Jackson records serialise
@@ -163,7 +163,7 @@ export class CloudBackupApiError extends Error {
 }
 
 /**
- * Hand-written reactive client over the snapdragon-admin-bff-api `cloudbackup`
+ * Hand-written reactive client over the hugmesh-admin-bff-api `cloudbackup`
  * surfaces. Auth rides the HttpOnly `bff_` cookie sent via `credentials:'include'`
  * (the same cookie every other admin-ui BFF call uses — see bff.service.ts; the
  * gateway turns it into the bearer server-side) — the host injects nothing and the

@@ -9,7 +9,7 @@ import {
 } from './bff.service';
 
 /**
- * Admin "Node storage" console (own repo: snapdragon-admin-ui). The MVP surface over the
+ * Admin "Node storage" console (own repo: hugmesh-admin-ui). The MVP surface over the
  * NODE STORAGE control plane — ADDITIONAL storage an operator ATTACHES to a specific mesh
  * node so services can use SPACE on that node.
  *
@@ -30,7 +30,7 @@ import {
  * operator should scope node-pinned storage to REPLACEABLE data.
  */
 @Component({
-  selector: 'snap-storage-pools',
+  selector: 'hug-storage-pools',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './storage-pools.component.html',

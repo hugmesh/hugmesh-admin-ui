@@ -1,10 +1,10 @@
 <section
-  class="snap-mfa snap-mfa-stepup"
+  class="hug-mfa hug-mfa-stepup"
   data-testid="mfa-stepup-dialog"
   role="region"
-  aria-labelledby="snap-mfa-stepup-heading"
+  aria-labelledby="hug-mfa-stepup-heading"
 >
-  <h3 id="snap-mfa-stepup-heading">Confirm it's you</h3>
+  <h3 id="hug-mfa-stepup-heading">Confirm it's you</h3>
 
   <ng-container *ngIf="dark(); else live">
     <p class="mfa-help" data-testid="mfa-stepup-dark">
@@ -83,20 +83,20 @@
 
     <ng-template #codeForm>
       <form class="mfa-verify" (ngSubmit)="submitCode()">
-        <label for="snap-mfa-stepup-code">
+        <label for="hug-mfa-stepup-code">
           {{ method() === 'totp' ? '6-digit code' : 'Recovery code' }}
         </label>
         <input
-          id="snap-mfa-stepup-code"
+          id="hug-mfa-stepup-code"
           name="code"
           data-testid="mfa-stepup-code"
           type="text"
           [attr.inputmode]="method() === 'totp' ? 'numeric' : null"
           autocomplete="one-time-code"
           [(ngModel)]="code"
-          aria-describedby="snap-mfa-stepup-code-help"
+          aria-describedby="hug-mfa-stepup-code-help"
         />
-        <p class="mfa-help" id="snap-mfa-stepup-code-help">
+        <p class="mfa-help" id="hug-mfa-stepup-code-help">
           <ng-container *ngIf="method() === 'totp'; else recoveryHelp">
             Enter the current 6-digit code from your authenticator app.
           </ng-container>

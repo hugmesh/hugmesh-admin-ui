@@ -4,7 +4,7 @@
   display: block;
 }
 
-.snap-route-access {
+.hug-route-access {
   display: block;
   padding: 1rem;
 
@@ -18,26 +18,26 @@
 
   label {
     font-weight: 600;
-    color: var(--sd-text);
+    color: var(--hug-text);
   }
 
   input,
   select {
-    background: var(--sd-bg-1);
-    color: var(--sd-text);
-    border: 1px solid var(--sd-border);
+    background: var(--hug-bg-1);
+    color: var(--hug-text);
+    border: 1px solid var(--hug-border);
     border-radius: t.$radius-sm;
     padding: 0.5rem 0.75rem;
 
     &[aria-invalid='true'] {
-      border-color: var(--sd-error);
+      border-color: var(--hug-error);
     }
   }
 
   button {
-    background: var(--sd-accent);
-    color: var(--sd-text);
-    border: 1px solid var(--sd-accent-soft);
+    background: var(--hug-accent);
+    color: var(--hug-text);
+    border: 1px solid var(--hug-accent-soft);
     border-radius: t.$radius-sm;
     padding: 0.5rem 0.9rem;
     cursor: pointer;
@@ -52,7 +52,7 @@
     td {
       text-align: left;
       padding: 0.5rem;
-      border-bottom: 1px solid var(--sd-border);
+      border-bottom: 1px solid var(--hug-border);
     }
   }
 }

@@ -1,4 +1,4 @@
-<section class="snap-desktop-gov" data-testid="desktop-install-requests-view" aria-labelledby="dir-heading">
+<section class="hug-desktop-gov" data-testid="desktop-install-requests-view" aria-labelledby="dir-heading">
   <h2 id="dir-heading">Install-request inbox</h2>
   <p class="dg-intro">
     Non-sudo desktop users ask you to allow / install an app on their device. Decide each request:
@@ -10,12 +10,12 @@
   <!-- ── Inline MFA step-up dialog: shown when a remote-install (or its step-up mint) 403s with
        the platform's "requires step-up" contract. On success the SAME install is retried
        automatically (token-less — the BFF reads the fresh MFA stamp off this session). ── -->
-  <snap-mfa-step-up-dialog
+  <hug-mfa-step-up-dialog
     *ngIf="stepUpChallenge() as challenge"
     [action]="challenge.action"
     (satisfied)="onStepUpSatisfied()"
     (dismissed)="onStepUpDismissed()"
-  ></snap-mfa-step-up-dialog>
+  ></hug-mfa-step-up-dialog>
 
   <!-- ── Pending inbox (the headline) ─────────────────────────────────────── -->
   <h3 id="dir-pending-heading">Pending requests</h3>

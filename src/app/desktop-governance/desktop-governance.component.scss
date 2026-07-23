@@ -4,13 +4,13 @@
   display: block;
 }
 
-.snap-desktop-gov-shell,
-.snap-desktop-gov {
+.hug-desktop-gov-shell,
+.hug-desktop-gov {
   display: block;
   padding: 1rem;
 
   .dg-intro {
-    color: var(--sd-text-soft, var(--sd-text));
+    color: var(--hug-text-soft, var(--hug-text));
     max-width: 72ch;
   }
 
@@ -20,11 +20,11 @@
     flex-wrap: wrap;
     gap: 0.25rem;
     margin-block: 0.75rem 1rem;
-    border-bottom: 1px solid var(--sd-border);
+    border-bottom: 1px solid var(--hug-border);
 
     button {
       background: transparent;
-      color: var(--sd-text);
+      color: var(--hug-text);
       border: 1px solid transparent;
       border-bottom: none;
       border-radius: t.$radius-sm t.$radius-sm 0 0;
@@ -32,8 +32,8 @@
       cursor: pointer;
 
       &.dg-tab-active {
-        background: var(--sd-bg-1);
-        border-color: var(--sd-border);
+        background: var(--hug-bg-1);
+        border-color: var(--hug-border);
         font-weight: 600;
       }
     }
@@ -50,20 +50,20 @@
 
   label {
     font-weight: 600;
-    color: var(--sd-text);
+    color: var(--hug-text);
   }
 
   input,
   select,
   textarea {
-    background: var(--sd-bg-1);
-    color: var(--sd-text);
-    border: 1px solid var(--sd-border);
+    background: var(--hug-bg-1);
+    color: var(--hug-text);
+    border: 1px solid var(--hug-border);
     border-radius: t.$radius-sm;
     padding: 0.5rem 0.75rem;
 
     &[aria-invalid='true'] {
-      border-color: var(--sd-error);
+      border-color: var(--hug-error);
     }
 
     &:disabled {
@@ -73,9 +73,9 @@
   }
 
   button {
-    background: var(--sd-accent);
-    color: var(--sd-text);
-    border: 1px solid var(--sd-accent-soft);
+    background: var(--hug-accent);
+    color: var(--hug-text);
+    border: 1px solid var(--hug-accent-soft);
     border-radius: t.$radius-sm;
     padding: 0.4rem 0.8rem;
     cursor: pointer;
@@ -95,12 +95,12 @@
     td {
       text-align: left;
       padding: 0.4rem 0.6rem;
-      border-bottom: 1px solid var(--sd-border);
+      border-bottom: 1px solid var(--hug-border);
       vertical-align: top;
     }
 
     th {
-      color: var(--sd-text);
+      color: var(--hug-text);
       font-weight: 600;
     }
   }
@@ -111,7 +111,7 @@
   }
 
   .dg-card {
-    border: 1px solid var(--sd-border);
+    border: 1px solid var(--hug-border);
     border-radius: t.$radius-sm;
     padding: 0.75rem;
     margin-block: 0.5rem;
@@ -133,13 +133,13 @@
   }
 
   .dg-meta {
-    color: var(--sd-text-soft, var(--sd-text));
+    color: var(--hug-text-soft, var(--hug-text));
     font-size: 0.9em;
   }
 
   .dg-approve-panel {
     margin-top: 0.5rem;
-    border: 1px solid var(--sd-border);
+    border: 1px solid var(--hug-border);
     border-radius: t.$radius-sm;
     padding: 0.5rem 0.75rem;
 
@@ -154,11 +154,11 @@
     display: inline-block;
     padding: 0.05rem 0.5rem;
     border-radius: t.$radius-sm;
-    border: 1px solid var(--sd-border);
+    border: 1px solid var(--hug-border);
     font-size: 0.85em;
 
     &.dg-badge-on {
-      border-color: var(--sd-accent-soft);
+      border-color: var(--hug-accent-soft);
     }
 
     &.dg-badge-off {
@@ -170,7 +170,7 @@
   .dg-helptext {
     display: block;
     flex-basis: 100%;
-    color: var(--sd-text-soft, var(--sd-text));
+    color: var(--hug-text-soft, var(--hug-text));
     font-size: 0.9em;
     max-width: 72ch;
   }
@@ -178,40 +178,40 @@
   .field-error {
     display: block;
     flex-basis: 100%;
-    color: var(--sd-error);
+    color: var(--hug-error);
   }
 
   .dg-note {
     margin-block: 0.4rem;
-    color: var(--sd-text-soft, var(--sd-text));
+    color: var(--hug-text-soft, var(--hug-text));
 
     &.dg-note-err {
-      color: var(--sd-error);
+      color: var(--hug-error);
     }
   }
 
   .dg-empty {
-    color: var(--sd-text-soft, var(--sd-text));
+    color: var(--hug-text-soft, var(--hug-text));
     font-style: italic;
   }
 
   // SSH-dial fingerprint cells — monospace + soft, never wider than the column.
   .dg-fp {
     font-size: 0.82em;
-    color: var(--sd-text-soft, var(--sd-text));
+    color: var(--hug-text-soft, var(--hug-text));
     word-break: break-all;
   }
 
   .dg-status {
-    color: var(--sd-text-soft, var(--sd-text));
+    color: var(--hug-text-soft, var(--hug-text));
   }
 
   // The xterm.js host — greyed while dark / disconnected.
   .dg-term {
     margin-top: 0.75rem;
     min-height: 18rem;
-    background: var(--sd-bg-1);
-    border: 1px solid var(--sd-border);
+    background: var(--hug-bg-1);
+    border: 1px solid var(--hug-border);
     border-radius: t.$radius-sm;
 
     &.dg-term-dark {
@@ -220,7 +220,7 @@
   }
 
   .dg-dark {
-    border: 1px dashed var(--sd-border);
+    border: 1px dashed var(--hug-border);
     border-radius: t.$radius-sm;
     padding: 0.5rem 0.75rem;
   }

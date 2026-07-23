@@ -1,4 +1,4 @@
-<section class="snap-desktop-gov-shell" data-testid="desktop-governance-view" aria-labelledby="dg-shell-heading">
+<section class="hug-desktop-gov-shell" data-testid="desktop-governance-view" aria-labelledby="dg-shell-heading">
   <h1 id="dg-shell-heading">Desktop governance</h1>
   <p class="dg-intro">
     Govern the desktop fleet: curate the Discover store, grant SSO-enforced sudo, decide install
@@ -50,9 +50,9 @@
     >SSH dials</button>
   </nav>
 
-  <snap-desktop-catalog *ngIf="tab() === 'catalog'" />
-  <snap-desktop-sudo *ngIf="tab() === 'sudo'" />
-  <snap-desktop-install-requests *ngIf="tab() === 'requests'" />
-  <snap-desktop-ssh-terminal *ngIf="tab() === 'terminal'" />
-  <snap-desktop-dials *ngIf="tab() === 'dials' && dialTabVisible()" />
+  <hug-desktop-catalog *ngIf="tab() === 'catalog'" />
+  <hug-desktop-sudo *ngIf="tab() === 'sudo'" />
+  <hug-desktop-install-requests *ngIf="tab() === 'requests'" />
+  <hug-desktop-ssh-terminal *ngIf="tab() === 'terminal'" />
+  <hug-desktop-dials *ngIf="tab() === 'dials' && dialTabVisible()" />
 </section>

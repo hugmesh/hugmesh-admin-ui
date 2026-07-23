@@ -1,7 +1,7 @@
 /**
  * Shared MFA contract types for the admin-ui MFA surface (factor management +
  * the inline step-up challenge dialog). These MIRROR the admin-bff `/bff/mfa/*`
- * contract exactly (the SAME shared snapdragon-auth-core `MfaEnrollmentController`
+ * contract exactly (the SAME shared hugmesh-auth-core `MfaEnrollmentController`
  * / `MfaChallengeController` the login-ui remote already talks to) — the UI never
  * invents shapes the server does not return. NO SECRETS are ever persisted
  * client-side: the TOTP secret and the recovery codes are shown ONCE (display-once)

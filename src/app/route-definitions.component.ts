@@ -8,11 +8,11 @@ import { BffService, RouteDefinition } from './bff.service';
  * DEFINITIONS the gateways serve: each row is a url_registry entry (path_prefix →
  * downstream_uri) that the gateway's UrlRegistryRouteDefinitionLocator turns into
  * a live Spring Cloud Gateway route. Distinct from "Gateway access" (role→URL
- * allow/deny). The BFF persists these in Cassandra (snapdragon_gateway.url_registry,
+ * allow/deny). The BFF persists these in Cassandra (hugmesh_gateway.url_registry,
  * authoritative for route definitions).
  */
 @Component({
-  selector: 'snap-route-definitions',
+  selector: 'hug-route-definitions',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './route-definitions.component.html',

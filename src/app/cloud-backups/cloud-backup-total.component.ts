@@ -26,7 +26,7 @@ import {
  * loading / empty / error; a 401/403 degrades gracefully.
  */
 @Component({
-  selector: 'snap-cloud-backup-total',
+  selector: 'hug-cloud-backup-total',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './cloud-backup-total.component.html',

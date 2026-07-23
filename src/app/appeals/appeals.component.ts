@@ -7,7 +7,7 @@ import { AppealsStore } from './appeals-store.service';
  * Admin "Appeals" console (ROLE_ADMIN only, route-guarded). The single seam onto the
  * appeals-adjudication DECIDE action via the admin-bff decide-proxy
  * ({@code POST /bff/admin/moderation/{id}/decide?approve=<bool>}), which forwards the
- * admin's Casdoor JWT to snapdragon-federation-api — so the decision is scoped to the
+ * admin's Casdoor JWT to hugmesh-federation-api — so the decision is scoped to the
  * admin's OWN domain (cross-domain rows are invisible/404 downstream).
  *
  * <p>Admin gating is defence-in-depth (gateway route-access rule + the /bff/admin/**
@@ -22,7 +22,7 @@ import { AppealsStore } from './appeals-store.service';
  * live record of the appeals decided in this session.
  */
 @Component({
-  selector: 'snap-appeals',
+  selector: 'hug-appeals',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './appeals.component.html',

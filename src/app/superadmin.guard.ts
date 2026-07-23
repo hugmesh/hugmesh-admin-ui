@@ -4,7 +4,7 @@ import { SessionService } from './session.service';
 
 /**
  * Route guard — allows activation only when the session carries the Casdoor `superadmin` role
- * (the apex of the Snapdragon role hierarchy: SUPERADMIN > ADMIN > MOD > USER).
+ * (the apex of the HugMesh role hierarchy: SUPERADMIN > ADMIN > MOD > USER).
  *
  * Applied to routes whose consequences are cross-domain or irreversible:
  * - `/admin/device-licenses` — mutates the cross-domain device-ownership and SSH-operate-license registry.

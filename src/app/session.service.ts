@@ -1,14 +1,14 @@
 import { Injectable, signal, computed } from '@angular/core';
 
 /**
- * The session payload persisted to localStorage under the `snap.session` key.
+ * The session payload persisted to localStorage under the `hug.session` key.
  * Written by the login remote after a successful SSO callback and read by every
  * federated remote (admin-ui, admin-bff surfaces) to gate navigation. Every BFF
  * call rides the HttpOnly `bff_` cookie (`credentials: 'include'`); the gateway's
  * BffCookieToBearerWebFilter turns it into the bearer server-side, so this
  * payload no longer carries a client-held bearer token or provider credentials.
  */
-export interface SnapSession {
+export interface HugSession {
   /** Casdoor subject — unique identity string, e.g. `google:alice@gmail.com`. */
   id: string;
   /** Human-readable display name (email or Discord handle). */
@@ -22,14 +22,14 @@ export interface SnapSession {
 }
 
 /**
- * Cross-remote session store for the Snapdragon admin shell. Holds the logged-in
- * {@link SnapSession} in an Angular signal backed by `localStorage['snap.session']` and
+ * Cross-remote session store for the HugMesh admin shell. Holds the logged-in
+ * {@link HugSession} in an Angular signal backed by `localStorage['hug.session']` and
  * derives the Casdoor-style role flags the guards and components gate on.
  *
  * Because native-federation mounts each remote in its OWN Angular injector, the host
  * shell and every remote each instantiate their own `SessionService` over the SAME
  * localStorage key. Cross-instance synchronisation is achieved via:
- *  - A custom `BroadcastChannel`-style `window` event (`snap-session-change`) fired by
+ *  - A custom `BroadcastChannel`-style `window` event (`hug-session-change`) fired by
  *    whichever instance writes, so all in-page consumers (e.g. the login remote
  *    completing registration must immediately unlock the host shell's nav).
  *  - The standard `storage` event for cross-tab synchronisation.
@@ -42,12 +42,12 @@ export interface SnapSession {
 @Injectable({ providedIn: 'root' })
 export class SessionService {
   /** The localStorage key shared by every federated remote. */
-  private readonly key = 'snap.session';
+  private readonly key = 'hug.session';
   /** The in-page broadcast event name fired after every write so sibling instances reload. */
-  private readonly channel = 'snap-session-change';
+  private readonly channel = 'hug-session-change';
 
   /** The live session state. Null when logged out. */
-  readonly session = signal<SnapSession | null>(this.load());
+  readonly session = signal<HugSession | null>(this.load());
   /** True when a session is present (logged in). */
   readonly loggedIn = computed(() => this.session() !== null);
   /** True when the session carries the Casdoor `admin` role (ROLE_ADMIN). */
@@ -102,7 +102,7 @@ export class SessionService {
    * Read and parse the session from localStorage. Returns null on any parse error
    * (corrupt JSON, missing key) so callers never see an unhandled exception.
    */
-  private load(): SnapSession | null {
+  private load(): HugSession | null {
     try { const raw = localStorage.getItem(this.key); return raw ? JSON.parse(raw) : null; }
     catch { return null; }
   }
@@ -113,7 +113,7 @@ export class SessionService {
    *
    * @param s - The session payload to persist (e.g. after a successful login callback).
    */
-  set(s: SnapSession): void { localStorage.setItem(this.key, JSON.stringify(s)); this.session.set(s); this.broadcast(); }
+  set(s: HugSession): void { localStorage.setItem(this.key, JSON.stringify(s)); this.session.set(s); this.broadcast(); }
 
   /**
    * Merge a partial update into the current session (e.g. flipping
@@ -121,7 +121,7 @@ export class SessionService {
    *
    * @param p - The partial fields to merge into the current session.
    */
-  patch(p: Partial<SnapSession>): void { const s = this.session(); if (s) this.set({ ...s, ...p }); }
+  patch(p: Partial<HugSession>): void { const s = this.session(); if (s) this.set({ ...s, ...p }); }
 
   /**
    * Remove the session from localStorage, clear the signal, and broadcast. Used by the
@@ -130,7 +130,7 @@ export class SessionService {
   clear(): void { localStorage.removeItem(this.key); this.session.set(null); this.broadcast(); }
 
   /**
-   * Fire a `snap-session-change` window event so every in-page `SessionService` instance
+   * Fire a `hug-session-change` window event so every in-page `SessionService` instance
    * (host + each loaded remote) re-reads localStorage. Does nothing on SSR.
    */
   private broadcast(): void { if (typeof window !== 'undefined') window.dispatchEvent(new Event(this.channel)); }

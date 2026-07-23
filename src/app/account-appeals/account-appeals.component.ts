@@ -32,7 +32,7 @@ interface RowNote { id: string; kind: 'ok' | 'err'; text: string; }
  * admin-bff controller javadoc), so it has no business approving an appeal against one.
  */
 @Component({
-  selector: 'snap-account-appeals',
+  selector: 'hug-account-appeals',
   standalone: true,
   imports: [CommonModule],
   templateUrl: './account-appeals.component.html',

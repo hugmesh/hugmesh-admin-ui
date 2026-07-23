@@ -39,7 +39,7 @@ describe('DelegationComponent', () => {
     bff.accessRoles.and.resolveTo({ suspensions: [suspension] });
     bff.domainLocks.and.resolveTo({ domainLocks: [lock] });
     bff.namespaceAccess.and.resolveTo({
-      namespaces: ['snapdragon-pki', 'observability'],
+      namespaces: ['hugmesh-pki', 'observability'],
       grants: [{ user: 'bob', namespaces: ['observability'] }],
     });
     bff.suspendAccessRole.and.resolveTo({ suspended: suspension, suspensions: [suspension] });
@@ -47,10 +47,10 @@ describe('DelegationComponent', () => {
     bff.lockDomain.and.resolveTo({ locked: lock, domainLocks: [lock] });
     bff.unlockDomain.and.resolveTo({ domainLocks: [] });
     bff.grantNamespace.and.resolveTo({
-      namespaces: ['snapdragon-pki', 'observability'],
-      grants: [{ user: 'bob', namespaces: ['observability'] }, { user: 'eve', namespaces: ['snapdragon-pki'] }],
+      namespaces: ['hugmesh-pki', 'observability'],
+      grants: [{ user: 'bob', namespaces: ['observability'] }, { user: 'eve', namespaces: ['hugmesh-pki'] }],
     });
-    bff.revokeNamespace.and.resolveTo({ namespaces: ['snapdragon-pki', 'observability'], grants: [] });
+    bff.revokeNamespace.and.resolveTo({ namespaces: ['hugmesh-pki', 'observability'], grants: [] });
 
     await TestBed.configureTestingModule({
       imports: [DelegationComponent],
@@ -137,9 +137,9 @@ describe('DelegationComponent', () => {
       await init();
       component.select('namespaces');
       component.nsUser = '  EVE  ';
-      component.nsNamespace = 'snapdragon-pki';
+      component.nsNamespace = 'hugmesh-pki';
       await component.grantNamespace();
-      expect(bff.grantNamespace).toHaveBeenCalledWith('eve', 'snapdragon-pki');
+      expect(bff.grantNamespace).toHaveBeenCalledWith('eve', 'hugmesh-pki');
       await component.revokeNamespace('bob', 'observability');
       expect(bff.revokeNamespace).toHaveBeenCalledWith('bob', 'observability');
     });

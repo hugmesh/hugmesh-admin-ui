@@ -1,4 +1,4 @@
-# Snapdragon CI — build + push this service's container image to the in-cluster
+# HugMesh CI — build + push this service's container image to the in-cluster
 # GitLab container registry. The GitHub repo is pull-mirrored into in-cluster
 # GitLab (mirror_trigger_builds=true), so this runs on push / mirror-sync on the
 # privileged x86 runner (shell executor with docker, matching the generator CI).
@@ -7,7 +7,7 @@
 # Centralized OWASP pen-test stage (SCA + authenticated ZAP DAST baseline) pulled
 # from the generator. ONE source of truth: onboarded repos get the full harness
 # (Dependency-Check SCA + ZAP baseline + custom probes + nuclei) by extending the
-# hidden .pentest-* jobs below. See memory snapdragon-pentest-standard.
+# hidden .pentest-* jobs below. See memory hugmesh-pentest-standard.
 include:
   - project: 'Snapdragon-Systems/snapdragon-generator'
     ref: main

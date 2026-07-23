@@ -27,7 +27,7 @@ const fixturePhones = (): PhoneDevice[] => [
     enterpriseProfileUserId: 10,
     enterpriseProfileCredentialCustody: 'custody-device',
     attestationUrl: 'https://attestsrv.example',
-    auditorPackage: 'systems.snapdragon.auditor',
+    auditorPackage: 'systems.hugmesh.auditor',
     attestationVerdict: 'verified',
     // MANAGED + unlocked: the Lock control is enabled for this row.
     managementMode: 'mesh_owned',
@@ -214,7 +214,7 @@ describe('PhoneFleetComponent', () => {
     expect(text).toContain('10');               // userId
     // Attestation block.
     expect(text).toContain('https://attestsrv.example'); // attestationUrl (was never uniquely asserted)
-    expect(text).toContain('systems.snapdragon.auditor'); // auditorPackage
+    expect(text).toContain('systems.hugmesh.auditor'); // auditorPackage
     expect(text).toContain('verified');         // verdict
     // MDM-enrolment block (phone-ingest/v2 fold).
     const mdmBlock = detail.querySelector('[data-block="mdm"]')!;

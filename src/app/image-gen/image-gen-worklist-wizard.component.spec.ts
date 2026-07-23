@@ -52,7 +52,7 @@ describe('ImageGenWorklistWizardComponent', () => {
   function configure(roles: string[] = ['admin']): void {
     // Reset first so a test may re-configure (e.g. to switch roles) within one spec.
     TestBed.resetTestingModule();
-    localStorage.setItem('snap.session', JSON.stringify({
+    localStorage.setItem('hug.session', JSON.stringify({
       id: 'x', label: 'x', provider: 'google', roles, registrationComplete: true,
     }));
     bff = jasmine.createSpyObj<BffService>('BffService', [
@@ -77,7 +77,7 @@ describe('ImageGenWorklistWizardComponent', () => {
     fixture.detectChanges();
   }
 
-  afterEach(() => localStorage.removeItem('snap.session'));
+  afterEach(() => localStorage.removeItem('hug.session'));
 
   // ── STEP NAV ──────────────────────────────────────────────────────────────
   describe('step navigation', () => {

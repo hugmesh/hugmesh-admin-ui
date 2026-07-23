@@ -8,13 +8,13 @@ describe('ArgocdDashboardComponent', () => {
   let bff: jasmine.SpyObj<BffService>;
 
   const games: ArgoApp = {
-    name: 'games', project: 'snapdragon', namespace: 'snapdragon-games',
+    name: 'games', project: 'hugmesh', namespace: 'hugmesh-games',
     syncStatus: 'OutOfSync', health: 'Degraded', revision: 'abc123',
   };
   const detail: ArgoAppDetail = {
     app: games,
     resourceTree: { nodes: [{
-      group: 'apps', kind: 'Deployment', namespace: 'snapdragon-games', name: 'games',
+      group: 'apps', kind: 'Deployment', namespace: 'hugmesh-games', name: 'games',
       version: 'v1', syncStatus: '', health: 'Degraded', parentRefs: [],
     }] },
     message: 'replicas unavailable',

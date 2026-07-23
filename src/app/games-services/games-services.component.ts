@@ -10,7 +10,7 @@ import {
 import { SessionService } from '../session.service';
 
 /**
- * Games app-store operator console (own repo: snapdragon-admin-ui) — the games-services
+ * Games app-store operator console (own repo: hugmesh-admin-ui) — the games-services
  * control-plane operator UI mounted at /admin/games-services (route-guarded by
  * {@link gamesServicesGuard}). Reachable by a games-services ADMIN or RUNNER.
  *
@@ -28,7 +28,7 @@ import { SessionService } from '../session.service';
  * in a role=alert live region.
  */
 @Component({
-  selector: 'snap-games-services',
+  selector: 'hug-games-services',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './games-services.component.html',

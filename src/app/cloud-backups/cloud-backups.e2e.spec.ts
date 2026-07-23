@@ -16,7 +16,7 @@ import { SessionService } from '../session.service';
  * These drive the REAL components through the REAL CloudBackupsService, with ONLY
  * `fetch` stubbed at the network edge — so the whole stack below the view
  * (view → service → exact bff path/body/header) is exercised against the
- * snapdragon-admin-bff-api `cloudbackup` PR #74 contract, not a mocked service.
+ * hugmesh-admin-bff-api `cloudbackup` PR #74 contract, not a mocked service.
  *
  * A backing in-memory "bff" stores created sets and enforces the restore step-up
  * exactly like the bff's A5-unified BackupStepUpGate: a restore is refused (403
@@ -136,7 +136,7 @@ describe('FEATURE: Admin cloud-backup + step-up restore (e2e)', () => {
 
   beforeEach(() => {
     localStorage.clear();
-    localStorage.setItem('snap.session', JSON.stringify({ roles: [] }));
+    localStorage.setItem('hug.session', JSON.stringify({ roles: [] }));
     bffSets = [];
     mfaFresh = false;
     fetchSpy = spyOn(globalThis, 'fetch');
