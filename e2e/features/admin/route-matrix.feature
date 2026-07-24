@@ -78,6 +78,10 @@ Feature: Per-role route matrix — every admin route, every persona, ALLOW or bo
       | /admin/node-storage   | sees the "storage-pools-view" console             | sees the "storage-pools-view" console             |
       | /admin/oidc-providers | sees the "oidc-provider-roles-view" console       | sees the "oidc-provider-roles-view" console       |
       | /admin/desktop        | sees the "desktop-governance-view" console        | sees the "desktop-governance-view" console        |
+      | /admin/security       | sees the "mfa-security-view" console              | sees the "mfa-security-view" console              |
+      | /admin/account-appeals | sees the "account-appeals-view" console          | sees the "account-appeals-view" console           |
+      | /admin/device-radios  | sees the "device-radios-view" console             | sees the "device-radios-view" console             |
+      | /admin/domain-capabilities | sees the "domain-capabilities-view" console  | sees the "domain-capabilities-view" console       |
 
     # ── superadminGuard consoles: only superadmin renders; admin bounces ─────
     Examples:

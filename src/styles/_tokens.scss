@@ -6,6 +6,11 @@ $muted:    #777777;
 $light:    #bbbbbb;
 $offwhite: #e8e8e8;
 
+// HOST-LEGACY gold accents (canonical branding rule: neon gold is HOST-SHELL
+// chrome only; remotes style exclusively with the runtime --hug-* contract in
+// src/styles.scss). Kept ONLY because styles/_mixins.scss' card/glass mixins —
+// consumed by the admin landing console — still reference them; do NOT reach
+// for these in new component styles.
 $neon:        #ffd700;
 $neon-bright: #ffe566;
 $neon-dim:    #cc9900;
@@ -18,7 +23,11 @@ $pastel-lemon:    #fdffb6;
 $pastel-peach:    #ffd6a5;
 
 $font-sans:  Arial, Helvetica, sans-serif;
-$font-mono:  $font-sans;
+// Real monospace stack (branding baseline; precedent: service-catalog-profiles'
+// ui-monospace workaround). This console is full of hand-transcribed strings —
+// MFA setup keys, recovery codes, SSH fingerprints — that need genuine mono
+// glyphs; the old `$font-sans` alias silently rendered them proportional.
+$font-mono:  ui-monospace, 'Cascadia Mono', 'Courier New', monospace;
 $font-fancy: $font-sans;
 
 $radius-sm:   0.5rem;

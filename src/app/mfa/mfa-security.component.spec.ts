@@ -143,4 +143,52 @@ describe('MfaSecurityComponent', () => {
     component.cancelEnroll();
     expect(component.view()).toBe('list');
   });
+
+  // ── --hug-* palette regression guard ─────────────────────────────────────────
+  // mfa.component.scss (shared by this console AND the inline step-up dialog)
+  // was once written against a --snap-color-* token family defined NOWHERE in
+  // the fleet, so every value collapsed to its light-theme fallback: #fff button
+  // surfaces under the shell's near-white inherited --hug-text — white-on-white
+  // controls on a security-critical surface. These assertions resolve the REAL
+  // computed colors against the :root --hug-* contract (karma loads
+  // src/styles.scss, same as the app), so a reintroduced foreign token family —
+  // whose var() lookups would miss and re-fire light fallbacks — fails here.
+  describe('renders on the --hug-* palette (no foreign token families)', () => {
+    /** The computed style of the first element matching a testid. */
+    function styleOf(testid: string): CSSStyleDeclaration {
+      const el = fixture.nativeElement.querySelector(`[data-testid="${testid}"]`) as HTMLElement;
+      expect(el).withContext(`${testid} must render`).not.toBeNull();
+      return getComputedStyle(el);
+    }
+
+    it('the :root --hug-* contract is actually loaded (guard premise)', () => {
+      const accent = getComputedStyle(document.documentElement).getPropertyValue('--hug-accent').trim();
+      expect(accent).withContext('src/styles.scss must define the --hug-* contract').toBe('#7c4dff');
+    });
+
+    it('primary buttons carry the --hug-accent background with --hug-text labels', () => {
+      const s = styleOf('mfa-security-add'); // .mfa-btn.primary
+      expect(s.backgroundColor).toBe('rgb(124, 77, 255)'); // --hug-accent
+      expect(s.color).toBe('rgb(232, 232, 240)'); // --hug-text
+    });
+
+    it('plain buttons sit on the --hug-bg-1 panel tone — never a light fallback', () => {
+      const s = styleOf('mfa-security-regenerate'); // .mfa-btn
+      expect(s.backgroundColor).toBe('rgb(18, 18, 30)'); // --hug-bg-1
+      expect(s.color).toBe('rgb(232, 232, 240)'); // --hug-text (was: unset over #fff)
+    });
+
+    it('the setup key / recovery codes render in the real brand mono stack', async () => {
+      // Enroll to the totp-show step so the mfa-secret <code> exists.
+      mfa.enrollTotp.and.resolveTo(ok({ factorId: 'f-mono', secret: 'S3CRET', otpauthUri: 'otpauth://totp/x?secret=S3CRET' }));
+      component.startEnroll();
+      await component.startTotp();
+      fixture.detectChanges();
+      const s = styleOf('mfa-secret');
+      // $font-mono must be a REAL monospace stack (branding baseline), not the
+      // old Arial alias.
+      expect(s.fontFamily).toContain('monospace');
+      expect(s.fontFamily.toLowerCase()).not.toContain('arial');
+    });
+  });
 });
