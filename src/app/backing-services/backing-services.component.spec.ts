@@ -121,8 +121,11 @@ describe('BackingServicesComponent', () => {
     await component.save();
     fixture.detectChanges();
 
+    // 4th arg = the retry header the token would ride; with no prior step-up rejection it is the
+    // compile-time gate constant, i.e. byte-identical to the pre-signal behaviour.
     expect(api.setMode).toHaveBeenCalledWith('postgres-admin-bff',
-      jasmine.objectContaining({ mode: 'managed', endpoint: 'db.rds.amazonaws.com:5432' }), undefined);
+      jasmine.objectContaining({ mode: 'managed', endpoint: 'db.rds.amazonaws.com:5432' }),
+      undefined, 'X-BackingServices-StepUp');
     expect(component.editing()).toBeNull();
     expect(el().querySelector('[data-testid="backing-services-notice"]')!.textContent).toContain('managed');
   });
@@ -142,6 +145,73 @@ describe('BackingServicesComponent', () => {
     expect(el().querySelector('[data-testid="backing-services-stepup"]')).not.toBeNull();
     expect(el().querySelector('[data-testid="backing-services-form-error"]')!.textContent)
       .toContain('step-up');
+  });
+
+  it('retries the token on the header the SERVER named, and shows that name to the operator', async () => {
+    // The end-to-end proof of the self-describing signal: the server advertises a flavour, the
+    // console remembers it, tells the operator which header the token rides, and sends it there —
+    // no client-side flavour table, so a gate that changes its header needs no UI release.
+    api.getCatalog.and.resolveTo(catalog());
+    await boot();
+    component.startEdit(component.services()[0]);
+    component.mode.set('managed');
+    component.endpoint.set('db.rds:5432');
+    api.setMode.and.rejectWith(new BackingServiceApiError(403,
+      'this change needs a second factor', 'X-Renamed-StepUp'));
+
+    await component.save();
+    fixture.detectChanges();
+
+    expect(component.stepUpRequired()).toBeTrue();
+    expect(component.stepUpRetryHeader()).toBe('X-Renamed-StepUp');
+    expect(el().querySelector('[data-testid="backing-services-stepup-header"]')!.textContent)
+      .toContain('X-Renamed-StepUp');
+
+    // ...and the operator's retry puts the token on exactly that header.
+    api.setMode.calls.reset();
+    api.setMode.and.resolveTo({
+      id: 'bsm-1', serviceId: 'postgres-admin-bff', mode: 'managed', endpoint: 'db.rds:5432',
+      credsRef: null, requestedBySubject: 'root', createdAt: 'T', generation: 1,
+    });
+    component.stepUpToken.set('tok-77');
+    await component.save();
+
+    expect(api.setMode).toHaveBeenCalledWith('postgres-admin-bff',
+      jasmine.objectContaining({ mode: 'managed' }), 'tok-77', 'X-Renamed-StepUp');
+  });
+
+  it('falls back to the gate constant when an OLD bff advertises no flavour', async () => {
+    api.getCatalog.and.resolveTo(catalog());
+    await boot();
+    component.startEdit(component.services()[0]);
+    component.mode.set('managed');
+    component.endpoint.set('db.rds:5432');
+    // No signal header — detection is the legacy phrase, and the header stays the constant.
+    api.setMode.and.rejectWith(new BackingServiceApiError(403,
+      'changing a backing-service mode requires step-up re-authentication (present X-BackingServices-StepUp)'));
+
+    await component.save();
+    fixture.detectChanges();
+
+    expect(component.stepUpRequired()).toBeTrue();
+    expect(component.stepUpRetryHeader()).toBe('X-BackingServices-StepUp');
+  });
+
+  it('does not carry a previous row\'s advertised flavour into a fresh edit', async () => {
+    api.getCatalog.and.resolveTo(catalog());
+    await boot();
+    component.startEdit(component.services()[0]);
+    component.mode.set('managed');
+    component.endpoint.set('db.rds:5432');
+    api.setMode.and.rejectWith(new BackingServiceApiError(403, 'needs a second factor',
+      'X-Renamed-StepUp'));
+    await component.save();
+    expect(component.stepUpRetryHeader()).toBe('X-Renamed-StepUp');
+
+    component.startEdit(component.services()[0]);
+
+    expect(component.stepUpRetryHeader()).toBe('X-BackingServices-StepUp');
+    expect(component.stepUpRequired()).toBeFalse();
   });
 
   it('shows the ships-dark note when the feature is disabled', async () => {

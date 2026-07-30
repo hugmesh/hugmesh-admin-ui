@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { SessionService } from './session.service';
+import { BffHttpError, STEP_UP_SIGNAL_HEADER } from './mfa/step-up-error';
 
 const CFG = {
   // Bare references (no globalThis/typeof guard) throw ReferenceError: nothing
@@ -126,7 +127,7 @@ export class BffService {
     const r = await fetch(
       `${CFG.bff}/bff/admin/access-roles/${encodeURIComponent(role)}/${encodeURIComponent(user)}`, init);
     if (r.ok) return r.json();
-    throw new Error(await this.errorOf(r));
+    throw await this.bffError(r);
   }
 
   /** All active domain-locks (force local-only markers). */
@@ -152,7 +153,7 @@ export class BffService {
     const r = await fetch(
       `${CFG.bff}/bff/admin/domain-lock/${encodeURIComponent(role)}/${encodeURIComponent(user)}`, init);
     if (r.ok) return r.json();
-    throw new Error(await this.errorOf(r));
+    throw await this.bffError(r);
   }
 
   /** Extract the BFF's {error} message (string or object) for a thrown rejection. Falls back to
@@ -162,6 +163,34 @@ export class BffService {
     const body = await r.json().catch(() => ({}));
     const err = body.error ?? body.note ?? `HTTP ${r.status}`;
     return typeof err === 'string' ? err : JSON.stringify(err);
+  }
+
+  /**
+   * The rejection every non-2xx throws. A {@link BffHttpError} is an `Error` whose `message` is
+   * still exactly {@link errorOf}'s text, so nothing that reads `e.message` changes — but it ALSO
+   * carries the status and the `X-Step-Up-Required` response header. Without that, the step-up
+   * signal would be unreachable: a bare `new Error(text)` discards the whole `Response`, which is
+   * why the old contract had to be a substring match on the message.
+   *
+   * <p>ONE deliberate behaviour change came with routing everything here. Nine sites previously
+   * inlined ``(await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}` `` — runTestReport,
+   * triggerImageBuild, submitWorklistBatch, forumSend, licenseMutation, registerFromPending,
+   * postJob, workloadLifecycle, workloadMutate. They now get {@link errorOf}'s extra `body.note`
+   * step, so a dark `{dark:true, note:"…"}` body surfaces the note instead of "HTTP 503". `note` is
+   * only read when `error` is ABSENT, so no site's normal message moves. Pinned in
+   * `bff.service.step-up-signal.spec.ts` ("surfaces {note} at a site that previously fell straight
+   * through to HTTP <status>").
+   *
+   * @see stepUpRequirementOf
+   */
+  private async bffError(r: Response): Promise<BffHttpError> {
+    // Read the header BEFORE the body: errorOf() consumes the stream.
+    // `r.headers?.` is deliberate, not defensive noise: a real `Response` always has `headers`,
+    // but a stubbed/partial response object (specs, a fetch polyfill, an interceptor) may not,
+    // and losing the flavour must degrade to the legacy-phrase fallback — never throw a
+    // TypeError that replaces the server's real error message.
+    const signal = r.headers?.get(STEP_UP_SIGNAL_HEADER) ?? null;
+    return new BffHttpError(await this.errorOf(r), r.status, signal);
   }
 
   // ── ACCOUNT-BAN appeal inbox (ADMIN/SUPERADMIN, admin-bff /bff/admin/account-appeals) ──
@@ -193,7 +222,7 @@ export class BffService {
       `${CFG.bff}/bff/admin/account-appeals/${encodeURIComponent(id)}/decide?status=${encodeURIComponent(status)}`,
       { method: 'POST', credentials: 'include' });
     if (r.ok) return r.json();
-    throw new Error(await this.errorOf(r));
+    throw await this.bffError(r);
   }
 
   // ── Appeals adjudication / moderation DECIDE (ADMIN-only, decide-proxy) ──
@@ -224,7 +253,7 @@ export class BffService {
       `${CFG.bff}/bff/admin/moderation/${encodeURIComponent(String(id))}/decide?approve=${approve}`,
       { method: 'POST', credentials: 'include' });
     if (r.ok) return r.json();
-    throw new Error(await this.errorOf(r));
+    throw await this.bffError(r);
   }
 
   // ── Per-gateway role->URL external access rules ──────────────────
@@ -410,8 +439,7 @@ export class BffService {
       body: JSON.stringify(req),
     });
     if (r.ok) return r.json();
-    const err = (await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`;
-    throw new Error(err);
+    throw await this.bffError(r);
   }
 
   /**
@@ -517,8 +545,7 @@ export class BffService {
       method: 'POST', headers, credentials: 'include', body: JSON.stringify(req),
     });
     if (r.ok) return r.json();
-    const err = (await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`;
-    throw new Error(err);
+    throw await this.bffError(r);
   }
 
   /**
@@ -540,8 +567,7 @@ export class BffService {
       method: 'POST', headers, credentials: 'include', body: JSON.stringify(req),
     });
     if (r.ok) return r.json();
-    const err = (await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`;
-    throw new Error(err);
+    throw await this.bffError(r);
   }
 
   /**
@@ -605,7 +631,7 @@ export class BffService {
     const headers: Record<string, string> = { accept: 'application/gzip' };
     if (stepUpToken) headers['X-ImageGen-StepUp'] = stepUpToken;
     const r = await fetch(`${CFG.bff}/bff/admin/image-builds/${encodeURIComponent(id)}/keys`, { headers, credentials: 'include' });
-    if (!r.ok) throw new Error(await this.errorOf(r));
+    if (!r.ok) throw await this.bffError(r);
     return this.saveBlob(await r.blob(), `hugmesh-keys-${id.replace(/[^A-Za-z0-9._-]/g, '_')}.tar.gz`);
   }
 
@@ -694,8 +720,7 @@ export class BffService {
     }
     const r = await fetch(`${CFG.bff}/bff/admin/forum${path}`, init);
     if (r.ok) return r.json();
-    const err = (await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`;
-    throw new Error(err);
+    throw await this.bffError(r);
   }
 
   // ── Device-license registry console (SUPERADMIN-only, BFF /bff/admin/device-licenses) ──
@@ -744,8 +769,7 @@ export class BffService {
     }
     const r = await fetch(`${CFG.bff}${path}`, init);
     if (r.ok) return (await r.json()).devices ?? [];
-    const err = (await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`;
-    throw new Error(err);
+    throw await this.bffError(r);
   }
 
   // ── SSH key-ISSUANCE console (SUPERADMIN-only mutations, BFF /bff/admin/ssh-issue) ──
@@ -757,8 +781,10 @@ export class BffService {
   // revoke and shows a notice when false, mirroring image-gen's capability-gate posture.
   // Every mutating verb requires a fresh step-up: EITHER the X-SshKeyIssue-StepUp header OR
   // (once wired) a fresh Casdoor-MFA stamp on the caller's own session (the A5 UNIFIED
-  // step-up already implemented server-side by SshKeyIssueStepUpGate) — a 403 whose message
-  // contains "requires step-up" is the shared `isStepUpRequiredError` contract. Endpoints
+  // step-up already implemented server-side by SshKeyIssueStepUpGate). Detection is the shared
+  // `isStepUpRequiredError` contract: the BFF's `X-Step-Up-Required` response header (lifted onto
+  // the thrown error by {@link bffError}), with the legacy "requires step-up" message substring
+  // kept only as a fallback for a not-yet-rolled-out BFF. Endpoints
   // (admin-bff AdminSshKeyIssuanceController):
   //   GET    /bff/admin/ssh-issue/devices/{deviceId}/issued-keys → { deviceId, enabled, issuedKeys }
   //   POST   /bff/admin/ssh-issue/issue?deviceId=                → SshIssueResult (X-SshKeyIssue-StepUp)
@@ -784,7 +810,7 @@ export class BffService {
     const r = await fetch(`${CFG.bff}/bff/admin/ssh-issue/issue?deviceId=${encodeURIComponent(deviceId)}`,
       { method: 'POST', headers, credentials: 'include' });
     if (r.ok) return r.json();
-    throw new Error(await this.errorOf(r));
+    throw await this.bffError(r);
   }
 
   /** Download an issued credential's ONE-TIME private key (SUPERADMIN-only, step-up gated).
@@ -797,7 +823,7 @@ export class BffService {
     if (stepUpToken) headers['X-SshKeyIssue-StepUp'] = stepUpToken;
     const r = await fetch(`${CFG.bff}/bff/admin/ssh-issue/issued/${encodeURIComponent(issuedKeyId)}/private-key`,
       { headers, credentials: 'include' });
-    if (!r.ok) throw new Error(await this.errorOf(r));
+    if (!r.ok) throw await this.bffError(r);
     return this.saveBlob(await r.blob(), `hugmesh-ssh-${issuedKeyId.replace(/[^A-Za-z0-9._-]/g, '_')}`);
   }
 
@@ -810,7 +836,7 @@ export class BffService {
     const r = await fetch(`${CFG.bff}/bff/admin/ssh-issue/issued/${encodeURIComponent(issuedKeyId)}`,
       { method: 'DELETE', headers, credentials: 'include' });
     if (r.ok) return r.json();
-    throw new Error(await this.errorOf(r));
+    throw await this.bffError(r);
   }
 
   // ── Device PENDING pick-list (machine_key_fp AUTO-CAPTURE; SUPERADMIN assigns) ──
@@ -844,8 +870,7 @@ export class BffService {
       body: JSON.stringify(input),
     });
     if (r.ok) return (await r.json()) as DeviceRegistration;
-    const err = (await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`;
-    throw new Error(err);
+    throw await this.bffError(r);
   }
 
   // ── Egress-VPN console (SUPERADMIN-only, BFF /bff/admin/egress-vpn) ────────────
@@ -880,7 +905,7 @@ export class BffService {
       body: JSON.stringify(req),
     });
     if (r.ok) return r.json();
-    throw new Error(await this.errorOf(r));
+    throw await this.bffError(r);
   }
 
   /** Revoke a config (CAS — never deleted; cascade-revokes its assignments). */
@@ -916,13 +941,13 @@ export class BffService {
       body: JSON.stringify(body),
     });
     if (r.ok) return r.json();
-    throw new Error(await this.errorOf(r));
+    throw await this.bffError(r);
   }
 
   private async vpnRevoke(path: string): Promise<number> {
     const r = await fetch(`${CFG.bff}${path}`, { method: 'DELETE', credentials: 'include' });
     if (r.ok) return (await r.json()).revoked ?? 0;
-    throw new Error(await this.errorOf(r));
+    throw await this.bffError(r);
   }
 
   // ── Domain registry console (SUPERADMIN-only, BFF /bff/admin/domains) ──────────
@@ -952,7 +977,7 @@ export class BffService {
       body: JSON.stringify(req),
     });
     if (r.ok) return r.json();
-    throw new Error(await this.errorOf(r));
+    throw await this.bffError(r);
   }
 
   private async postJob(path: string, body: unknown): Promise<StartJobResult> {
@@ -961,8 +986,7 @@ export class BffService {
       body: JSON.stringify(body),
     });
     if (r.ok) return r.json();
-    const err = (await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`;
-    throw new Error(err);
+    throw await this.bffError(r);
   }
 
   /**
@@ -1077,7 +1101,7 @@ export class BffService {
     }
     const r = await fetch(`${CFG.bff}${path}`, init);
     if (r.ok) return r.json() as Promise<T>;
-    throw new Error(await this.errorOf(r));
+    throw await this.bffError(r);
   }
 
   // ── Node-radio console (ADMIN-capable, BFF /bff/admin/device-radios) ───────
@@ -1124,7 +1148,7 @@ export class BffService {
     }
     const r = await fetch(`${CFG.bff}${path}`, init);
     if (r.ok) return r.json() as Promise<T>;
-    throw new Error(await this.errorOf(r));
+    throw await this.bffError(r);
   }
 
   // ── Domain capabilities (per-domain capability gate, BFF /bff/admin/domain-capabilities) ──
@@ -1177,7 +1201,7 @@ export class BffService {
     }
     const r = await fetch(`${CFG.bff}${path}`, init);
     if (r.ok) return r.json() as Promise<T>;
-    throw new Error(await this.errorOf(r));
+    throw await this.bffError(r);
   }
 
   // ── Games app-store (games-services control plane) ──────────────────────────
@@ -1209,7 +1233,7 @@ export class BffService {
       body: JSON.stringify(req),
     });
     if (r.ok) return r.json();
-    throw new Error(await this.errorOf(r));
+    throw await this.bffError(r);
   }
 
   /** Run/stop transition (suspend | resume | terminate). Returns the updated row. */
@@ -1218,7 +1242,7 @@ export class BffService {
       `${CFG.bff}/bff/games-services/instances/${encodeURIComponent(id)}/${action}`,
       { method: 'POST', credentials: 'include' });
     if (r.ok) return r.json();
-    throw new Error(await this.errorOf(r));
+    throw await this.bffError(r);
   }
 
   // ── Anubis bot-challenge sidecar (SUPERADMIN only) ────────────────────────
@@ -1359,7 +1383,7 @@ export class BffService {
     const r = await fetch(
       `${CFG.bff}/bff/superadmin/workloads/lifecycle/${encodeURIComponent(namespace)}/${encodeURIComponent(workload)}/${encodeURIComponent(verb)}`,
       { method: 'POST', headers, credentials: 'include', body: JSON.stringify(body) });
-    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`);
+    if (!r.ok) throw await this.bffError(r);
     return r.json();
   }
 
@@ -1409,7 +1433,7 @@ export class BffService {
       init.body = JSON.stringify(body);
     }
     const r = await fetch(`${CFG.bff}${path}`, init);
-    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? `HTTP ${r.status}`);
+    if (!r.ok) throw await this.bffError(r);
     return r.json().catch(() => ({} as T));
   }
 
@@ -1538,7 +1562,7 @@ export class BffService {
       body: JSON.stringify({ deviceId, appRef }),
     });
     if (r.ok) return r.text();
-    throw new Error(await this.errorOf(r));
+    throw await this.bffError(r);
   }
 
   /** Open (authorize) an in-UI SSH-terminal session for {@code deviceId}. SCAFFOLD — the
@@ -1552,7 +1576,7 @@ export class BffService {
       `${CFG.bff}/bff/admin/desktop/ssh-terminal/sessions?deviceId=${encodeURIComponent(deviceId)}`,
       { method: 'POST', credentials: 'include' });
     if (r.ok) return r.json();
-    throw new Error(await this.errorOf(r));
+    throw await this.bffError(r);
   }
 
   // ── SSH DIAL management (SUPERADMIN-only, /bff/superadmin/desktop/dials) ──
@@ -1607,7 +1631,7 @@ export class BffService {
       headers: { 'X-Device-Terminal-StepUp': stepUpToken }, credentials: 'include',
     });
     if (r.ok) return r.json();
-    throw new Error(await this.errorOf(r));
+    throw await this.bffError(r);
   }
 
   // ── Phone fleet (SUPERADMIN-only READ-ONLY, BFF /bff/superadmin/phone-devices) ──
@@ -1638,9 +1662,9 @@ export class BffService {
 
   // ── Phone device-management + lockout MUTATIONS (SUPERADMIN + step-up) ──────────
   // Distinct from the fail-soft reads above: these THROW on a non-2xx (like every other
-  // mutation in this service), so a step-up-required 403 surfaces its "requires step-up"
-  // message verbatim (via {@link errorOf}) for {@link isStepUpRequiredError} to detect and
-  // offer the inline MFA dialog — mirroring the ssh-issuance verbs. The optional step-up
+  // mutation in this service) via {@link bffError}, so a step-up-required 403 reaches
+  // {@link isStepUpRequiredError} with BOTH its `X-Step-Up-Required` signal header and its
+  // message verbatim, and the inline MFA dialog is offered — mirroring the ssh-issuance verbs. The optional step-up
   // token rides the X-PhoneLock-StepUp header (the BFF's PhoneLockStepUpGate); each returns
   // the UPDATED PhoneDevice so the console can swap the row in place. Endpoints (admin-bff
   // PhoneFleetSuperadminController, all under /bff/superadmin/phone-devices/{deviceId}):
@@ -1682,7 +1706,7 @@ export class BffService {
     if (body !== undefined) init.body = JSON.stringify(body);
     const r = await fetch(`${CFG.bff}${path}`, init);
     if (r.ok) return r.json();
-    throw new Error(await this.errorOf(r));
+    throw await this.bffError(r);
   }
 
   // ── Fleet-OWNER surface (PUBLIC fe-gateway, non-superadmin FLEET_ADMIN/ADMIN) ──────
@@ -1692,8 +1716,8 @@ export class BffService {
   // domain; a superadmin is unscoped). A fleet owner may lock/unlock an already-owned,
   // already-managed device — but can NEVER mark-managed or assign an owner (those are
   // SUPERADMIN provisioning). The lock/unlock mutations reuse the SAME X-PhoneLock-StepUp
-  // step-up posture as the superadmin plane (via {@link phoneLockMutate}), so a
-  // "requires step-up" 403 surfaces verbatim for {@link isStepUpRequiredError}. Endpoints
+  // step-up posture as the superadmin plane (via {@link phoneLockMutate}), so a step-up 403
+  // reaches {@link isStepUpRequiredError} with its signal header + message. Endpoints
   // (admin-bff PhoneFleetOwnerController):
   //   GET  /bff/admin/phone-fleet              → { phones } (own+own-domain; superadmin: all)
   //   GET  /bff/admin/phone-fleet/{deviceId}   → PhoneDevice (404 if not owned-in-domain)
@@ -1747,7 +1771,8 @@ export class BffService {
   // non-superadmin FLEET_ADMIN may reach the public owner surface. GET list is a plain
   // SUPERADMIN read (fail-soft []); the two MUTATIONS (PUT upsert / DELETE revoke) require
   // step-up (X-PhoneLock-StepUp OR a fresh Casdoor-MFA stamp) and THROW the BFF {error} on a
-  // non-2xx so a "requires step-up" 403 surfaces for {@link isStepUpRequiredError}. Endpoints
+  // non-2xx so a step-up 403 reaches {@link isStepUpRequiredError} with its signal header.
+  // Endpoints
   // (admin-bff FleetEntitlementSuperadminController):
   //   GET    /bff/superadmin/fleet-entitlements          → { entitlements:[FleetEntitlement] }
   //   PUT    /bff/superadmin/fleet-entitlements/{subject} {active?, seats?, expiresAt?} → FleetEntitlement
@@ -1774,7 +1799,7 @@ export class BffService {
       method: 'PUT', headers, credentials: 'include', body: JSON.stringify(body),
     });
     if (r.ok) return r.json();
-    throw new Error(await this.errorOf(r));
+    throw await this.bffError(r);
   }
 
   /** Revoke a subject's fleet-admin entitlement (SUPERADMIN + step-up). Throws the BFF {error}
@@ -1786,7 +1811,7 @@ export class BffService {
       method: 'DELETE', headers, credentials: 'include',
     });
     if (r.ok) return r.json();
-    throw new Error(await this.errorOf(r));
+    throw await this.bffError(r);
   }
 }
 

@@ -1,4 +1,10 @@
 import { Injectable, InjectionToken, inject } from '@angular/core';
+import {
+  BffHttpError,
+  STEP_UP_SIGNAL_HEADER,
+  isStepUpRequiredError,
+  stepUpRetryHeaderOf,
+} from '../mfa/step-up-error';
 
 /** Base URL of the admin BFF. The fe-gateway proxies same-origin /bff/** to
  *  snapdragon-admin-bff-api, so the default is the empty string = same origin.
@@ -68,15 +74,25 @@ export interface RecordedMode {
   note?: string;
 }
 
+/**
+ * The gate's retry-header name — the compile-time FALLBACK used when the server did not advertise
+ * one (an admin-bff older than the structured signal). Matches
+ * `BackingServiceStepUpGate.STEP_UP_HEADER`.
+ */
+export const BACKING_SERVICES_STEP_UP_HEADER = 'X-BackingServices-StepUp';
+
 /** A typed error so components surface the EXACT failure the bff returned. The bff is the
  *  AUTHORITATIVE gate (UI gating is convenience), so components key off `isStepUpRequired`
- *  (prompt for step-up), `isDocsOnly` (tier-3 refusal), and `isDark` (feature ships dark). */
-export class BackingServiceApiError extends Error {
-  constructor(
-    readonly status: number,
-    message: string,
-  ) {
-    super(message);
+ *  (prompt for step-up), `isDocsOnly` (tier-3 refusal), and `isDark` (feature ships dark).
+ *
+ *  Extends {@link BffHttpError} so this hand-written client is a first-class participant in the
+ *  SHARED step-up contract rather than a private re-implementation of it: it carries the
+ *  `X-Step-Up-Required` response header, and `isStepUpRequired`/`stepUpRetryHeader` delegate to
+ *  `mfa/step-up-error`. `status`, `message` and `instanceof BackingServiceApiError` are unchanged
+ *  for every existing caller. */
+export class BackingServiceApiError extends BffHttpError {
+  constructor(status: number, message: string, stepUpSignal: string | null = null) {
+    super(message, status, stepUpSignal);
     this.name = 'BackingServiceApiError';
   }
   /** A 401 — unauthenticated (no/expired bff token). */
@@ -87,11 +103,26 @@ export class BackingServiceApiError extends Error {
   get isForbidden(): boolean {
     return this.status === 403;
   }
-  /** A 403 whose server message names the step-up requirement (BackingServiceStepUpGate).
-   *  Distinct from a plain role 403 so the UI can prompt for a step-up token rather than say
-   *  "you lack the role". */
+  /** A step-up-required 403 (BackingServiceStepUpGate), distinct from a plain role 403 so the UI
+   *  can prompt for a token rather than say "you lack the role".
+   *
+   *  Delegates to the SHARED detector: the `X-Step-Up-Required` response header first, the
+   *  `/requires step-up/i` message fallback second. This used to be a private `/step-up/i` sniff,
+   *  which was both blind to the structured signal AND looser than the shared contract — loose
+   *  enough to match a step-up MINT denial ("step-up denied: operator holds no active SSH
+   *  license"), i.e. to tell an operator to paste a token when they actually lack a licence. */
   get isStepUpRequired(): boolean {
-    return this.status === 403 && /step-up/i.test(this.message);
+    return isStepUpRequiredError(this);
+  }
+
+  /**
+   * The request-header name the step-up token must ride on when retrying — taken from the server's
+   * own signal, so a gate that changes flavour needs no client change. `null` when the server did
+   * not advertise one (an older admin-bff); the caller then falls back to
+   * {@link BACKING_SERVICES_STEP_UP_HEADER}.
+   */
+  get stepUpRetryHeader(): string | null {
+    return stepUpRetryHeaderOf(this);
   }
   /** A 409 — a tier-3 DOCS-ONLY service refusing a mode change (the managed swap is
    *  architecturally blocked and ships as docs, not code). */
@@ -163,7 +194,12 @@ export class BackingServicesService {
       } catch {
         /* ignore */
       }
-      throw new BackingServiceApiError(r.status, detail || `${method} ${path} failed: ${r.status}`);
+      // `r.headers?.` deliberately optional: a real Response always has headers, but a stubbed or
+      // polyfilled one may not, and losing the flavour must degrade to the message fallback rather
+      // than throw a TypeError that replaces the server's real error.
+      const signal = r.headers?.get(STEP_UP_SIGNAL_HEADER) ?? null;
+      throw new BackingServiceApiError(
+        r.status, detail || `${method} ${path} failed: ${r.status}`, signal);
     }
     if (r.status === 204) return undefined as T;
     const text = await r.text();
@@ -177,17 +213,26 @@ export class BackingServicesService {
     return this.req<BackingServicesCatalog>('GET', '/bff/superadmin/backing-services');
   }
 
-  /** PUT /bff/superadmin/backing-services/{id}/mode → the recorded mode intent. The step-up
-   *  token (when supplied) rides the X-BackingServices-StepUp header; a gate-unsatisfied call is
-   *  a 403 naming step-up, a tier-3 service is a 409, and while dark it is a 503. Optional
-   *  endpoint/credsRef are omitted (not sent as empty strings) so the bff's null branches apply. */
-  setMode(id: string, body: SetModeRequest, stepUpToken?: string): Promise<RecordedMode> {
+  /** PUT /bff/superadmin/backing-services/{id}/mode → the recorded mode intent. A
+   *  gate-unsatisfied call is a step-up 403, a tier-3 service is a 409, and while dark it is a 503.
+   *  Optional endpoint/credsRef are omitted (not sent as empty strings) so the bff's null branches
+   *  apply.
+   *
+   *  The step-up token (when supplied) rides `retryHeader` — the header name the server NAMED in
+   *  its own {@link STEP_UP_SIGNAL_HEADER} rejection, which the caller reads off
+   *  {@link BackingServiceApiError.stepUpRetryHeader}. That is the whole point of a self-describing
+   *  signal: no client-side flavour table, so a gate that changes its header needs no UI release.
+   *  Falls back to {@link BACKING_SERVICES_STEP_UP_HEADER} — the previous hard-coded behaviour —
+   *  when nothing was advertised (an older admin-bff) or the token was supplied unprompted. */
+  setMode(id: string, body: SetModeRequest, stepUpToken?: string,
+          retryHeader?: string | null): Promise<RecordedMode> {
     const token = stepUpToken?.trim();
+    const header = retryHeader ?? BACKING_SERVICES_STEP_UP_HEADER;
     return this.req<RecordedMode>(
       'PUT',
       `/bff/superadmin/backing-services/${encodeURIComponent(id)}/mode`,
       this.cleanBody(body),
-      token ? { 'X-BackingServices-StepUp': token } : undefined,
+      token ? { [header]: token } : undefined,
     );
   }
 

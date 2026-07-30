@@ -135,9 +135,11 @@
             <input id="bs-stepup" name="stepUpToken" type="text" autocomplete="off"
                    [ngModel]="stepUpToken()" (ngModelChange)="stepUpToken.set($event)"
                    aria-describedby="bs-stepup-help" data-testid="backing-services-stepup"
-                   placeholder="X-BackingServices-StepUp token" />
+                   placeholder="{{ stepUpRetryHeader() }} token" />
             <span id="bs-stepup-help" class="bs-help">
-              This change requires step-up re-authentication. Paste a valid step-up token and retry.
+              This change requires step-up re-authentication. Paste a valid step-up token and retry —
+              it is sent on the <code data-testid="backing-services-stepup-header">{{ stepUpRetryHeader() }}</code> header,
+              which the server named in its rejection.
             </span>
           </div>
         }

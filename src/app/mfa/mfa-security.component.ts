@@ -32,6 +32,30 @@ type EnrollStep = 'choose' | 'totp-show' | 'recovery' | 'done' | 'dark';
  * backup restore, …), rather than login-ui's separate `/login/mfa/challenge`
  * ROUTE — this console never navigates away mid-action.
  *
+ * <p><b>WHY THIS COMPONENT DOES NOT USE THE SHARED {@code isStepUpRequiredError}
+ * HELPER.</b> It looks like an inconsistency (two step-up detection strategies in
+ * one repo) and it was reviewed as a candidate for collapsing. It must NOT be
+ * collapsed, for two independent reasons:
+ * <ol>
+ *   <li>The shared helper's legacy fallback is {@code /requires step-up/i}. This
+ *       plane's 403 message is {@code "requires a fresh MFA step-up to mutate
+ *       factors"} — which that pattern does NOT match. Routing these branches
+ *       through the helper would therefore SILENTLY STOP offering step-up on
+ *       "remove factor" and "regenerate recovery codes": a strictly worse bug
+ *       than the free-text coupling being fixed elsewhere.</li>
+ *   <li>The structured {@code X-Step-Up-Required} signal cannot be added to this
+ *       plane from this repo pair: {@code MfaEnrollmentController} ships inside
+ *       the hugmesh-auth-core JAR, a DIFFERENT repository, so its 403 carries no
+ *       signal header for the helper to prefer.</li>
+ * </ol>
+ * The bare {@code r.status === 403} branch is also SOUND here, not merely
+ * tolerated: on {@code DELETE /bff/mfa/factors/{id}} and {@code POST
+ * /bff/mfa/recovery/regenerate} the caller is ALWAYS the owner (the subject comes
+ * from the session, never the body), so there is no other authorization dimension
+ * that could produce a 403 — a 403 on these two endpoints IS the step-up gate.
+ * Unifying this belongs in hugmesh-auth-core: adopt the same signal there, then
+ * this component can switch over and pick up the flavour for free.
+ *
  * <p>SHIPS DARK: a 503 from `factors()` flips this to a terminal "MFA not
  * enabled" state so the whole surface is hidden/disabled until launch — never an
  * error.
@@ -132,6 +156,9 @@ export class MfaSecurityComponent implements OnInit {
       this.dark.set(true);
       return;
     }
+    // Bare 403, NOT the shared isStepUpRequiredError helper — see the class doc. On this
+    // endpoint 403 <=> step-up (owner is always the session subject), and the helper's phrase
+    // does not match auth-core's "requires a fresh MFA step-up to mutate factors".
     if (r.status === 403) {
       this.stepUpChallenge.set({
         description: `removing your ${this.typeLabel(f.type)}`,
@@ -156,6 +183,7 @@ export class MfaSecurityComponent implements OnInit {
       this.dark.set(true);
       return;
     }
+    // Bare 403 by design — same reasoning as remove(); see the class doc.
     if (r.status === 403) {
       this.stepUpChallenge.set({
         description: 'regenerating your recovery codes',

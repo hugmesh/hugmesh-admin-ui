@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
 import {
+  BACKING_SERVICES_STEP_UP_HEADER,
   BackingServiceApiError,
   BackingServiceMode,
   BackingServiceRow,
@@ -60,6 +61,13 @@ export class BackingServicesComponent implements OnInit {
   readonly notice = signal('');
   /** True after a step-up-required 403 — the form reveals the step-up token field + prompt. */
   readonly stepUpRequired = signal(false);
+  /**
+   * The request-header name the server NAMED in its step-up rejection, remembered across the
+   * prompt so the retry puts the operator's token on exactly that header — and so the label the
+   * operator reads is the server's answer, not a client-side guess that can go stale. Falls back to
+   * the compile-time gate constant for an admin-bff that predates the structured signal.
+   */
+  readonly stepUpRetryHeader = signal<string>(BACKING_SERVICES_STEP_UP_HEADER);
 
   readonly modes: ReadonlyArray<{ value: BackingServiceMode; label: string }> = [
     { value: 'self-hosted', label: 'Self-hosted (in-mesh, default)' },
@@ -106,6 +114,8 @@ export class BackingServicesComponent implements OnInit {
     this.formError.set('');
     this.notice.set('');
     this.stepUpRequired.set(false);
+    // Never carry a previous row's advertised flavour into a fresh edit.
+    this.stepUpRetryHeader.set(BACKING_SERVICES_STEP_UP_HEADER);
   }
 
   cancelEdit(): void {
@@ -142,6 +152,7 @@ export class BackingServicesComponent implements OnInit {
           credsRef: this.managed() ? this.credsRef().trim() || null : null,
         },
         this.stepUpToken().trim() || undefined,
+        this.stepUpRetryHeader(),
       );
       this.notice.set(`Recorded ${row.id} → ${recorded.mode}. ${recorded.note ?? ''}`.trim());
       this.stepUpRequired.set(false);
@@ -158,7 +169,10 @@ export class BackingServicesComponent implements OnInit {
   private message(e: unknown): string {
     if (e instanceof BackingServiceApiError) {
       if (e.isStepUpRequired) {
-        // Reveal the step-up field + keep the form open so the operator can supply a token.
+        // Reveal the step-up field + keep the form open so the operator can supply a token. The
+        // retry header comes from the server's own signal when it sent one (structured path); an
+        // older admin-bff sends none, so the compile-time constant stays in place.
+        this.stepUpRetryHeader.set(e.stepUpRetryHeader ?? BACKING_SERVICES_STEP_UP_HEADER);
         this.stepUpRequired.set(true);
         return 'This change requires step-up re-authentication — enter a step-up token and retry.';
       }
