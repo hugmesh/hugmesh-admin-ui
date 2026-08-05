@@ -114,6 +114,8 @@ describe('CloudBackupSetsComponent', () => {
 
   it('a step-up 403 opens the inline MFA dialog (panel stays open), then satisfied retries token-less', async () => {
     await mount();
+    // OLD-BFF direction (frozen requirement): message-only — no X-Step-Up-Required
+    // signal, just the exact legacy contract phrase. Must keep opening the dialog.
     api.restore.and.rejectWith(new CloudBackupApiError(403, 'restore requires step-up: present a valid step-up token in the X-Backup-StepUp header'));
     component.askRestore(set());
     await component.confirmRestore();
@@ -134,6 +136,21 @@ describe('CloudBackupSetsComponent', () => {
     expect(el().querySelector('[data-testid="cloud-backup-sets-notice"]')!.textContent).toContain('Restore queued');
   });
 
+  it('a NEW-BFF step-up 403 (X-Step-Up-Required header, reworded message) opens the dialog too', async () => {
+    // NEW-BFF direction (frozen requirement): the structured signal ALONE carries
+    // the requirement — the message deliberately contains no step-up wording, so
+    // this fixture fails if detection ever falls back to message sniffing.
+    await mount();
+    api.restore.and.rejectWith(new CloudBackupApiError(
+      403, 'a second factor is needed before this can run', 'X-Backup-StepUp'));
+    component.askRestore(set());
+    await component.confirmRestore();
+    fixture.detectChanges();
+    expect(component.stepUpChallenge()).not.toBeNull();
+    expect(el().querySelector('[data-testid="mfa-stepup-dialog"]')).not.toBeNull();
+    expect(component.restoreError()).toBe('');
+  });
+
   it('dismissing the step-up dialog drops the pending restore retry', async () => {
     await mount();
     api.restore.and.rejectWith(new CloudBackupApiError(403, 'restore requires step-up'));
@@ -142,6 +159,22 @@ describe('CloudBackupSetsComponent', () => {
     expect(component.stepUpChallenge()).not.toBeNull();
     component.onStepUpDismissed();
     expect(component.stepUpChallenge()).toBeNull();
+    expect(api.restore).toHaveBeenCalledTimes(1);
+  });
+
+  it('an ordinary 403 whose prose merely mentions "step-up" does NOT open the MFA dialog', async () => {
+    // THE NEGATIVE of the step-up contract: no X-Step-Up-Required header, no exact
+    // "requires step-up" contract phrase — just a role-denial whose free text
+    // happens to contain the words. The MFA dialog must NOT open; the plain
+    // forbidden path must render instead.
+    await mount();
+    api.restore.and.rejectWith(new CloudBackupApiError(403, 'step-up policy forbids this'));
+    component.askRestore(set());
+    await component.confirmRestore();
+    fixture.detectChanges();
+    expect(component.stepUpChallenge()).toBeNull();
+    expect(el().querySelector('[data-testid="mfa-stepup-dialog"]')).toBeNull();
+    expect(component.restoreError()).toContain('denied');
     expect(api.restore).toHaveBeenCalledTimes(1);
   });
 

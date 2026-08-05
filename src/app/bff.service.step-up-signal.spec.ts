@@ -127,6 +127,77 @@ describe('BffService step-up signal transport', () => {
       .toBe('X-ImageGen-StepUp');
   });
 
+  // ── the CLOSED retry-header vocabulary — the UI half of the cross-repo pin ────
+  //
+  // This list is the MIRROR of the BFF pin in hugmesh-admin-bff-api
+  // `src/test/java/systems/hugmesh/adminbff/web/StepUpSignalContractTest.java`
+  // (its `VOCABULARY` array + `theEightFlavours_areAllDistinct`, hasSize(8), and the
+  // hard-coded per-gate literal assertions). The two lists MUST change in LOCKSTEP,
+  // in the same cross-repo change: the BFF side reds when a gate adds a 9th flavour
+  // or renames one, and THIS pin is what reds the UI side — without it a vocabulary
+  // change sails through here silently (the SAFE_RETRY_HEADER shape-regex in
+  // mfa/step-up-error.ts accepts ANY X-<flavour>-StepUp, by design). The loop-only
+  // FLAVOURS list in mfa/step-up-error.spec.ts is the detection-unit sibling of this
+  // transport-level list; keep all three in step.
+
+  /** The 8 retry-header names, byte-identical to the BFF gate constants. */
+  const RETRY_HEADER_VOCABULARY = [
+    'X-BackingServices-StepUp',
+    'X-Backup-StepUp',
+    'X-Device-Terminal-StepUp',
+    'X-GoLive-StepUp',
+    'X-ImageGen-StepUp',
+    'X-PhoneLock-StepUp',
+    'X-ServiceStore-StepUp',
+    'X-SshKeyIssue-StepUp',
+  ];
+
+  it('pins the closed vocabulary: exactly 8 names, byte-identical to the BFF pin, no drift', () => {
+    // Spelled out AGAIN as literals inside the assertion ON PURPOSE (the BFF pin
+    // does the same): a drifted edit of RETRY_HEADER_VOCABULARY above — one name
+    // removed, a 9th added, or a byte changed — must fail HERE rather than merely
+    // shrink/grow the loops that consume the list.
+    // The failure message itself names the mirror, so the author who trips this
+    // lands on the cross-repo contract without hunting for the comment above.
+    const MIRROR = 'this list is the byte-identical mirror of the BFF pin in '
+      + 'hugmesh-admin-bff-api src/test/java/systems/hugmesh/adminbff/web/'
+      + 'StepUpSignalContractTest.java — change BOTH in the same cross-repo act, '
+      + 'plus the FLAVOURS list in src/app/mfa/step-up-error.spec.ts';
+    expect(RETRY_HEADER_VOCABULARY).withContext(MIRROR).toEqual([
+      'X-BackingServices-StepUp',
+      'X-Backup-StepUp',
+      'X-Device-Terminal-StepUp',
+      'X-GoLive-StepUp',
+      'X-ImageGen-StepUp',
+      'X-PhoneLock-StepUp',
+      'X-ServiceStore-StepUp',
+      'X-SshKeyIssue-StepUp',
+    ]);
+    expect(RETRY_HEADER_VOCABULARY.length).withContext(MIRROR).toBe(8);
+    expect(new Set(RETRY_HEADER_VOCABULARY).size).withContext(MIRROR).toBe(8);
+  });
+
+  it('handles EVERY vocabulary name through the real transport seam: header -> error -> detection -> retry plumbing', async () => {
+    for (const flavour of RETRY_HEADER_VOCABULARY) {
+      // The body is deliberately phrase-free: the header ALONE must carry the
+      // requirement for every flavour, or a gate rewording its message would
+      // silently kill that flavour's dialog.
+      fetchSpy.and.resolveTo(response(
+        { error: 'a second factor is needed before this can run' },
+        { ok: false, status: 403, headers: { [STEP_UP_SIGNAL_HEADER]: flavour } }));
+
+      const e = await rejection(service.triggerImageBuild({} as never));
+
+      expect(isStepUpRequiredError(e)).withContext(flavour).toBe(true);
+      // The dialog plumbing consumes the retry-header NAME (the backing-services
+      // console sends the operator's token on exactly this header; the other
+      // consumers key off isStepUpRequiredError to open MfaStepUpDialogComponent).
+      expect(stepUpRetryHeaderOf(e)).withContext(flavour).toBe(flavour);
+      expect(stepUpRequirementOf(e)).withContext(flavour)
+        .toEqual({ retryHeader: flavour, via: 'signal' });
+    }
+  });
+
   // ── the message is still verbatim, so nothing that reads e.message changes ────
 
   it('keeps the BFF {error} text as the Error message, verbatim', async () => {

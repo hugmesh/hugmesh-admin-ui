@@ -1,5 +1,7 @@
 import { Injectable, InjectionToken, inject } from '@angular/core';
 
+import { BffHttpError, STEP_UP_SIGNAL_HEADER, isStepUpRequiredError } from '../mfa/step-up-error';
+
 /** Base URL of the admin BFF. The fe-gateway proxies same-origin /bff/** to
  *  hugmesh-admin-bff-api, so the default is the empty string = same origin.
  *  `globalThis.__HUG_BFF_URL__` lets the host override the target at runtime
@@ -126,13 +128,25 @@ export interface RestoreResult {
 /** A typed error the service raises so components surface the EXACT failure the
  *  bff returned. The bff is the AUTHORITATIVE gate (UI gating is convenience), so
  *  components key off `isForbidden` to degrade gracefully on a 403, and off
- *  `isStepUpRequired` for the restore step-up 403. */
-export class CloudBackupApiError extends Error {
+ *  `isStepUpRequired` for the restore step-up 403.
+ *
+ *  Extends the shared {@link BffHttpError} so step-up detection is the ONE platform
+ *  contract (`isStepUpRequiredError` in mfa/step-up-error.ts) rather than a local
+ *  re-implementation that can drift: PREFER the structured `X-Step-Up-Required`
+ *  response header a NEW bff stamps on every step-up rejection, FALL BACK to the
+ *  exact legacy phrase (`/requires step-up/i`) an OLD bff still emits. The former
+ *  local sniff here (`status === 403 && /step-up/i`) was LOOSER than the contract:
+ *  an ordinary role-denial 403 whose prose merely mentioned "step-up" (e.g.
+ *  "step-up policy forbids this") opened the MFA dialog. */
+export class CloudBackupApiError extends BffHttpError {
   constructor(
-    readonly status: number,
+    status: number,
     message: string,
+    /** The raw `X-Step-Up-Required` response-header value, when the (new) bff sent
+     *  one on a step-up rejection; null otherwise (old bff, or not step-up). */
+    stepUpSignal: string | null = null,
   ) {
-    super(message);
+    super(message, status, stepUpSignal);
     this.name = 'CloudBackupApiError';
   }
   /** A 401 — unauthenticated (no/expired bff token). */
@@ -144,11 +158,12 @@ export class CloudBackupApiError extends Error {
   get isForbidden(): boolean {
     return this.status === 403;
   }
-  /** A 403 whose server message names the step-up requirement (the restore path's
-   *  BackupStepUpGate). Distinct from a plain role 403 so the restore UI can prompt
-   *  for a step-up token rather than say "you lack the role". */
+  /** The restore path's BackupStepUpGate denying — distinct from a plain role 403
+   *  so the restore UI can offer the inline MFA step-up dialog rather than say
+   *  "you lack the role". Delegates to the shared platform contract, so the
+   *  semantics stay byte-identical to every other admin-ui step-up consumer. */
   get isStepUpRequired(): boolean {
-    return this.status === 403 && /step-up/i.test(this.message);
+    return isStepUpRequiredError(this);
   }
   /** A 404 — a set/version that is gone or is out-of-scope (a cross-domain id is a
    *  404, never visible to a scoped admin). */
@@ -220,7 +235,15 @@ export class CloudBackupsService {
       } catch {
         /* ignore */
       }
-      throw new CloudBackupApiError(r.status, detail || `${method} ${path} failed: ${r.status}`);
+      // Lift the structured step-up signal off the response — exactly the seam
+      // bff.service.ts uses. Optional-chained so a Response (or stub/polyfill)
+      // without `headers` degrades to the legacy-phrase fallback, never throws.
+      const stepUpSignal = r.headers?.get(STEP_UP_SIGNAL_HEADER) ?? null;
+      throw new CloudBackupApiError(
+        r.status,
+        detail || `${method} ${path} failed: ${r.status}`,
+        stepUpSignal,
+      );
     }
     // 204 No Content (destination unset) → undefined.
     if (r.status === 204) return undefined as T;

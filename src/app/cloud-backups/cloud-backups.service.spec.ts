@@ -18,10 +18,15 @@ describe('CloudBackupsService', () => {
   let svc: CloudBackupsService;
   let fetchSpy: jasmine.Spy;
 
-  function json(body: unknown, status = 200): Response {
+  /** A stubbed fetch Response. NOTE: when `headers` is omitted the stub has NO
+   *  `headers` property at all — deliberately, so the default shape keeps proving
+   *  the service tolerates a header-less Response (old polyfills/stubs) instead of
+   *  throwing a TypeError while reading the step-up signal. */
+  function json(body: unknown, status = 200, headers?: Record<string, string>): Response {
     return {
       ok: status >= 200 && status < 300,
       status,
+      ...(headers ? { headers: new Headers(headers) } : {}),
       text: () => Promise.resolve(body === undefined ? '' : JSON.stringify(body)),
     } as unknown as Response;
   }
@@ -164,6 +169,9 @@ describe('CloudBackupsService', () => {
   });
 
   it('distinguishes a step-up 403 (restore) from a plain role 403', async () => {
+    // OLD-BFF direction: no X-Step-Up-Required header (the stub has no headers at
+    // all), only the exact legacy contract phrase — must STAY detected (frozen
+    // rolling-deploy requirement: new UI + old BFF).
     fetchSpy.and.resolveTo(json({ error: 'restore requires step-up: present a valid step-up token in the X-Backup-StepUp header' }, 403));
     try {
       await svc.restore('set-1', 'bad');
@@ -172,6 +180,42 @@ describe('CloudBackupsService', () => {
       const err = e as CloudBackupApiError;
       expect(err.isForbidden).toBeTrue();
       expect(err.isStepUpRequired).toBeTrue();
+    }
+  });
+
+  it('NEW-BFF direction: the X-Step-Up-Required response header alone marks step-up, message not load-bearing', async () => {
+    // The message deliberately contains NO step-up wording at all: only the
+    // structured header carries the requirement, exactly as the shared
+    // isStepUpRequiredError contract (mfa/step-up-error.ts) reads it. This is the
+    // seam the pre-migration service could not reach — req() discarded the
+    // Response headers entirely.
+    fetchSpy.and.resolveTo(json({ error: 'a second factor is needed before this can run' }, 403,
+      { 'X-Step-Up-Required': 'X-Backup-StepUp' }));
+    try {
+      await svc.restore('set-1');
+      fail('expected reject');
+    } catch (e) {
+      const err = e as CloudBackupApiError;
+      expect(err.isForbidden).toBeTrue();
+      expect(err.isStepUpRequired).toBeTrue();
+      // The raw signal is CAPTURED onto the error (the shared BffHttpError seam),
+      // so the retry-header name is available to any future token-carrying caller.
+      expect(err.stepUpSignal).toBe('X-Backup-StepUp');
+    }
+  });
+
+  it('an ordinary 403 whose prose merely MENTIONS step-up is NOT step-up (no header, no contract phrase)', async () => {
+    // The old local sniff was /step-up/i on the message — looser than the platform
+    // contract (/requires step-up/i). A routine role-denial whose free text
+    // happens to say "step-up" must NOT pop the MFA dialog.
+    fetchSpy.and.resolveTo(json({ error: 'step-up policy forbids this' }, 403));
+    try {
+      await svc.restore('set-1');
+      fail('expected reject');
+    } catch (e) {
+      const err = e as CloudBackupApiError;
+      expect(err.isForbidden).toBeTrue();
+      expect(err.isStepUpRequired).toBeFalse();
     }
   });
 
