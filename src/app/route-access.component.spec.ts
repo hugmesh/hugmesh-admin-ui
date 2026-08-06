@@ -9,7 +9,7 @@ describe('RouteAccessComponent', () => {
 
   const rule: RouteRule = {
     id: 'r1',
-    gateway: 'snapdragon-be-gateway',
+    gateway: 'hugmesh-be-gateway',
     url_pattern: '/api/admin/**',
     role: 'ROLE_ADMIN',
     allow: true,
@@ -20,7 +20,7 @@ describe('RouteAccessComponent', () => {
   // with mfa_required=true) — the MFA column must make this state visible.
   const seededFloorRule: RouteRule = {
     id: 'r2',
-    gateway: 'snapdragon-be-gateway',
+    gateway: 'hugmesh-be-gateway',
     url_pattern: '/bff/admin/**',
     role: 'ROLE_ADMIN',
     allow: true,

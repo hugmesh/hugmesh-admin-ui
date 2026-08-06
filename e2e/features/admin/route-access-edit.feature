@@ -46,6 +46,6 @@ Feature: Gateway-access rule editor — client-side validation, real add/remove,
     Given "mod-user" is logged in
     When "mod-user" POSTs to "/bff/admin/route-access" with body:
       """
-      {"gateway":"snapdragon-be-gateway","url_pattern":"/api/e2e-deny-probe/**","role":"ROLE_ADMIN","allow":true}
+      {"gateway":"hugmesh-be-gateway","url_pattern":"/api/e2e-deny-probe/**","role":"ROLE_ADMIN","allow":true}
       """
     Then the response status is 403
