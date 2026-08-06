@@ -26,6 +26,10 @@ export class RouteAccessComponent implements OnInit {
   urlPattern = '';
   role = 'ROLE_USER';
   allow = true;
+  /** Per-route MFA floor (gateway-enforced; the BFF only persists the flag).
+   *  Defaults false like the DB column, and like `allow` it is edited only
+   *  through this add form — a seeded row is "edited" by remove + re-add. */
+  mfaRequired = false;
   /** Inline validation surfaced in a role=alert live region. Empty = valid. */
   readonly formError = signal('');
 
@@ -35,6 +39,7 @@ export class RouteAccessComponent implements OnInit {
     this.formError.set('');
     this.rules.set(await this.bff.addRouteRule({
       gateway: this.gateway, url_pattern: this.urlPattern.trim(), role: this.role.trim(), allow: this.allow,
+      mfa_required: this.mfaRequired,
     }));
     this.urlPattern = '';
   }

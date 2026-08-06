@@ -30,7 +30,23 @@
     />
 
     <label for="ra-allow"><input id="ra-allow" type="checkbox" [(ngModel)]="allow" name="allow" /> allow</label>
+    <label for="ra-mfa">
+      <input
+        id="ra-mfa"
+        data-testid="ra-mfa"
+        type="checkbox"
+        [(ngModel)]="mfaRequired"
+        name="mfaRequired"
+        aria-describedby="ra-mfa-help"
+      /> MFA required
+    </label>
     <button data-testid="ra-add" type="submit">Add rule</button>
+
+    <span id="ra-mfa-help" class="field-help" data-testid="ra-mfa-help">
+      Per-route MFA floor, enforced by the gateway (superadmin/admin required, mod relaxable,
+      user optional). Rows under /bff/admin/** and /bff/superadmin/** are seeded required;
+      relaxing a seeded row is possible, but the MFA-ROLLOUT.md runbook governs it.
+    </span>
 
     <span
       *ngIf="formError()"
@@ -43,13 +59,14 @@
   </form>
 
   <table data-testid="route-access-rules">
-    <caption class="sr">Gateway access rules: role to URL allow or deny per gateway</caption>
+    <caption class="sr">Gateway access rules: role to URL allow or deny per gateway, with the per-route MFA floor</caption>
     <thead>
       <tr>
         <th scope="col">Gateway</th>
         <th scope="col">URL pattern</th>
         <th scope="col">Role</th>
         <th scope="col">Allow</th>
+        <th scope="col">MFA</th>
         <th scope="col"><span class="sr">Actions</span></th>
       </tr>
     </thead>
@@ -57,6 +74,13 @@
       <tr *ngFor="let r of rules()" [attr.data-rule-id]="r.id">
         <td>{{ r.gateway }}</td><td>{{ r.url_pattern }}</td><td>{{ r.role }}</td>
         <td>{{ r.allow ? 'allow' : 'deny' }}</td>
+        <td
+          class="ra-mfa"
+          [attr.data-mfa]="r.mfa_required ? 'required' : 'off'"
+          [attr.title]="r.mfa_required
+            ? 'MFA floor on this route (seeded required under /bff/admin/** and /bff/superadmin/**). Relaxing it is possible — the MFA-ROLLOUT.md runbook governs it.'
+            : null"
+        >{{ r.mfa_required ? 'required' : 'off' }}</td>
         <td>
           <button
             type="button"

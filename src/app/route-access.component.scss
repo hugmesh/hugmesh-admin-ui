@@ -21,6 +21,13 @@
     color: var(--hug-text);
   }
 
+  // The seeded-floor helptext sits inside the wrapping flex form: give it the
+  // whole row so it reads as a caption under the controls, not a squeezed item.
+  .field-help {
+    flex-basis: 100%;
+    max-width: 60ch;
+  }
+
   input,
   select {
     background: var(--hug-bg-1);

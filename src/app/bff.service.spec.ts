@@ -86,12 +86,25 @@ describe('BffService', () => {
     expect(usage).toEqual({ byModule: [], byAction: [], activeUsers: 0, totalEvents: 0 });
   });
 
-  it('unwraps the { rules } envelope for routeAccess()', async () => {
+  it('unwraps the { rules } envelope for routeAccess(), mfa_required riding along untouched', async () => {
     const rules: RouteRule[] = [
       { id: 'r1', gateway: 'snapdragon-be-gateway', url_pattern: '/api/**', role: 'ROLE_ADMIN', allow: true },
+      { id: 'r2', gateway: 'snapdragon-be-gateway', url_pattern: '/bff/admin/**', role: 'ROLE_ADMIN', allow: true, mfa_required: true },
     ];
     fetchSpy.and.resolveTo(jsonResponse({ rules }));
     expect(await service.routeAccess()).toEqual(rules);
+  });
+
+  it('POSTs a new route rule with the wire spelling mfa_required (admin-bff RouteRuleRequest snake_case)', async () => {
+    fetchSpy.and.resolveTo(jsonResponse({ rules: [] }));
+    const result = await service.addRouteRule({
+      gateway: 'snapdragon-be-gateway', url_pattern: '/bff/admin/**', role: 'ROLE_ADMIN', allow: true, mfa_required: true,
+    });
+    expect(lastInit().method).toBe('POST');
+    expect(JSON.parse(String(lastInit().body))).toEqual({
+      gateway: 'snapdragon-be-gateway', url_pattern: '/bff/admin/**', role: 'ROLE_ADMIN', allow: true, mfa_required: true,
+    });
+    expect(result).toEqual([]);
   });
 
   it('returns [] when the routeAccess GET fails (no envelope to unwrap)', async () => {

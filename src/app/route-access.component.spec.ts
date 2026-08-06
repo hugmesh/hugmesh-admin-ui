@@ -13,6 +13,18 @@ describe('RouteAccessComponent', () => {
     url_pattern: '/api/admin/**',
     role: 'ROLE_ADMIN',
     allow: true,
+    mfa_required: false,
+  };
+
+  // A seeded privileged-floor row (/bff/admin/** and /bff/superadmin/** rows ship
+  // with mfa_required=true) — the MFA column must make this state visible.
+  const seededFloorRule: RouteRule = {
+    id: 'r2',
+    gateway: 'snapdragon-be-gateway',
+    url_pattern: '/bff/admin/**',
+    role: 'ROLE_ADMIN',
+    allow: true,
+    mfa_required: true,
   };
 
   beforeEach(async () => {
@@ -51,6 +63,60 @@ describe('RouteAccessComponent', () => {
     expect(component.urlPattern).toBe('');
   });
 
+  describe('per-route MFA floor', () => {
+    it('renders the MFA column: "required" on a seeded floor row, "off" otherwise', async () => {
+      bff.routeAccess.and.resolveTo([rule, seededFloorRule]);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const el: HTMLElement = fixture.nativeElement;
+      const off = el.querySelector('[data-rule-id="r1"] .ra-mfa')!;
+      const required = el.querySelector('[data-rule-id="r2"] .ra-mfa')!;
+      expect(off.textContent!.trim()).toBe('off');
+      expect(off.getAttribute('data-mfa')).toBe('off');
+      expect(required.textContent!.trim()).toBe('required');
+      expect(required.getAttribute('data-mfa')).toBe('required');
+    });
+
+    it('points a required row at the runbook: the tooltip says relaxing is possible but MFA-ROLLOUT.md governs it', async () => {
+      bff.routeAccess.and.resolveTo([rule, seededFloorRule]);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.querySelector('[data-rule-id="r2"] .ra-mfa')!.getAttribute('title')).toContain('MFA-ROLLOUT.md');
+      expect(el.querySelector('[data-rule-id="r1"] .ra-mfa')!.getAttribute('title')).toBeNull();
+    });
+
+    it('sends the flag through add() under the wire spelling mfa_required, same path as allow', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      bff.addRouteRule.and.resolveTo([rule]);
+
+      component.urlPattern = '/bff/admin/**';
+      component.role = 'ROLE_ADMIN';
+      component.mfaRequired = true;
+      await component.add();
+
+      expect(bff.addRouteRule).toHaveBeenCalledWith(jasmine.objectContaining({
+        url_pattern: '/bff/admin/**', role: 'ROLE_ADMIN', allow: true, mfa_required: true,
+      }));
+    });
+
+    it('defaults the add-form flag to false, mirroring the DB DEFAULT', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      bff.addRouteRule.and.resolveTo([rule]);
+
+      component.urlPattern = '/api/x/**';
+      await component.add();
+
+      expect(bff.addRouteRule).toHaveBeenCalledWith(jasmine.objectContaining({ mfa_required: false }));
+    });
+  });
+
   it('removes a rule by id through the BFF', async () => {
     fixture.detectChanges();
     await fixture.whenStable();
@@ -65,7 +131,7 @@ describe('RouteAccessComponent', () => {
       await fixture.whenStable();
       fixture.detectChanges();
       const el: HTMLElement = fixture.nativeElement;
-      for (const id of ['ra-gateway', 'ra-pattern', 'ra-role', 'ra-allow']) {
+      for (const id of ['ra-gateway', 'ra-pattern', 'ra-role', 'ra-allow', 'ra-mfa']) {
         expect(el.querySelector(`#${id}`)).withContext(`#${id}`).not.toBeNull();
         expect(el.querySelector(`label[for="${id}"]`)).withContext(`label for #${id}`).not.toBeNull();
       }
@@ -103,6 +169,21 @@ describe('RouteAccessComponent', () => {
       fixture.detectChanges();
       const el: HTMLElement = fixture.nativeElement;
       expect(el.querySelectorAll('table thead th[scope="col"]').length).toBeGreaterThanOrEqual(4);
+    });
+
+    it('announces the seeded-floor semantics WITH the MFA checkbox (aria-describedby -> field-help)', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      const el: HTMLElement = fixture.nativeElement;
+      const checkbox = el.querySelector('#ra-mfa')!;
+      const helpId = checkbox.getAttribute('aria-describedby')!;
+      const help = el.querySelector(`#${helpId}`)!;
+      expect(help.classList).toContain('field-help');
+      // The honest floor vocabulary + the runbook pointer, not a bare label.
+      expect(help.textContent).toContain('mod relaxable');
+      expect(help.textContent).toContain('/bff/superadmin/**');
+      expect(help.textContent).toContain('MFA-ROLLOUT.md');
     });
   });
 });

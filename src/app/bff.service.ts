@@ -1915,6 +1915,12 @@ export interface RouteRule {
   role: string;
   casdoor_user?: string | null;
   allow: boolean;
+  /** Per-route MFA floor, snake_case exactly as admin-bff's RouteRule/RouteRuleRequest
+   *  {@code @JsonProperty("mfa_required")} spell it. Optional on the wire the same way
+   *  the generated api/models/route-rule-request.ts has it: the BFF defaults an absent
+   *  value to false (DB DEFAULT false), and only the gateway's privileged-floor filter
+   *  enforces it — admin-bff (and this UI) just read/write the flag through. */
+  mfa_required?: boolean;
 }
 
 export interface RouteDefinition {
