@@ -14,8 +14,10 @@ import {
  * mesh node so the meshbridge optional service (the mesh↔Matrix bridge) can reach the LoRa
  * mesh through that node.
  *
- * <p>ADMIN-CAPABLE (route-guarded by {@link adminGuard}, NOT superadmin) — the same
- * deliberate DIVERGENCE the Node-storage console carries. The OWNERSHIP gating is enforced
+ * <p>ADMIN-CAPABLE (NOT superadmin) — the same deliberate DIVERGENCE the Node-storage
+ * console carries. This route carries no additional client-side `canActivate` guard beyond
+ * the host shell's baseline Casdoor-admin-role gate on `/admin/**` ({@link adminGuard} itself
+ * is not currently wired into any route — see its own TODO). The OWNERSHIP gating is enforced
  * by the BFF: an ADMIN may act ONLY on own-domain ADMIN-owned nodes (a SUPERADMIN-owned or
  * cross-domain node is a 403), SUPERADMIN is unrestricted. The list itself is BFF-scoped
  * (a brand admin sees only their brand's radios).
