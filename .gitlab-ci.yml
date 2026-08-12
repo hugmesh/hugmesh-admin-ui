@@ -9,7 +9,7 @@
 # (Dependency-Check SCA + ZAP baseline + custom probes + nuclei) by extending the
 # hidden .pentest-* jobs below. See memory hugmesh-pentest-standard.
 include:
-  - project: 'Snapdragon-Systems/snapdragon-generator'
+  - project: 'hugmesh-net/snapdragon-generator'
     ref: main
     file: '/tests/pentest/ci/pentest-stage.gitlab-ci.yml'
 
@@ -121,7 +121,7 @@ pentest:dast:
     PENTEST_HARNESS_DIR: "${CI_PROJECT_DIR}/.pentest-harness/tests/pentest"
   before_script:
     - rm -rf .pentest-harness
-    - git clone --depth 1 --branch main "${CI_SERVER_PROTOCOL}://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/Snapdragon-Systems/snapdragon-generator.git" .pentest-harness
+    - git clone --depth 1 --branch main "${CI_SERVER_PROTOCOL}://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/hugmesh-net/snapdragon-generator.git" .pentest-harness
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
