@@ -60,7 +60,7 @@ pentest-dast:
 		echo "==> [DAST] harness not found at $$HARNESS — shallow-cloning generator"; \
 		rm -rf .pentest-harness; \
 		git clone --depth 1 --branch main \
-			https://github.com/Snapdragon-Systems/snapdragon-generator.git .pentest-harness \
+			https://github.com/hugmesh/snapdragon-generator.git .pentest-harness \
 			&& HARNESS=".pentest-harness/tests/pentest"; \
 	fi; \
 	if [ -f "$$HARNESS/run-pentest.sh" ]; then \
