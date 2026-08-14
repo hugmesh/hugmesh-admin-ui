@@ -1,3 +1,8 @@
+// NOTE (2026-08-14): renamed the stale --sd-* spellings to the fleet contract
+// --hug-* — the compiled :root defines ONLY --hug-*, so every var(--sd-...) in
+// this file resolved to its fallback at best and to NOTHING (invalid property,
+// inherit/initial) where the fallback was itself a var(--sd-...). These styles
+// silently ignored both the compiled palette and any runtime theme.
 // Styles for the Managed Backing-Services console. Mirrors the cloud-backups module's
 // token use (../../styles/tokens) so the console matches the platform's dark/neon theme.
 @use '../../styles/tokens' as t;
@@ -21,17 +26,17 @@
 .bs-console {
   display: block;
   padding: 1rem;
-  color: var(--sd-text, #{t.$offwhite});
+  color: var(--hug-text, #{t.$offwhite});
 }
 
 .bs-intro,
 .bs-muted {
-  color: var(--sd-text-muted, #{t.$light});
+  color: var(--hug-text-muted, #{t.$light});
   margin-block: 0.25rem 1rem;
 }
 
 .bs-help {
-  color: var(--sd-text-muted, #{t.$muted});
+  color: var(--hug-text-muted, #{t.$muted});
   font-size: 0.85rem;
   display: block;
 }
@@ -46,12 +51,12 @@
   td {
     text-align: left;
     padding: 0.45rem 0.6rem;
-    border-bottom: 1px solid var(--sd-border, #{t.$mid});
+    border-bottom: 1px solid var(--hug-border, #{t.$mid});
     vertical-align: top;
   }
 
   th {
-    color: var(--sd-text-muted, #{t.$light});
+    color: var(--hug-text-muted, #{t.$light});
     font-weight: 700;
   }
 }
@@ -77,13 +82,13 @@
   display: inline-block;
   padding: 0.1rem 0.5rem;
   border-radius: t.$radius-sm;
-  border: 1px solid var(--sd-border, #{t.$mid});
+  border: 1px solid var(--hug-border, #{t.$mid});
   font-size: 0.8rem;
   font-weight: 700;
 
   &--docs {
-    border-color: var(--sd-text-muted, #{t.$muted});
-    color: var(--sd-text-muted, #{t.$muted});
+    border-color: var(--hug-text-muted, #{t.$muted});
+    color: var(--hug-text-muted, #{t.$muted});
   }
 }
 
@@ -92,12 +97,12 @@
   font-size: 0.85rem;
 
   &--managed {
-    color: var(--sd-accent, #{t.$neon});
+    color: var(--hug-accent, #{t.$neon});
   }
 }
 
 .bs-docs {
-  color: var(--sd-text-muted, #{t.$muted});
+  color: var(--hug-text-muted, #{t.$muted});
   font-size: 0.8rem;
   font-style: italic;
 }
@@ -108,9 +113,9 @@
 
 // ── mode-edit form ─────────────────────────────────────────────────────────────
 .bs-edit {
-  border: 1px solid var(--sd-border, #{t.$mid});
+  border: 1px solid var(--hug-border, #{t.$mid});
   border-radius: t.$radius-card;
-  background: var(--sd-bg-1, #{t.$surface});
+  background: var(--hug-bg-1, #{t.$surface});
   padding: 1rem;
   margin-block: 1rem;
 }
@@ -126,19 +131,19 @@
 
   input,
   select {
-    background: var(--sd-bg-0, #{t.$charcoal});
-    border: 1px solid var(--sd-border, #{t.$mid});
+    background: var(--hug-bg-0, #{t.$charcoal});
+    border: 1px solid var(--hug-border, #{t.$mid});
     border-radius: t.$radius-sm;
-    color: var(--sd-text, #{t.$offwhite});
+    color: var(--hug-text, #{t.$offwhite});
     padding: 0.45rem 0.6rem;
   }
 
   input[aria-invalid='true'] {
-    border-color: var(--sd-danger, #{t.$pastel-rose});
+    border-color: var(--hug-danger, #{t.$pastel-rose});
   }
 
   &--stepup {
-    border-left: 3px solid var(--sd-accent, #{t.$neon});
+    border-left: 3px solid var(--hug-accent, #{t.$neon});
     padding-left: 0.6rem;
   }
 }
@@ -151,9 +156,9 @@
 
 // ── buttons ──────────────────────────────────────────────────────────────────
 .bs-btn {
-  background: var(--sd-accent, #{t.$neon});
+  background: var(--hug-accent, #{t.$neon});
   color: #{t.$black};
-  border: 1px solid var(--sd-accent, #{t.$neon});
+  border: 1px solid var(--hug-accent, #{t.$neon});
   border-radius: t.$radius-sm;
   padding: 0.45rem 0.9rem;
   font-weight: 700;
@@ -165,14 +170,14 @@
   }
 
   &:focus-visible {
-    outline: 2px solid var(--sd-accent, #{t.$neon-bright});
+    outline: 2px solid var(--hug-accent, #{t.$neon-bright});
     outline-offset: 2px;
   }
 
   &--ghost {
     background: transparent;
-    color: var(--sd-text, #{t.$offwhite});
-    border-color: var(--sd-border, #{t.$mid});
+    color: var(--hug-text, #{t.$offwhite});
+    border-color: var(--hug-border, #{t.$mid});
   }
 }
 

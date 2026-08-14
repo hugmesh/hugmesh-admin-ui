@@ -1,3 +1,8 @@
+// NOTE (2026-08-14): renamed the stale --sd-* spellings to the fleet contract
+// --hug-* — the compiled :root defines ONLY --hug-*, so every var(--sd-...) in
+// this file resolved to its fallback at best and to NOTHING (invalid property,
+// inherit/initial) where the fallback was itself a var(--sd-...). These styles
+// silently ignored both the compiled palette and any runtime theme.
 @use '../styles/tokens' as t;
 
 :host {
@@ -9,19 +14,19 @@
   padding: 1rem;
 
   .fe-intro {
-    color: var(--sd-text-soft, var(--sd-text));
+    color: var(--hug-text-soft, var(--hug-text));
     max-width: 60ch;
   }
 
   .fe-muted {
-    color: var(--sd-text-soft, var(--sd-text));
+    color: var(--hug-text-soft, var(--hug-text));
     font-size: 0.9em;
   }
 
   button {
-    background: var(--sd-accent);
-    color: var(--sd-text);
-    border: 1px solid var(--sd-accent-soft);
+    background: var(--hug-accent);
+    color: var(--hug-text);
+    border: 1px solid var(--hug-accent-soft);
     border-radius: t.$radius-sm;
     padding: 0.4rem 0.8rem;
     cursor: pointer;
@@ -33,7 +38,7 @@
   }
 
   .field-error {
-    color: var(--sd-error);
+    color: var(--hug-error);
     margin-inline-start: 0.75rem;
   }
 
@@ -45,7 +50,7 @@
       font-size: 0.9rem;
       text-transform: uppercase;
       letter-spacing: 0.03em;
-      color: var(--sd-text-muted, #{t.$light});
+      color: var(--hug-text-muted, #{t.$light});
     }
 
     .fe-grant-fields {
@@ -56,7 +61,7 @@
     }
 
     label {
-      color: var(--sd-text);
+      color: var(--hug-text);
       font-weight: 600;
       font-size: 0.9rem;
     }
@@ -71,10 +76,10 @@
     input[type='number'],
     input[type='datetime-local'] {
       padding: 0.35rem 0.5rem;
-      border: 1px solid var(--sd-border);
+      border: 1px solid var(--hug-border);
       border-radius: t.$radius-sm;
-      background: var(--sd-bg-1);
-      color: var(--sd-text);
+      background: var(--hug-bg-1);
+      color: var(--hug-text);
 
       &:disabled { opacity: 0.5; cursor: not-allowed; }
     }
@@ -85,9 +90,9 @@
 
   .fe-action-note {
     margin: 0.5rem 0 0;
-    color: var(--sd-text-soft, var(--sd-text));
+    color: var(--hug-text-soft, var(--hug-text));
 
-    &--err { color: var(--sd-error); }
+    &--err { color: var(--hug-error); }
   }
 
   .fe-table {
@@ -99,9 +104,9 @@
 
     th[scope='col'] {
       text-align: left;
-      border-bottom: 1px solid var(--sd-border, #{t.$mid});
+      border-bottom: 1px solid var(--hug-border, #{t.$mid});
       padding: 0.4rem 0.6rem;
-      color: var(--sd-text-muted, #{t.$light});
+      color: var(--hug-text-muted, #{t.$light});
       font-size: 0.85rem;
     }
 
@@ -119,16 +124,16 @@
     letter-spacing: 0.03em;
     padding: 0.1rem 0.5rem;
     border-radius: 999px;
-    border: 1px solid var(--sd-border);
-    background: var(--sd-bg-1);
+    border: 1px solid var(--hug-border);
+    background: var(--hug-bg-1);
 
     &--ok {
-      border-color: var(--sd-ok, #2e7d32);
-      color: var(--sd-ok, #2e7d32);
+      border-color: var(--hug-ok, #2e7d32);
+      color: var(--hug-ok, #2e7d32);
     }
     &--err {
-      border-color: var(--sd-error);
-      color: var(--sd-error);
+      border-color: var(--hug-error);
+      color: var(--hug-error);
     }
   }
 }
