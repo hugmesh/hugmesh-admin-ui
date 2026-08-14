@@ -1,0 +1,70 @@
+<section class="roles" data-testid="roles-panel">
+  <h2>Roles</h2>
+  <p class="intro">
+    Grant or revoke what a person can do on this mesh. Type their username, then
+    use the control beside the capability you want to change.
+  </p>
+
+  <!-- Stated up front, not discovered afterwards: this writes the platform's own
+       account store. On a deployment where the Casdoor admin seam is off, the
+       grant is recorded here but the identity provider still decides what the
+       user's token carries. -->
+  <p class="caveat" data-testid="roles-caveat">
+    These changes are recorded by the platform. If this deployment has the Casdoor
+    admin connection disabled, a change here will not reach the identity provider —
+    check the user's access after granting.
+  </p>
+
+  <label class="user-field">
+    <span>Username</span>
+    <input
+      type="text"
+      name="user"
+      data-testid="roles-user"
+      autocomplete="off"
+      placeholder="e.g. alice"
+      [ngModel]="user()"
+      (ngModelChange)="user.set($event)"
+    />
+  </label>
+
+  @for (group of groups; track group) {
+    <h3>{{ group }}</h3>
+    <ul class="role-list">
+      @for (r of rolesIn(group); track r.role) {
+        <li class="role-row" [attr.data-role]="r.role">
+          <div class="role-copy">
+            <strong>{{ r.label }}</strong>
+            <span class="role-const">{{ r.role }}</span>
+            <p class="role-unlocks" [id]="'help-' + r.role">{{ r.unlocks }}</p>
+          </div>
+          <div class="role-actions">
+            <button
+              type="button"
+              [attr.data-testid]="'grant-' + r.role"
+              [disabled]="!canSubmit()"
+              [attr.aria-describedby]="'help-' + r.role"
+              (click)="grant(r.role, r.label)"
+            >Grant</button>
+            <button
+              type="button"
+              class="secondary"
+              [attr.data-testid]="'revoke-' + r.role"
+              [disabled]="!canSubmit()"
+              [attr.aria-describedby]="'help-' + r.role"
+              (click)="revoke(r.role, r.label)"
+            >Revoke</button>
+          </div>
+        </li>
+      }
+    </ul>
+  }
+
+  <p
+    class="result"
+    role="status"
+    aria-live="polite"
+    data-testid="roles-result"
+    [class.failed]="failed()"
+  >{{ result() }}</p>
+</section>

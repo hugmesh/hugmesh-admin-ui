@@ -12,6 +12,7 @@ import { RecoveryComponent } from './backup/recovery.component';
 import { BackupHistoryComponent } from './backup/backup-history.component';
 import { AnnouncementListComponent } from './announcements/announcement-list.component';
 import { DelegationComponent } from './delegation/delegation.component';
+import { RolesComponent } from './roles/roles.component';
 import { TestReportsComponent } from './test-reports/test-reports.component';
 import { ForumAdminComponent } from './forum-admin/forum-admin.component';
 import { AppealsComponent } from './appeals/appeals.component';
@@ -110,6 +111,7 @@ export const ADMIN_ROUTES: Routes = [
   { path: 'usage', component: UsageComponent },
   { path: 'namespaces', component: NamespaceAccessComponent },
   { path: 'delegation', component: DelegationComponent },
+  { path: 'roles', component: RolesComponent },
   { path: 'route-access', component: RouteAccessComponent },
   { path: 'routes', component: RouteDefinitionsComponent },
   { path: 'isos', component: IsoDownloadsComponent },

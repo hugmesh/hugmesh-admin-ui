@@ -1,0 +1,18 @@
+.roles { max-width: 60rem; }
+.intro, .caveat { max-width: 55ch; }
+.caveat { color: var(--hug-warning, #a65d00); }
+.user-field { display: flex; flex-direction: column; gap: 0.25rem; margin-block: 1rem; max-width: 24rem; }
+.role-list { list-style: none; padding: 0; margin: 0 0 1.5rem; }
+.role-row {
+  display: flex; gap: 1rem; align-items: flex-start; justify-content: space-between;
+  padding-block: 0.6rem; border-block-end: 1px solid var(--hug-border, #3a3a3a);
+  flex-wrap: wrap;
+}
+.role-copy { flex: 1 1 24rem; }
+.role-const { font-family: ui-monospace, monospace; font-size: 0.8em; opacity: 0.7; margin-inline-start: 0.5rem; }
+.role-unlocks { margin: 0.2rem 0 0; max-width: 60ch; font-size: 0.9em; }
+.role-actions { display: flex; gap: 0.5rem; }
+/* min-height keeps the touch target honest on small screens (a11y baseline). */
+.role-actions button { min-height: 44px; }
+.result:empty { display: none; }
+.result.failed { color: var(--hug-error, #c62828); }

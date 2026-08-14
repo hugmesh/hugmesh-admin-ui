@@ -51,6 +51,7 @@ export class AdminComponent implements OnInit {
     { path: 'usage', label: 'Usage analytics' },
     { path: 'namespaces', label: 'Namespace access' },
     { path: 'delegation', label: 'Delegation & access roles' },
+    { path: 'roles', label: 'Roles' },
     { path: 'route-access', label: 'Route access' },
     { path: 'routes', label: 'Route definitions' },
     { path: 'isos', label: 'ISO downloads' },
