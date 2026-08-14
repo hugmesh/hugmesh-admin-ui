@@ -287,7 +287,7 @@ describe('AdminComponent', () => {
  * wrong TARGET — an absolute-vs-relative regression renders identically
  * either way when there is nothing for the router to actually resolve
  * against. This suite mounts the REAL `ADMIN_ROUTES` under `/admin` (mirroring
- * how the hugmesh.systems host actually mounts this remote) and asserts
+ * how the hugmesh.net host actually mounts this remote) and asserts
  * the rendered anchors resolve to `/admin/<path>`, not `/<path>`.
  */
 describe('AdminComponent menu — resolved navigation targets', () => {

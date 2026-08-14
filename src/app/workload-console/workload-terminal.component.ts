@@ -32,7 +32,7 @@ import { BffService } from '../bff.service';
   // encapsulation content attribute and Angular-scoped rules would never match them. Loading
   // xterm's stylesheet as a component styleUrl (rather than a repo-local angular.json global
   // style) means it ships bundled INSIDE this component's own JS chunk, so it's present
-  // whether admin-ui is served standalone (dev) or mounted by the hugmesh.systems host as a
+  // whether admin-ui is served standalone (dev) or mounted by the hugmesh.net host as a
   // native-federation remote (loadRemoteModule only pulls the remote's exposed JS — it never
   // links a remote's separate global stylesheet, which is the federation-safety gap this fixes;
   // see federation.config.js's @xterm/xterm extraSkip note for the sibling federation quirk).
@@ -48,7 +48,7 @@ export class WorkloadTerminalComponent implements AfterViewInit, OnDestroy {
   @ViewChild('term', { static: false }) termRef?: ElementRef<HTMLDivElement>;
 
   /** The Kubernetes namespace of the target pod (defaults to the primary app namespace). */
-  namespace = 'snapdragon-backend';
+  namespace = 'hugmesh-backend';
   /** The pod name to exec into (must be running, in the accessible namespace). */
   pod = '';
   /** Optional container name within the pod (omit to use the first container). */
@@ -142,8 +142,8 @@ export class WorkloadTerminalComponent implements AfterViewInit, OnDestroy {
    * When `httpBase` is empty, derives the base from `window.location` so the terminal
    * works in both local dev (ws://localhost) and production (wss://...).
    *
-   * @param httpBase - The BFF HTTP origin (e.g. `https://admin.hugmesh.systems`), or `''` for same-origin.
-   * @returns The WebSocket origin (e.g. `wss://admin.hugmesh.systems`).
+   * @param httpBase - The BFF HTTP origin (e.g. `https://admin.hugmesh.net`), or `''` for same-origin.
+   * @returns The WebSocket origin (e.g. `wss://admin.hugmesh.net`).
    */
   private toWsBase(httpBase: string): string {
     if (!httpBase) {

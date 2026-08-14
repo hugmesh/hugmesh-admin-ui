@@ -10,7 +10,7 @@ const CFG = {
   // which actually sets window.__HUG_*__). mfa.service.ts in this same repo
   // already uses the correct globalThis-guarded form; this just matches it.
   bff: (globalThis as any).__HUG_BFF_URL__ ?? '',
-  uptrace: (globalThis as any).__HUG_UPTRACE_URL__ ?? 'https://uptrace.hugmesh.systems',
+  uptrace: (globalThis as any).__HUG_UPTRACE_URL__ ?? 'https://uptrace.hugmesh.net',
 };
 
 /** Admin-only usage analytics aggregated by the BFF from ClickHouse (GET /bff/admin/usage). */

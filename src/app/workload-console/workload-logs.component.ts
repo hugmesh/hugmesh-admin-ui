@@ -24,7 +24,7 @@ export class WorkloadLogsComponent implements OnDestroy {
   private readonly bff = inject(BffService);
 
   /** The Kubernetes namespace of the target pod. */
-  namespace = 'snapdragon-backend';
+  namespace = 'hugmesh-backend';
   /** The pod name to stream logs from. */
   pod = '';
   /** Optional container name (omit to use the first/only container). */

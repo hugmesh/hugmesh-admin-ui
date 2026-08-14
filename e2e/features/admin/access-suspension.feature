@@ -8,7 +8,7 @@
 # banned/suspended AccountStatus a curtailed user's /bff/me and the login-ui
 # appeal short-circuit key off (SuspensionService.reduce: a permanent PROFILE
 # suspension -> banned; a timed one -> suspended). See
-# hugmesh.systems' appeal-redirect.feature (the routing short-circuit +
+# hugmesh.net' appeal-redirect.feature (the routing short-circuit +
 # access-restored leg) and hugmesh-login-ui's appeal-contact.feature (the
 # appeal page itself) for the rest of the loop.
 #

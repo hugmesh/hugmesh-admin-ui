@@ -5,7 +5,7 @@
 #
 # CROSS-REPO NOTE (deliberately NOT asserted here): the per-user suppression BEHAVIOUR
 # — one user dismissing a Home banner not hiding it for another, and dismissible=false
-# rendering with no dismiss control — is produced by the hugmesh.systems HOST shell's
+# rendering with no dismiss control — is produced by the hugmesh.net HOST shell's
 # announcement banner, not by this remote. It cannot be honestly proven in this
 # repo-local harness; it belongs in a host-shell e2e that reads these authored rows.
 #

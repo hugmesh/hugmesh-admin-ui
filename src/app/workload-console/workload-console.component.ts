@@ -54,7 +54,7 @@ export class WorkloadConsoleComponent implements OnInit {
    * The Kubernetes namespace to inspect. The SUPERADMIN may also pass `*` to list pods in
    * all namespaces (the BFF maps that to an all-namespaces list; an ADMIN is scoped to their domain).
    */
-  namespace = 'snapdragon-backend';
+  namespace = 'hugmesh-backend';
   /** The pod list for the current namespace (or all namespaces for SA `*`). */
   readonly pods = signal<WorkloadPod[]>([]);
   /** True while a pod list or mutation call is in flight. */

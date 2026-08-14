@@ -3,7 +3,7 @@ import { WorkloadConsoleComponent } from './workload-console.component';
 import { BffService, WorkloadPod } from '../bff.service';
 import { SessionService } from '../session.service';
 
-function pod(name: string, ns = 'snapdragon-backend'): WorkloadPod {
+function pod(name: string, ns = 'hugmesh-backend'): WorkloadPod {
   return {
     namespace: ns, name, workload: name.replace(/-[0-9a-f]+$/, ''), phase: 'Running',
     ready: true, restarts: 0, node: 'pi-1', startedAt: null, containers: [],
@@ -58,7 +58,7 @@ describe('WorkloadConsoleComponent', () => {
     await init();
 
     expect(bff.workloadCapability).toHaveBeenCalled();
-    expect(bff.workloadPods).toHaveBeenCalledWith('snapdragon-backend');
+    expect(bff.workloadPods).toHaveBeenCalledWith('hugmesh-backend');
     expect(component.pods().length).toBe(2);
     const el: HTMLElement = fixture.nativeElement;
     expect(el.querySelector('[data-pod="web-abc"]')).not.toBeNull();
@@ -85,13 +85,13 @@ describe('WorkloadConsoleComponent', () => {
   it('inspect() loads the projected DTO into the drawer', async () => {
     configure(true);
     bff.workloadInspect.and.resolveTo({
-      namespace: 'snapdragon-backend', name: 'web-abc', workload: 'web', phase: 'Running',
+      namespace: 'hugmesh-backend', name: 'web-abc', workload: 'web', phase: 'Running',
       node: 'pi-1', serviceAccount: 'default', startedAt: null, containers: [],
       labels: {}, ownerKind: 'ReplicaSet', ownerName: 'web-66',
     });
     await init();
     await component.inspect(pod('web-abc'));
-    expect(bff.workloadInspect).toHaveBeenCalledWith('snapdragon-backend', 'web-abc');
+    expect(bff.workloadInspect).toHaveBeenCalledWith('hugmesh-backend', 'web-abc');
     expect(component.selected()?.name).toBe('web-abc');
   });
 

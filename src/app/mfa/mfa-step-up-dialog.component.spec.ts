@@ -80,7 +80,7 @@ describe('MfaStepUpDialogComponent', () => {
   });
 
   it('runs the webauthn ceremony and submits the assertion as a challenge', async () => {
-    mfa.assertWebauthnOptions.and.resolveTo(ok({ challenge: 'Y2hhbGxlbmdl', rpId: 'hugmesh.systems', rpName: 'HugMesh' }));
+    mfa.assertWebauthnOptions.and.resolveTo(ok({ challenge: 'Y2hhbGxlbmdl', rpId: 'hugmesh.net', rpName: 'HugMesh' }));
     mfa.challenge.and.resolveTo(ok({ mfaSatisfied: true }));
     spyOn(navigator.credentials, 'get').and.resolveTo({
       id: 'cred-1',

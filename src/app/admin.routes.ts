@@ -42,7 +42,7 @@ import { fleetAdminGuard } from './fleet.guard';
 import { gamesServicesGuard } from './games-services.guard';
 import { workloadConsoleGuard } from './workload-console.guard';
 
-/** Routes exposed by the Admin native-federation remote. The hugmesh.systems
+/** Routes exposed by the Admin native-federation remote. The hugmesh.net
  *  host mounts these at /admin, so they resolve to /admin (allowlist),
  *  /admin/usage (ClickHouse usage dashboard), /admin/namespaces (namespace
  *  access grants), /admin/delegation (access-role suspend/ban + lift, domain-lock

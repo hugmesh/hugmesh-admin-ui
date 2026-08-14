@@ -3,7 +3,7 @@
 // `dismissible` flag (announcement-editor.component.ts) that nothing exercised. The
 // per-user banner-suppression BEHAVIOUR (one user's dismissal not hiding it for
 // another; dismissible=false rendering with no dismiss control) is rendered by the
-// hugmesh.systems HOST shell's announcement banner, NOT this remote — a cross-repo
+// hugmesh.net HOST shell's announcement banner, NOT this remote — a cross-repo
 // leg (see the feature's note). What THIS repo owns is that the flag is authored and
 // persisted exactly as set, proven by re-reading the stored row (dismissible round-trips).
 

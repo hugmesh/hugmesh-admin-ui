@@ -2,7 +2,7 @@
 
 Admin console for the HugMesh platform. This repo is an **Angular 22
 native-federation REMOTE** (remote name `admin`) that was split out of
-hugmesh-social-ui. At runtime the **hugmesh.systems host** loads this
+hugmesh-social-ui. At runtime the **hugmesh.net host** loads this
 remote's single exposed module (`./routes`) and mounts its `ADMIN_ROUTES`
 at **/admin**.
 
@@ -15,11 +15,11 @@ at **/admin**.
 | Fronted by     | the **fe-gateway** at `/admin`                                         |
 | Backed by      | **hugmesh-admin-bff-api** (Spring), in the backend namespace, behind the gateway |
 | Auth model     | Casdoor **admin role** for most routes; **superadmin role** for the superadmin-only routes; the host route-guards `/admin` |
-| Federation host| **hugmesh.systems** (loads `remoteName: 'admin', exposedModule: './routes'`) |
+| Federation host| **hugmesh.net** (loads `remoteName: 'admin', exposedModule: './routes'`) |
 
 ```mermaid
 flowchart LR
-  subgraph host["hugmesh.systems host (shell)"]
+  subgraph host["hugmesh.net host (shell)"]
     H["loads remote 'admin'<br/>exposedModule './routes'"]
   end
 

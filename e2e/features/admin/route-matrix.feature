@@ -4,7 +4,7 @@
 #
 #   - PATHS ARE HOST-ABSOLUTE. The harness drives the HOST front door
 #     (playwright.config baseURL), and the host shell
-#     (hugmesh.systems/src/app/app.routes.ts) mounts ADMIN_ROUTES at
+#     (hugmesh.net/src/app/app.routes.ts) mounts ADMIN_ROUTES at
 #     path 'admin' — so every remote route is reached as /admin/<child>.
 #     An un-prefixed path would fall into the host's `{ path: '**',
 #     redirectTo: '' }` wildcard and be resolved by roleHomeGuard (admin →

@@ -1,5 +1,5 @@
 // REMOTE bundle config for the Admin micro-frontend (native-federation remote
-// name "admin"). The hugmesh.systems host consumes the single exposed
+// name "admin"). The hugmesh.net host consumes the single exposed
 // `./routes` module via loadRemoteModule({ remoteName: 'admin', exposedModule:
 // './routes' }) and mounts ADMIN_ROUTES at /admin — so the remote name and the
 // exposed module key MUST stay unchanged or the host's admin console breaks.
