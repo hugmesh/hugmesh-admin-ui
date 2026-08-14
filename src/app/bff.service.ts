@@ -130,6 +130,28 @@ export class BffService {
     throw await this.bffError(r);
   }
 
+  // ── grantable capability roles ──────────────────────────────────────────────
+  // POST|DELETE /bff/admin/roles/{roleName}/{user} — the DIRECT grant surface,
+  // distinct from access-roles above: no timed-ban semantics, no reconcile loop,
+  // no homeserver seam. The vocabulary is CLOSED server-side
+  // (AdminController.GRANTABLE_ROLE_PATTERN) — service/bootstrap roles such as
+  // ROLE_SUPERADMIN are deliberately NOT grantable through it, so this client
+  // mirrors exactly that list and offers nothing the server would reject.
+  async grantRole(role: GrantableRole, user: string): Promise<RoleGrantResult> {
+    return this.roleSend('POST', role, user);
+  }
+  async revokeRole(role: GrantableRole, user: string): Promise<RoleGrantResult> {
+    return this.roleSend('DELETE', role, user);
+  }
+  private async roleSend(method: 'POST' | 'DELETE', role: GrantableRole,
+                         user: string): Promise<RoleGrantResult> {
+    const r = await fetch(
+      `${CFG.bff}/bff/admin/roles/${encodeURIComponent(role)}/${encodeURIComponent(user)}`,
+      { method, credentials: 'include' });
+    if (r.ok) return r.json();
+    throw await this.bffError(r);
+  }
+
   /** All active domain-locks (force local-only markers). */
   async domainLocks(): Promise<DomainLocksView> {
     const r = await fetch(`${CFG.bff}/bff/admin/domain-lock`, { credentials: 'include' });
@@ -1988,6 +2010,19 @@ export interface DomainLock {
   reason?: string | null;
   setBy?: string | null;
 }
+/** The roles AdminController will actually grant (its closed vocabulary). */
+export type GrantableRole =
+  | 'ROLE_USER' | 'ROLE_MOD' | 'ROLE_ADMIN'
+  | 'ROLE_MATRIX' | 'ROLE_MASTODON'
+  | 'ROLE_GAMES' | 'ROLE_GAMES_ADMIN'
+  | 'ROLE_IMAGE_BUILDER' | 'ROLE_FLEET_ADMIN'
+  | 'ROLE_MATRIX_DOMAINLOCKED' | 'ROLE_MASTODON_DOMAINLOCKED'
+  | 'ROLE_MATRIX_EXTERNAL_CLIENT' | 'ROLE_MASTODON_EXTERNAL_CLIENT';
+
+export interface RoleGrantResult {
+  [k: string]: unknown;
+}
+
 export interface DomainLocksView { domainLocks: DomainLock[]; }
 export interface DomainLockResult { locked?: DomainLock; domainLocks: DomainLock[]; }
 // ── Test-Reports DTOs (mirror the admin-bff testreports package shapes) ──────
