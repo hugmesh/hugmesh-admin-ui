@@ -11,6 +11,7 @@ import { BackupComponent } from './backup/backup.component';
 import { RecoveryComponent } from './backup/recovery.component';
 import { BackupHistoryComponent } from './backup/backup-history.component';
 import { AnnouncementListComponent } from './announcements/announcement-list.component';
+import { DomainThemesComponent } from './themes/domain-themes.component';
 import { DelegationComponent } from './delegation/delegation.component';
 import { RolesComponent } from './roles/roles.component';
 import { TestReportsComponent } from './test-reports/test-reports.component';
@@ -131,6 +132,7 @@ export const ADMIN_ROUTES: Routes = [
   // this guard is presentation-only.
   { path: 'backing-services', component: BackingServicesComponent, canActivate: [superadminGuard] },
   { path: 'announcements', component: AnnouncementListComponent },
+  { path: 'themes', component: DomainThemesComponent },
   { path: 'test-reports', component: TestReportsComponent },
   // Image-generation console (ADMIN/SUPERADMIN) over the bff `imagegen` surfaces
   // (/bff/admin/image-builds). Trigger a build, stream SSE progress, download the

@@ -62,6 +62,7 @@ export class AdminComponent implements OnInit {
     { path: 'backups', label: 'Backups history' },
     { path: 'cloud-backups', label: 'Cloud backups' },
     { path: 'announcements', label: 'Announcements' },
+    { path: 'themes', label: 'Themes' },
     { path: 'test-reports', label: 'Test reports' },
     { path: 'image-gen', label: 'Image generation' },
     { path: 'forum', label: 'Forum admin' },

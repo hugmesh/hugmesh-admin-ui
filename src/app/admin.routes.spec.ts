@@ -11,6 +11,7 @@ import { BackupComponent } from './backup/backup.component';
 import { RecoveryComponent } from './backup/recovery.component';
 import { BackupHistoryComponent } from './backup/backup-history.component';
 import { AnnouncementListComponent } from './announcements/announcement-list.component';
+import { DomainThemesComponent } from './themes/domain-themes.component';
 import { DelegationComponent } from './delegation/delegation.component';
 import { TestReportsComponent } from './test-reports/test-reports.component';
 import { ImageGenComponent } from './image-gen/image-gen.component';
@@ -69,6 +70,8 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('recovery')!.component).toBe(RecoveryComponent);
     expect(byPath('backups')!.component).toBe(BackupHistoryComponent);
     expect(byPath('announcements')!.component).toBe(AnnouncementListComponent);
+    // Per-domain themes: the editor the operator sets a domain's brand from.
+    expect(byPath('themes')!.component).toBe(DomainThemesComponent);
     expect(byPath('test-reports')!.component).toBe(TestReportsComponent);
     expect(byPath('image-gen')!.component).toBe(ImageGenComponent);
     expect(byPath('forum')!.component).toBe(ForumAdminComponent);
@@ -91,7 +94,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('superadmin/anubis')!.component).toBe(AnubisAdminComponent);
   });
 
-  it('exposes exactly the thirty-nine admin views the host expects (incl. delegation + the roles grant/revoke console + appeals + account-appeals + the self-service security/MFA console + device-licenses + device-pending + phone-fleet + my-fleet + fleet-entitlements + node-storage + device-radios + domain-capabilities + desktop governance + egress-vpn + superadmin/domains + oidc-providers + games-services + superadmin/anubis + cloud-backups + backing-services + image-gen + the HIDDEN-tier workloads console + its logs/terminal sub-views)', () => {
+  it('exposes exactly the forty admin views the host expects (incl. delegation + the roles grant/revoke console + appeals + account-appeals + the self-service security/MFA console + device-licenses + device-pending + phone-fleet + my-fleet + fleet-entitlements + node-storage + device-radios + domain-capabilities + desktop governance + egress-vpn + superadmin/domains + oidc-providers + games-services + superadmin/anubis + cloud-backups + backing-services + image-gen + per-domain themes + the HIDDEN-tier workloads console + its logs/terminal sub-views)', () => {
     expect(ADMIN_ROUTES.map((r) => r.path)).toEqual([
       '',
       'usage',
@@ -109,6 +112,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
       'cloud-backups',
       'backing-services',
       'announcements',
+      'themes',
       'test-reports',
       'image-gen',
       'forum',
