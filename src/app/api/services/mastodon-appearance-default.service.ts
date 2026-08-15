@@ -14,7 +14,7 @@ import { MastodonAppearanceDefaultGet$Params } from '../fn/mastodon-appearance-d
 
 
 /**
- * Read-only: the admin-configured platform-wide default appearance for the snapdragon-mastodon-ui remote (domain-scoped).
+ * Read-only: the admin-configured platform-wide default appearance for the hugmesh-mastodon-ui remote (domain-scoped).
  */
 @Injectable({ providedIn: 'root' })
 export class MastodonAppearanceDefaultService extends BaseService {

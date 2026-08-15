@@ -14,7 +14,7 @@ import { MastodonAppearanceDefaultPut$Params } from '../fn/mastodon-appearance-d
 
 
 /**
- * ADMIN-write-gated: set the platform-wide default appearance for the snapdragon-mastodon-ui remote (domain-scoped to the acting admin's own brand).
+ * ADMIN-write-gated: set the platform-wide default appearance for the hugmesh-mastodon-ui remote (domain-scoped to the acting admin's own brand).
  */
 @Injectable({ providedIn: 'root' })
 export class MastodonAppearanceDefaultAdminService extends BaseService {
