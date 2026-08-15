@@ -4,6 +4,7 @@ import { DelegationStore } from './delegation-store.service';
 import {
   AccessSuspension,
   BffService,
+  DomainCapability,
   DomainLock,
 } from '../bff.service';
 
@@ -25,6 +26,14 @@ const lock: DomainLock = {
   state: 'active', createdAt: '2026-06-12T00:00:00Z', propagationState: 'pending', reason: null, setBy: 'admin',
 };
 
+/** An `external-client-grant` gate row for this admin's own domain, with both keys settable. */
+function capability(granted: boolean, enabled: boolean): DomainCapability {
+  return {
+    id: 'c1', domain: 'default', capability: BffService.EXTERNAL_CLIENT_GRANT,
+    granted, enabled, updatedBy: 'root', updatedAt: '2026-06-12T00:00:00Z', generation: 1,
+  };
+}
+
 describe('DelegationComponent', () => {
   let fixture: ComponentFixture<DelegationComponent>;
   let component: DelegationComponent;
@@ -35,7 +44,16 @@ describe('DelegationComponent', () => {
       'accessRoles', 'suspendAccessRole', 'clearAccessRole',
       'domainLocks', 'lockDomain', 'unlockDomain',
       'namespaceAccess', 'grantNamespace', 'revokeNamespace',
+      'searchUsers', 'domainCapabilities', 'grantRole', 'revokeRole',
     ]);
+    // The user pickers are typeaheads now; every one of them injects BffService and calls
+    // searchUsers on a debounce, so the spy must answer or the component throws on input.
+    bff.searchUsers.and.resolveTo([]);
+    // Default: the external-client capability is fully active, so the wired-path tests
+    // exercise the live control. The greyed-path tests override this per case.
+    bff.domainCapabilities.and.resolveTo([capability(true, true)]);
+    bff.grantRole.and.resolveTo({ granted: 'ROLE_MATRIX_EXTERNAL_CLIENT', user: 'bob' });
+    bff.revokeRole.and.resolveTo({ revoked: 'ROLE_MATRIX_EXTERNAL_CLIENT', user: 'bob' });
     bff.accessRoles.and.resolveTo({ suspensions: [suspension] });
     bff.domainLocks.and.resolveTo({ domainLocks: [lock] });
     bff.namespaceAccess.and.resolveTo({
@@ -189,9 +207,9 @@ describe('DelegationComponent', () => {
 
   // ── CROSS-USER (the defence-in-depth GAP controls + isolation) ─────────
   describe('CROSS-USER (no-endpoint controls are disabled+helptext, never wired)', () => {
-    it('renders the three GAP controls aria-disabled with aria-describedby helptext', async () => {
+    it('renders the GAP controls aria-disabled with aria-describedby helptext', async () => {
       await init();
-      for (const id of ['dg-gap-role-grant', 'dg-gap-external-client', 'dg-gap-appeals']) {
+      for (const id of ['dg-gap-appeals', 'dg-gap-federate']) {
         const btn = el().querySelector<HTMLButtonElement>(`[data-testid="${id}"]`)!;
         expect(btn).withContext(id).not.toBeNull();
         // aria-disabled, NOT the native disabled attribute (AT must reach the helptext).
@@ -205,12 +223,17 @@ describe('DelegationComponent', () => {
       }
     });
 
-    it('the GAP controls have no BFF method wired (the component never grants arbitrary roles)', async () => {
+    it('the federate-instance gap names the build-time setting rather than implying a missing switch', async () => {
       await init();
-      // No method on the component or BffService grants an arbitrary role /
-      // external-client / adjudicates appeals — assert the surface is absent.
-      expect((component as unknown as Record<string, unknown>)['grantRole']).toBeUndefined();
-      expect((bff as unknown as Record<string, unknown>)['grantRole']).toBeUndefined();
+      // The honesty requirement: the greyed control must say WHY nothing can flip it here,
+      // not merely that it is unavailable.
+      const help = el().querySelector('#dg-gap-federate-help')!;
+      expect(help.textContent).toContain('allow_federation');
+      expect(help.textContent).toContain('BUILD-TIME');
+    });
+
+    it('appeals adjudication still has no BFF method wired', async () => {
+      await init();
       expect((bff as unknown as Record<string, unknown>)['decideAppeal']).toBeUndefined();
     });
 
@@ -231,6 +254,135 @@ describe('DelegationComponent', () => {
       expect(bff.suspendAccessRole).toHaveBeenCalledTimes(2);
       expect(component.store.suspensions().length).toBe(1);
       expect(component.store.error()).toBe('');
+    });
+  });
+
+  // ── EXTERNAL-CLIENT GRANT (capability-gated, wired to a real endpoint) ──
+  describe('external-client grant', () => {
+    /** Switch to the external-client tab and settle the view. */
+    async function openTab(): Promise<void> {
+      component.select('external-client');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    }
+
+    it('grants the platform-matched role for the picked user', async () => {
+      await init();
+      await openTab();
+      component.externalPlatform = 'mastodon';
+      component.externalUser = 'bob';
+      await component.grantExternalClient();
+      expect(bff.grantRole).toHaveBeenCalledWith('ROLE_MASTODON_EXTERNAL_CLIENT', 'bob');
+    });
+
+    it('revokes the platform-matched role', async () => {
+      await init();
+      await openTab();
+      component.externalUser = 'bob';
+      await component.revokeExternalClient();
+      expect(bff.revokeRole).toHaveBeenCalledWith('ROLE_MATRIX_EXTERNAL_CLIENT', 'bob');
+    });
+
+    it('blocks an empty user with an inline error and no BFF call', async () => {
+      await init();
+      await openTab();
+      component.externalUser = '  ';
+      await component.grantExternalClient();
+      expect(bff.grantRole).not.toHaveBeenCalled();
+      expect(component.externalError()).toContain('Pick or enter a user');
+    });
+
+    it('surfaces a server denial verbatim and never claims the grant landed', async () => {
+      bff.grantRole.and.rejectWith(
+        new Error('external-client grants are not enabled for this domain'));
+      await init();
+      await openTab();
+      component.externalUser = 'bob';
+      await component.grantExternalClient();
+      expect(component.externalError()).toContain('not enabled for this domain');
+      expect(component.externalNote()).toBe('');
+    });
+
+    it('re-reads the capability after a denial so the greyed state catches up', async () => {
+      bff.grantRole.and.rejectWith(new Error('nope'));
+      await init();
+      const before = bff.domainCapabilities.calls.count();
+      await openTab();
+      component.externalUser = 'bob';
+      await component.grantExternalClient();
+      expect(bff.domainCapabilities.calls.count()).toBeGreaterThan(before);
+    });
+
+    it('is live only when BOTH capability keys are set', async () => {
+      await init();
+      expect(component.externalGrantActive()).withContext('granted+enabled').toBeTrue();
+      expect(component.externalGrantBlockedReason()).toBe('');
+    });
+
+    it('greys the controls with a superadmin-grant reason when the row is absent', async () => {
+      bff.domainCapabilities.and.resolveTo([]);
+      await init();
+      await openTab();
+      expect(component.externalGrantActive()).toBeFalse();
+      expect(component.externalGrantBlockedReason()).toContain('superadmin has not granted');
+      const grant = el().querySelector<HTMLButtonElement>('[data-testid="dg-ext-grant"]')!;
+      expect(grant.disabled).toBeTrue();
+    });
+
+    it('greys the controls with an opt-in reason when granted but not enabled', async () => {
+      bff.domainCapabilities.and.resolveTo([capability(true, false)]);
+      await init();
+      await openTab();
+      expect(component.externalGrantActive()).toBeFalse();
+      expect(component.externalGrantBlockedReason()).toContain('has not opted in');
+    });
+
+    it('greys the controls with a withdrawn reason when the superadmin key is off', async () => {
+      bff.domainCapabilities.and.resolveTo([capability(false, true)]);
+      await init();
+      await openTab();
+      expect(component.externalGrantBlockedReason()).toContain('withdrawn');
+    });
+
+    it('ignores the global sentinel row when resolving this domain\'s gate', async () => {
+      // A superadmin session gets the ' global' kill row back too; treating it as the
+      // own-domain row would misreport the gate.
+      bff.domainCapabilities.and.resolveTo([
+        { ...capability(true, false), domain: ' global' },
+        capability(true, true),
+      ]);
+      await init();
+      expect(component.externalGrantActive()).toBeTrue();
+    });
+  });
+
+  // ── USER PICKERS (typeahead, domain-scoped server-side) ────────────────
+  describe('user pickers', () => {
+    it('renders every user field as a combobox, not a bare text input', async () => {
+      await init();
+      for (const id of ['dg-suspend-user', 'dg-lock-user', 'dg-ns-user']) {
+        component.select(id === 'dg-suspend-user' ? 'suspensions'
+          : id === 'dg-lock-user' ? 'domain-lock' : 'namespaces');
+        fixture.detectChanges();
+        const input = el().querySelector<HTMLInputElement>(`#${id}`)!;
+        expect(input).withContext(id).not.toBeNull();
+        expect(input.getAttribute('role')).withContext(id).toBe('combobox');
+        expect(input.getAttribute('aria-controls')).withContext(id).toBe(`${id}-listbox`);
+        // The label association the previous plain input had must survive the swap.
+        expect(el().querySelector(`label[for="${id}"]`)).withContext(`label for ${id}`).not.toBeNull();
+      }
+    });
+
+    it('the picker never sends a domain — scoping is the server\'s job', async () => {
+      await init();
+      const picker = fixture.debugElement.nativeElement
+        .querySelector('#dg-suspend-user') as HTMLInputElement;
+      picker.value = 'ali';
+      picker.dispatchEvent(new Event('input'));
+      // searchUsers' signature carries no domain at all; assert the call shape rather
+      // than trusting the component not to have invented one.
+      expect(bff.searchUsers.calls.allArgs().every(args => args.length <= 3)).toBeTrue();
     });
   });
 

@@ -52,10 +52,20 @@
         <option *ngFor="let r of accessRoles" [value]="r.value">{{ r.label }}</option>
       </select>
 
-      <label for="dg-suspend-user">User (casdoor id or handle)</label>
-      <input id="dg-suspend-user" data-testid="dg-suspend-user" [(ngModel)]="suspendUser" name="suspendUser" autocomplete="off"
-             [attr.aria-invalid]="suspendError() ? 'true' : null"
-             [attr.aria-describedby]="suspendError() ? 'dg-suspend-error dg-ttl-help' : 'dg-ttl-help'" />
+      <label for="dg-suspend-user">User</label>
+      <hug-user-typeahead
+        inputId="dg-suspend-user"
+        testId="dg-suspend-user"
+        name="suspendUser"
+        placeholder="start typing a username…"
+        [(value)]="suspendUser"
+        [invalid]="!!suspendError()"
+        [describedBy]="suspendError() ? 'dg-suspend-error dg-suspend-user-help' : 'dg-suspend-user-help'"
+      ></hug-user-typeahead>
+      <span id="dg-suspend-user-help" class="hint">
+        Suggestions are users in the domains you administer. You can also type a Casdoor id
+        or handle directly.
+      </span>
 
       <label for="dg-suspend-ttl">TTL seconds (optional)</label>
       <input id="dg-suspend-ttl" data-testid="dg-suspend-ttl" [(ngModel)]="suspendTtl" name="suspendTtl"
@@ -124,10 +134,20 @@
         <option *ngFor="let r of domainLockRoles" [value]="r.value">{{ r.label }}</option>
       </select>
 
-      <label for="dg-lock-user">User (casdoor id or handle)</label>
-      <input id="dg-lock-user" data-testid="dg-lock-user" [(ngModel)]="lockUser" name="lockUser" autocomplete="off"
-             [attr.aria-invalid]="lockError() ? 'true' : null"
-             [attr.aria-describedby]="lockError() ? 'dg-lock-error' : null" />
+      <label for="dg-lock-user">User</label>
+      <hug-user-typeahead
+        inputId="dg-lock-user"
+        testId="dg-lock-user"
+        name="lockUser"
+        placeholder="start typing a username…"
+        [(value)]="lockUser"
+        [invalid]="!!lockError()"
+        [describedBy]="lockError() ? 'dg-lock-error dg-lock-user-help' : 'dg-lock-user-help'"
+      ></hug-user-typeahead>
+      <span id="dg-lock-user-help" class="hint">
+        Suggestions are users in the domains you administer. You can also type a Casdoor id
+        or handle directly.
+      </span>
 
       <label for="dg-lock-reason">Reason (optional)</label>
       <input id="dg-lock-reason" data-testid="dg-lock-reason" [(ngModel)]="lockReason" name="lockReason" autocomplete="off" />
@@ -181,9 +201,18 @@
 
     <form class="form" data-testid="dg-ns-form" (ngSubmit)="grantNamespace()" novalidate aria-label="Grant a user access to a namespace">
       <label for="dg-ns-user">User</label>
-      <input id="dg-ns-user" data-testid="dg-ns-user" [(ngModel)]="nsUser" name="nsUser" autocomplete="off"
-             [attr.aria-invalid]="nsError() ? 'true' : null"
-             [attr.aria-describedby]="nsError() ? 'dg-ns-error' : null" />
+      <hug-user-typeahead
+        inputId="dg-ns-user"
+        testId="dg-ns-user"
+        name="nsUser"
+        placeholder="start typing a username…"
+        [(value)]="nsUser"
+        [invalid]="!!nsError()"
+        [describedBy]="nsError() ? 'dg-ns-error dg-ns-user-help' : 'dg-ns-user-help'"
+      ></hug-user-typeahead>
+      <span id="dg-ns-user-help" class="hint">
+        Suggestions are users in the domains you administer.
+      </span>
 
       <label for="dg-ns-namespace">Namespace</label>
       <select id="dg-ns-namespace" data-testid="dg-ns-namespace" [(ngModel)]="nsNamespace" name="nsNamespace">
@@ -236,48 +265,98 @@
     </table>
   </div>
 
+  <!-- ── External-client grant (ROLE_*_EXTERNAL_CLIENT, capability-gated) ── -->
+  <div *ngIf="tab() === 'external-client'" role="tabpanel" class="panel" data-testid="dg-panel-external-client" aria-label="External client access">
+    <h3>External client access</h3>
+    <p class="hint">
+      Lets a user connect a third-party Matrix or Mastodon app to their account. This is a
+      DIRECT Casdoor role write — unlike the suspensions and domain-locks above there is no
+      reconcile loop, so it applies as soon as the user's token is re-minted.
+    </p>
+
+    <!--
+      The gate is the `external-client-grant` DOMAIN CAPABILITY: a SUPERADMIN grants it to
+      a brand, that brand's ADMIN enables it. The controls below are greyed with the reason
+      when either key is off. This is NOT UI-only theatre — admin-bff's
+      AdminController#grantRole enforces the SAME gate on the only path that can assign
+      these roles, so a stale read here can only under-permit, never over-permit.
+    -->
+    <p
+      *ngIf="externalGrantBlockedReason()"
+      class="hint field-help"
+      id="dg-ext-blocked"
+      data-testid="dg-ext-blocked"
+      role="status"
+      aria-live="polite"
+    >{{ externalGrantBlockedReason() }}</p>
+
+    <form class="form" data-testid="dg-ext-form" (ngSubmit)="grantExternalClient()" novalidate aria-label="Grant external-client access to a user">
+      <label for="dg-ext-platform">Platform</label>
+      <select id="dg-ext-platform" data-testid="dg-ext-platform" [(ngModel)]="externalPlatform" name="externalPlatform"
+              [disabled]="!externalGrantActive()"
+              [attr.aria-describedby]="externalGrantBlockedReason() ? 'dg-ext-blocked' : null">
+        <option *ngFor="let p of externalPlatforms" [value]="p.value">{{ p.label }}</option>
+      </select>
+
+      <label for="dg-ext-user">User</label>
+      <hug-user-typeahead
+        inputId="dg-ext-user"
+        testId="dg-ext-user"
+        name="externalUser"
+        placeholder="start typing a username…"
+        [(value)]="externalUser"
+        [invalid]="!!externalError()"
+        [describedBy]="externalError() ? 'dg-ext-error dg-ext-user-help' : 'dg-ext-user-help'"
+      ></hug-user-typeahead>
+      <span id="dg-ext-user-help" class="hint">
+        Suggestions are users in the domains you administer.
+      </span>
+
+      <div class="row">
+        <button type="submit" data-testid="dg-ext-grant" [disabled]="!externalGrantActive()">Grant access</button>
+        <button type="button" data-testid="dg-ext-revoke" [disabled]="!externalGrantActive()"
+                (click)="revokeExternalClient()">Revoke access</button>
+      </div>
+
+      <span
+        *ngIf="externalError()"
+        id="dg-ext-error"
+        class="field-error"
+        data-testid="dg-ext-error"
+        role="alert"
+        aria-live="assertive"
+      >{{ externalError() }}</span>
+      <span
+        *ngIf="externalNote()"
+        class="hint"
+        data-testid="dg-ext-note"
+        role="status"
+        aria-live="polite"
+      >{{ externalNote() }}</span>
+    </form>
+  </div>
+
   <!-- ── Not-yet-available controls (no admin-bff endpoint per the contract audit) ── -->
   <!--
-    Defence-in-depth + honesty: these capabilities have NO admin-bff endpoint
-    (verified against AdminController + mod-bff FederationApiClient). They are
-    rendered VISIBLY DISABLED via aria-disabled (NOT native disabled, so assistive
-    tech still reaches the helptext that explains WHY) with aria-describedby
-    helptext — never wired to a non-existent endpoint (per the V7 verdict).
+    Defence-in-depth + honesty: these capabilities have NO admin-bff endpoint. They are
+    rendered VISIBLY DISABLED via aria-disabled (NOT native disabled, so assistive tech
+    still reaches the helptext that explains WHY) with aria-describedby helptext — never
+    wired to a non-existent endpoint (per the V7 verdict).
+
+    The former "grant/revoke an arbitrary role" and "grant external-client access" entries
+    are GONE from this list because both claims were stale: AdminController has carried
+    POST/DELETE /bff/admin/roles/{roleName}/{user} (with both ROLE_*_EXTERNAL_CLIENT in its
+    grantable set) all along. External-client grant is now the wired tab above; a general
+    arbitrary-role grant is deliberately still not surfaced, since the endpoint's vocabulary
+    is a closed list rather than an arbitrary one.
   -->
   <section class="gaps" data-testid="dg-gaps" aria-labelledby="dg-gaps-heading">
     <h3 id="dg-gaps-heading">Not yet available</h3>
     <p class="hint">
       These actions have no admin service endpoint in this console and are shown disabled
-      with the reason — role assignment happens at Casdoor via the reconcile loop.
+      with the reason.
     </p>
     <ul class="gap-list">
-      <li class="gap">
-        <button
-          type="button"
-          class="gap-btn"
-          aria-disabled="true"
-          data-testid="dg-gap-role-grant"
-          aria-describedby="dg-gap-role-grant-help"
-        >Grant / revoke an arbitrary role</button>
-        <span id="dg-gap-role-grant-help" class="hint field-help">
-          General role grant / revoke has no endpoint — roles are granted in Casdoor via the
-          reconcile loop. Only the narrow access-role suspensions, domain-locks and
-          namespace grants above are managed by an admin here.
-        </span>
-      </li>
-      <li class="gap">
-        <button
-          type="button"
-          class="gap-btn"
-          aria-disabled="true"
-          data-testid="dg-gap-external-client"
-          aria-describedby="dg-gap-external-client-help"
-        >Grant external-client access</button>
-        <span id="dg-gap-external-client-help" class="hint field-help">
-          External-client access is owner self-service only (a user manages their own connected
-          clients); there is no admin grant endpoint.
-        </span>
-      </li>
       <li class="gap">
         <button
           type="button"
@@ -289,6 +368,22 @@
         <span id="dg-gap-appeals-help" class="hint field-help">
           Appeals adjudication has no admin service endpoint here; appeals are decided in the
           federation moderation system, not this console.
+        </span>
+      </li>
+      <li class="gap">
+        <button
+          type="button"
+          class="gap-btn"
+          aria-disabled="true"
+          data-testid="dg-gap-federate"
+          aria-describedby="dg-gap-federate-help"
+        >Federate this instance</button>
+        <span id="dg-gap-federate-help" class="hint field-help">
+          Whether this instance federates with other servers is a BUILD-TIME setting
+          (tuwunel's allow_federation, baked by the generator into the homeserver manifest)
+          — there is no runtime endpoint or column behind it, so no switch here could change
+          it. What an admin CAN do at runtime is per-user: force a user local-only with a
+          Domain lock, or block a remote user or instance from the moderation console.
         </span>
       </li>
     </ul>

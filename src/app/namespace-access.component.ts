@@ -2,6 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BffService } from './bff.service';
+import { UserTypeaheadComponent } from './a11y/user-typeahead.component';
 
 /**
  * Admin "Namespace access" view (own repo: hugmesh-admin-ui). Admin-only
@@ -12,7 +13,7 @@ import { BffService } from './bff.service';
 @Component({
   selector: 'hug-namespace-access',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, UserTypeaheadComponent],
   templateUrl: './namespace-access.component.html',
   styleUrl: './namespace-access.component.scss',
 })

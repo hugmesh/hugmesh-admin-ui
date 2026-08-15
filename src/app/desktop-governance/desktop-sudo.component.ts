@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BffService, DeviceRegistration, DesktopSudoGrant } from '../bff.service';
 import { SessionService } from '../session.service';
+import { UserTypeaheadComponent } from '../a11y/user-typeahead.component';
 
 /**
  * The DESKTOP SUDO toggle (own repo: hugmesh-admin-ui). The admin front-end for the
@@ -35,7 +36,7 @@ import { SessionService } from '../session.service';
 @Component({
   selector: 'hug-desktop-sudo',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, UserTypeaheadComponent],
   templateUrl: './desktop-sudo.component.html',
   styleUrl: './desktop-governance.component.scss',
 })

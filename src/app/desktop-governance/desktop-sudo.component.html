@@ -11,15 +11,20 @@
   <h3 id="ds-grant-heading">Grant sudo</h3>
   <form (ngSubmit)="grant()" aria-labelledby="ds-grant-heading" novalidate>
     <label for="ds-subject">Subject (Casdoor user)</label>
-    <input
-      id="ds-subject"
-      data-testid="ds-subject"
-      [(ngModel)]="subject"
+    <!-- Commits `provider:handle`, the form this field's own placeholder documents. -->
+    <hug-user-typeahead
+      inputId="ds-subject"
+      testId="ds-subject"
       name="subject"
+      commit="qualified"
       placeholder="google:alice@example.com"
-      [attr.aria-invalid]="grantError() ? 'true' : null"
-      [attr.aria-describedby]="grantError() ? 'ds-grant-error' : null"
-    />
+      [(value)]="subject"
+      [invalid]="!!grantError()"
+      [describedBy]="grantError() ? 'ds-grant-error ds-subject-help' : 'ds-subject-help'"
+    ></hug-user-typeahead>
+    <span id="ds-subject-help" class="hint">
+      Suggestions are users in the domains you administer.
+    </span>
 
     <label for="ds-device">Device</label>
     <select id="ds-device" data-testid="ds-device" [(ngModel)]="deviceId" name="deviceId">

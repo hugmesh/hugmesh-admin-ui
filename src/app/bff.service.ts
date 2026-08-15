@@ -178,6 +178,64 @@ export class BffService {
     throw await this.bffError(r);
   }
 
+  // ── User directory (the typeahead behind every user picker) ─────────────────
+  //   GET /bff/admin/users/search?q=&limit=  → DirectoryUser[]
+  //
+  // The result set is scoped SERVER-SIDE to the caller's own brand, derived from their
+  // validated token issuer. There is deliberately no `domain` parameter to pass: a
+  // client-supplied one would make brand isolation a function of what the browser asked
+  // for. The match and the row cap are also applied server-side — pulling the whole
+  // directory down to filter it here would be the enumeration hole the endpoint closes.
+
+  /**
+   * Search the admin's own domain's users for a typeahead.
+   *
+   * @param q - the typed fragment. Blank returns `[]` (the picker's "keep typing" state)
+   *   without the BFF reading the directory at all.
+   * @param limit - requested row cap; the BFF clamps it to its own ceiling regardless.
+   * @param signal - abort signal, so a superseded keystroke's request cannot land after a
+   *   newer one and repopulate the list with stale rows.
+   */
+  async searchUsers(q: string, limit = 10, signal?: AbortSignal): Promise<DirectoryUser[]> {
+    const query = q.trim();
+    if (!query) return [];
+    const url = `${CFG.bff}/bff/admin/users/search`
+      + `?q=${encodeURIComponent(query)}&limit=${encodeURIComponent(String(limit))}`;
+    const r = await fetch(url, { credentials: 'include', signal });
+    // A failed search degrades to "no suggestions", never to a thrown error: the picker
+    // always keeps its free-text fallback, so a directory outage must not block the form.
+    return r.ok ? r.json() : [];
+  }
+
+  // ── Standalone Casdoor role grant / revoke ─────────────────────────────────
+  //   POST   /bff/admin/roles/{roleName}/{user}  → { granted, user }
+  //   DELETE /bff/admin/roles/{roleName}/{user}  → { revoked, user }
+  //
+  // Direct add/remove-from-role, NOT the suspension reconcile loop. The two
+  // ROLE_*_EXTERNAL_CLIENT roles are additionally gated server-side on the
+  // `external-client-grant` domain capability (403 with {capability, domain} when the
+  // brand has not been granted + enabled it).
+
+  /** Grant a Casdoor role to a user. Throws the BFF {error} (403 when a capability gate
+   *  denies it, 503 when the Casdoor admin client is not enabled in this deployment). */
+  async grantRole(roleName: string, user: string): Promise<{ granted: string; user: string }> {
+    return this.roleSend('POST', roleName, user);
+  }
+
+  /** Revoke a Casdoor role from a user. Never capability-gated — taking a capability away
+   *  must not be blocked by that capability being switched off. */
+  async revokeRole(roleName: string, user: string): Promise<{ revoked: string; user: string }> {
+    return this.roleSend('DELETE', roleName, user);
+  }
+
+  private async roleSend<T>(method: 'POST' | 'DELETE', roleName: string, user: string): Promise<T> {
+    const r = await fetch(
+      `${CFG.bff}/bff/admin/roles/${encodeURIComponent(roleName)}/${encodeURIComponent(user)}`,
+      { method, credentials: 'include' });
+    if (r.ok) return r.json() as Promise<T>;
+    throw await this.bffError(r);
+  }
+
   /** Extract the BFF's {error} message (string or object) for a thrown rejection. Falls back to
    *  {note} for the handful of hand-rolled non-ApiException bodies (e.g. AdminSshKeyIssuanceController's
    *  darkResponse(), `{dark:true, note:"..."}`) that don't carry the standard {error} shape. */
@@ -1188,8 +1246,20 @@ export class BffService {
   //        {enabled} — ADMIN own-domain only (403 on another domain / on ' global');
   //        SUPERADMIN may set it for any domain.
 
-  /** The first (and so far only) domain-capability key this console manages. */
+  /** Mesh-radio self-registration — the first domain-capability key this console managed. */
   static readonly USER_MESH_DEVICES = 'user-mesh-devices';
+
+  /**
+   * Gates whether this domain's ADMIN may grant a user the external-client roles
+   * (`ROLE_MATRIX_EXTERNAL_CLIENT` / `ROLE_MASTODON_EXTERNAL_CLIENT`) — i.e. whether a
+   * user of this brand may point a third-party Matrix/Mastodon app at their account.
+   *
+   * Same two-tier row as every other key: SUPERADMIN owns `granted`, the domain ADMIN owns
+   * `enabled`, and the `' global'` row's `granted` is the platform-wide kill. Enforced
+   * server-side in admin-bff's `AdminController#grantRole`, which is the ONLY path that can
+   * assign those roles — so the switch is real, not advisory.
+   */
+  static readonly EXTERNAL_CLIENT_GRANT = 'external-client-grant';
 
   /** Gate rows visible to the caller: every domain for a SUPERADMIN (incl. the `' global'`
    *  platform-wide-kill sentinel row); ONLY the caller's own domain for a scoped ADMIN. */
@@ -2367,6 +2437,23 @@ export interface DomainCapability {
   updatedBy?: string | null;
   updatedAt?: string | null;
   generation: number;
+}
+
+/**
+ * One typeahead row from `GET /bff/admin/users/search` — mirrors admin-bff's
+ * `net.hugmesh.adminbff.directory.DirectoryUser`.
+ *
+ * `username` is the CASDOOR username the write endpoints key on
+ * (`/bff/admin/roles/{roleName}/{user}`, `/bff/admin/access-roles/{role}/{user}`,
+ * `/bff/admin/domain-lock/{role}/{user}`); `handle` is the invite handle it was derived
+ * from, shown as the secondary line so two accounts that collapse to the same username
+ * stay distinguishable. The picker SUBMITS `username` and DISPLAYS both.
+ */
+export interface DirectoryUser {
+  username: string;
+  handle: string;
+  provider: string;
+  domain: string;
 }
 
 // ── Egress-VPN DTOs (mirror the admin-bff egressvpn package shapes) ────────────

@@ -1,17 +1,32 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { AccessRole, AccessSuspension, BffService, DomainLock, DomainLockRole } from '../bff.service';
+import {
+  AccessRole,
+  AccessSuspension,
+  BffService,
+  DomainCapability,
+  DomainLock,
+  DomainLockRole,
+} from '../bff.service';
 import { DelegationStore } from './delegation-store.service';
 import { accessibleName } from '../accessible-name';
 import { RovingFocusDirective } from '../a11y/roving-focus.directive';
+import { UserTypeaheadComponent } from '../a11y/user-typeahead.component';
+import { GLOBAL_DOMAIN } from '../domain-capabilities.component';
 
-type Tab = 'suspensions' | 'domain-lock' | 'namespaces';
+type Tab = 'suspensions' | 'domain-lock' | 'namespaces' | 'external-client';
+
+/** The two external-client roles, keyed by the platform an admin actually picks. */
+const EXTERNAL_CLIENT_ROLE: Record<'matrix' | 'mastodon', string> = {
+  matrix: 'ROLE_MATRIX_EXTERNAL_CLIENT',
+  mastodon: 'ROLE_MASTODON_EXTERNAL_CLIENT',
+};
 
 /**
  * Admin "Delegation / access roles" console (ROLE_ADMIN only, route-guarded).
  * The single seam onto the narrow, contract-verified AdminController delegation
- * surface — THREE wired capabilities:
+ * surface — FOUR wired capabilities:
  *
  * <ol>
  *   <li>SUSPEND / BAN a user's platform access role (timed via ttlSeconds OR
@@ -20,22 +35,37 @@ type Tab = 'suspensions' | 'domain-lock' | 'namespaces';
  *   <li>DOMAIN-LOCK add / remove (force local-only marker; ROLE_*_DOMAINLOCKED)
  *       — ADD-semantics; the user KEEPS their base role.</li>
  *   <li>NAMESPACE-ACCESS grant / revoke — cluster-namespace access grants.</li>
+ *   <li>EXTERNAL-CLIENT grant / revoke — the per-user
+ *       ROLE_MATRIX_EXTERNAL_CLIENT / ROLE_MASTODON_EXTERNAL_CLIENT capability,
+ *       via POST/DELETE /bff/admin/roles/{roleName}/{user}. Gated on the
+ *       `external-client-grant` DOMAIN CAPABILITY (superadmin grants the brand,
+ *       the brand's admin enables it); the server enforces the same gate, so the
+ *       greyed state here mirrors a real 403 rather than inventing one.</li>
  * </ol>
  *
- * <p>Every effect is HONESTLY pending-reconcile: the endpoints only write the
- * desired-state table + trigger a tick; the single-writer reconcile loop drives
- * Casdoor + the homeserver asynchronously. The console surfaces that in a
- * role=status live region (never claims an instant effect).
+ * <p>Every access-suspension / domain-lock effect is HONESTLY pending-reconcile:
+ * the endpoints only write the desired-state table + trigger a tick; the
+ * single-writer reconcile loop drives Casdoor + the homeserver asynchronously.
+ * The console surfaces that in a role=status live region (never claims an instant
+ * effect). The external-client grant is the exception and says so — it is a DIRECT
+ * Casdoor role write with no reconcile loop behind it.
  *
- * <p>The controls with NO admin-bff endpoint (general arbitrary role grant/revoke,
- * external-client grant, appeals adjudication) are rendered DISABLED with
- * aria-describedby helptext (defence-in-depth: the admin-bff is the source of
- * truth) — NEVER wired to a non-existent endpoint.
+ * <h3>User pickers</h3>
+ * Every field naming a user is a {@link UserTypeaheadComponent} — a type-to-filter
+ * combobox whose suggestions come from GET /bff/admin/users/search, scoped
+ * SERVER-SIDE to this admin's own brand. Free text is still accepted (the directory
+ * is built from the allowlist, so an identity that has no invite row must remain
+ * targetable, and a search outage must not block the form).
+ *
+ * <p>The controls that genuinely have NO admin-bff endpoint (appeals adjudication,
+ * instance federation) stay rendered DISABLED with aria-describedby helptext
+ * (defence-in-depth: the admin-bff is the source of truth) — NEVER wired to a
+ * non-existent endpoint.
  */
 @Component({
   selector: 'hug-delegation',
   standalone: true,
-  imports: [CommonModule, FormsModule, RovingFocusDirective],
+  imports: [CommonModule, FormsModule, RovingFocusDirective, UserTypeaheadComponent],
   templateUrl: './delegation.component.html',
   styleUrl: './delegation.component.scss',
 })
@@ -47,6 +77,7 @@ export class DelegationComponent implements OnInit {
     { id: 'suspensions', label: 'Suspend / ban' },
     { id: 'domain-lock', label: 'Domain lock' },
     { id: 'namespaces', label: 'Namespace access' },
+    { id: 'external-client', label: 'External clients' },
   ];
   readonly tab = signal<Tab>('suspensions');
 
@@ -99,6 +130,30 @@ export class DelegationComponent implements OnInit {
   /** Inline validation error for the namespace form — `role=alert` live region. */
   readonly nsError = signal('');
 
+  // ── External-client grant form ──────────────────────────────────────────
+  /** The two platforms an external client can be authorised for. */
+  readonly externalPlatforms: ReadonlyArray<{ value: 'matrix' | 'mastodon'; label: string }> = [
+    { value: 'matrix', label: 'Matrix (ROLE_MATRIX_EXTERNAL_CLIENT)' },
+    { value: 'mastodon', label: 'Mastodon (ROLE_MASTODON_EXTERNAL_CLIENT)' },
+  ];
+  /** The platform whose external-client role is being granted/revoked. */
+  externalPlatform: 'matrix' | 'mastodon' = 'matrix';
+  /** The user to grant/revoke external-client access for. */
+  externalUser = '';
+  /** Inline error for the external-client form — `role=alert` live region. */
+  readonly externalError = signal('');
+  /** Success/outcome note for the external-client form — `role=status` live region. */
+  readonly externalNote = signal('');
+  /**
+   * This domain's `external-client-grant` capability row, or null when no row exists
+   * (never granted). Read from GET /bff/admin/domain-capabilities, which the BFF already
+   * scopes to the caller's own domain for a plain ADMIN — so the first non-global row IS
+   * this admin's own. Drives the greyed state; the SERVER independently enforces the same
+   * gate on grant, so a stale read here can only ever be too pessimistic, never too
+   * permissive.
+   */
+  readonly externalCapability = signal<DomainCapability | null>(null);
+
   async ngOnInit(): Promise<void> {
     // Load existing suspensions/domain-locks (via the store), then the namespace grants.
     await this.store.refreshAll();
@@ -107,6 +162,16 @@ export class DelegationComponent implements OnInit {
     this.grants.set(a.grants);
     // Pre-select the first available namespace so the picker is not blank.
     if (!this.nsNamespace && a.namespaces.length) this.nsNamespace = a.namespaces[0];
+    await this.loadExternalCapability();
+  }
+
+  /** Load this domain's external-client capability row (absent row = never granted). */
+  private async loadExternalCapability(): Promise<void> {
+    const rows = await this.bff.domainCapabilities();
+    this.externalCapability.set(
+      rows.find(r => r.capability === BffService.EXTERNAL_CLIENT_GRANT
+        && r.domain !== GLOBAL_DOMAIN) ?? null,
+    );
   }
 
   /**
@@ -216,6 +281,83 @@ export class DelegationComponent implements OnInit {
     const a = await this.bff.revokeNamespace(user, namespace);
     this.namespaces.set(a.namespaces);
     this.grants.set(a.grants);
+  }
+
+  // ── external-client grant ───────────────────────────────────────────────
+  /**
+   * Whether an external-client grant will actually be accepted for this domain: the
+   * capability row must exist AND carry BOTH keys (superadmin `granted`, domain-admin
+   * `enabled`).
+   *
+   * <p>This deliberately cannot see the `' global'` platform-wide kill — the BFF does not
+   * return that row to a plain ADMIN. So a kill-switched platform still renders the
+   * control live here and the SERVER returns 403, which {@link grantExternalClient}
+   * surfaces verbatim. That is the honest failure mode: the UI never claims a grant
+   * succeeded, and the one authority on the gate is the one enforcing it.
+   */
+  readonly externalGrantActive = computed(() => {
+    const row = this.externalCapability();
+    return !!row && row.granted && row.enabled;
+  });
+
+  /** Why the external-client controls are greyed, or '' when they are live. */
+  readonly externalGrantBlockedReason = computed(() => {
+    const row = this.externalCapability();
+    if (!row) {
+      return 'A superadmin has not granted the external-client capability to this domain yet.';
+    }
+    if (!row.granted) {
+      return 'A superadmin has withdrawn the external-client capability for this domain.';
+    }
+    if (!row.enabled) {
+      return 'This domain has not opted in to external-client grants — enable it in Domain capabilities.';
+    }
+    return '';
+  });
+
+  /** The Casdoor role the current platform selection maps to. */
+  private externalRole(): string {
+    return EXTERNAL_CLIENT_ROLE[this.externalPlatform];
+  }
+
+  /**
+   * Grant the selected platform's external-client role to {@link externalUser}
+   * (`POST /bff/admin/roles/{roleName}/{user}`). Unlike suspend/domain-lock this is a
+   * DIRECT Casdoor write — there is no reconcile loop, so the note says "granted", not
+   * "pending".
+   */
+  async grantExternalClient(): Promise<void> {
+    await this.externalMutation(
+      () => this.bff.grantRole(this.externalRole(), this.externalUser.trim()),
+      'granted to');
+  }
+
+  /** Revoke the selected platform's external-client role (`DELETE /bff/admin/roles/...`). */
+  async revokeExternalClient(): Promise<void> {
+    await this.externalMutation(
+      () => this.bff.revokeRole(this.externalRole(), this.externalUser.trim()),
+      'revoked from');
+  }
+
+  /** Shared validate → call → announce path for both external-client actions. */
+  private async externalMutation(fn: () => Promise<unknown>, verb: string): Promise<void> {
+    if (!this.externalUser.trim()) {
+      this.externalError.set('Pick or enter a user.');
+      return;
+    }
+    this.externalError.set('');
+    this.externalNote.set('');
+    try {
+      await fn();
+      this.externalNote.set(`${this.externalRole()} ${verb} ${this.externalUser.trim()}.`);
+    } catch (e) {
+      // Surfaced verbatim: a capability 403 explains itself, and a 503 says the Casdoor
+      // admin client is not enabled in this deployment. Neither is worth paraphrasing.
+      this.externalError.set(e instanceof Error ? e.message : String(e));
+      // The denial may be the gate having moved since page load — re-read it so the
+      // greyed state catches up instead of staying wrong until a reload.
+      await this.loadExternalCapability();
+    }
   }
 
   /**

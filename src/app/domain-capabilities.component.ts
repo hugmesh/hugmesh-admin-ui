@@ -9,13 +9,30 @@ import { SessionService } from './session.service';
  *  issuer-derived domain). */
 export const GLOBAL_DOMAIN = ' global';
 
+/** The capability keys this console manages, with the human sentence each one gates. */
+export const CAPABILITY_CHOICES: ReadonlyArray<{ key: string; label: string; gates: string }> = [
+  {
+    key: BffService.USER_MESH_DEVICES,
+    label: 'Mesh radio self-registration',
+    gates: 'a user may register a mesh radio under their own name',
+  },
+  {
+    key: BffService.EXTERNAL_CLIENT_GRANT,
+    label: 'External-client grants',
+    gates: "this domain's admin may grant a user external Matrix/Mastodon client access",
+  },
+];
+
 /**
  * Admin "Domain capabilities" console (own repo: hugmesh-admin-ui) — the per-domain
- * CAPABILITY GATE over the admin-bff `domain_capability` control plane. First (and so far
- * only) capability: {@link BffService.USER_MESH_DEVICES} — a user may register a mesh
- * radio under their own name only if a SUPERADMIN has GRANTED the capability to their
- * domain AND the domain's ADMIN has ENABLED it (two independent keys), plus a
- * platform-wide kill switch.
+ * CAPABILITY GATE over the admin-bff `domain_capability` control plane. Each capability is
+ * two independent keys plus a platform-wide kill switch: a SUPERADMIN GRANTS the capability
+ * to a domain, and that domain's ADMIN ENABLES it.
+ *
+ * <p>The table hosts several capability keys ({@link CAPABILITY_CHOICES}), so the console
+ * shows ONE at a time behind a picker. That is not cosmetic: the list endpoint returns every
+ * key's rows, so a view that did not filter by capability would mix two independent gates
+ * into one table and let a toggle appear to flip the wrong one.
  *
  * <p>ONE route, TWO views (same "one component, role-differentiated sections" shape as
  * {@code WorkloadConsoleComponent}'s admin-read-vs-superadmin-control-plane split), driven
@@ -51,22 +68,35 @@ export class DomainCapabilitiesComponent implements OnInit {
   /** True when the session carries ROLE_SUPERADMIN — unlocks the cross-domain table. */
   readonly isSuperadmin = computed(() => this.session.isSuperadmin());
 
-  /** The single capability this console manages today. */
-  readonly capability = BffService.USER_MESH_DEVICES;
+  /** The capability keys this console can manage — drives the picker. */
+  readonly capabilityChoices = CAPABILITY_CHOICES;
 
-  /** Every gate row visible to the caller (BFF-scoped: all domains for SUPERADMIN, only
-   *  the caller's own domain for a scoped ADMIN). */
+  /** The capability currently being viewed/edited. Every derived list filters on it. */
+  readonly capability = signal<string>(CAPABILITY_CHOICES[0].key);
+
+  /** The sentence describing what the selected capability gates, for the intro copy. */
+  readonly capabilityGates = computed(() =>
+    CAPABILITY_CHOICES.find(c => c.key === this.capability())?.gates ?? '');
+
+  /** Every gate row visible to the caller, across ALL capabilities (BFF-scoped: all domains
+   *  for SUPERADMIN, only the caller's own domain for a scoped ADMIN). */
   readonly rows = signal<DomainCapability[]>([]);
+
+  /** The visible rows for the SELECTED capability — the base every view below derives from. */
+  readonly capabilityRows = computed(() =>
+    this.rows().filter(r => r.capability === this.capability()));
   /** True while the initial load (or a reload after a mutation) is in flight. */
   readonly loading = signal(true);
   /** Error from the last load/mutation, surfaced in a role=alert live region. Empty = none. */
   readonly error = signal('');
 
   /** Real per-domain rows (the `' global'` sentinel is rendered separately). */
-  readonly domainRows = computed(() => this.rows().filter(r => r.domain !== GLOBAL_DOMAIN));
-  /** The platform-wide-kill sentinel row. Always present after a successful load (seeded
-   *  by the changelog) — null only while loading / on a degraded (failed) load. */
-  readonly globalRow = computed(() => this.rows().find(r => r.domain === GLOBAL_DOMAIN) ?? null);
+  readonly domainRows = computed(() =>
+    this.capabilityRows().filter(r => r.domain !== GLOBAL_DOMAIN));
+  /** The platform-wide-kill sentinel row for the selected capability. Absent until a
+   *  superadmin first touches the sentinel for that key. */
+  readonly globalRow = computed(() =>
+    this.capabilityRows().find(r => r.domain === GLOBAL_DOMAIN) ?? null);
   /** The scoped ADMIN's own-domain row. The BFF already scopes the list to ONLY their
    *  domain for a non-superadmin caller, so the first (non-GLOBAL) row IS their own;
    *  absent means the capability has never been granted to their domain. */
@@ -93,13 +123,42 @@ export class DomainCapabilitiesComponent implements OnInit {
   }
 
   /**
+   * Switch which capability this console is showing. Purely a view change — the row list is
+   * already loaded for every key, so no reload is needed.
+   *
+   * @param key - The capability key to display.
+   */
+  selectCapability(key: string): void {
+    this.capability.set(key);
+  }
+
+  /**
+   * The platform-wide kill's current state for the selected capability. An ABSENT sentinel
+   * row reads `false` — the gate is fail-closed server-side (`DomainCapabilityService#isActive`
+   * treats a missing global row as not-granted), so showing the switch as off is what is
+   * actually true, not a placeholder.
+   */
+  readonly globalGranted = computed(() => this.globalRow()?.granted ?? false);
+
+  /**
+   * SUPERADMIN: flip the platform-wide kill for the selected capability. Deliberately does
+   * NOT require an existing sentinel row: only `user-mesh-devices` was seeded by the
+   * changelog, so for any newer key the row does not exist until someone writes it, and a
+   * switch that needed the row to already be there could never be turned on.
+   */
+  async toggleGlobalKill(): Promise<void> {
+    await this.mutate(() =>
+      this.bff.setDomainCapabilityGranted(GLOBAL_DOMAIN, this.capability(), !this.globalGranted()));
+  }
+
+  /**
    * SUPERADMIN: flip the `granted` key for an EXISTING row (`row.domain === ' global'`
    * flips the platform-wide kill).
    *
    * @param row - The gate row whose `granted` flag to toggle.
    */
   async toggleGranted(row: DomainCapability): Promise<void> {
-    await this.mutate(() => this.bff.setDomainCapabilityGranted(row.domain, this.capability, !row.granted));
+    await this.mutate(() => this.bff.setDomainCapabilityGranted(row.domain, this.capability(), !row.granted));
   }
 
   /**
@@ -109,7 +168,7 @@ export class DomainCapabilitiesComponent implements OnInit {
    * @param row - The gate row whose `enabled` flag to toggle.
    */
   async toggleEnabledForDomain(row: DomainCapability): Promise<void> {
-    await this.mutate(() => this.bff.setDomainCapabilityEnabled(row.domain, this.capability, !row.enabled));
+    await this.mutate(() => this.bff.setDomainCapabilityEnabled(row.domain, this.capability(), !row.enabled));
   }
 
   /**
@@ -129,7 +188,7 @@ export class DomainCapabilitiesComponent implements OnInit {
       this.error.set("Use the platform-wide kill switch above, not this form, for the global sentinel.");
       return;
     }
-    await this.mutate(() => this.bff.setDomainCapabilityGranted(domain, this.capability, true));
+    await this.mutate(() => this.bff.setDomainCapabilityGranted(domain, this.capability(), true));
     this.newDomain = '';
   }
 
@@ -141,7 +200,7 @@ export class DomainCapabilitiesComponent implements OnInit {
   async toggleOwnEnabled(): Promise<void> {
     const row = this.ownRow();
     if (!row || !row.granted) return;
-    await this.mutate(() => this.bff.setDomainCapabilityEnabled(row.domain, this.capability, !row.enabled));
+    await this.mutate(() => this.bff.setDomainCapabilityEnabled(row.domain, this.capability(), !row.enabled));
   }
 
   /** Run a mutation, clearing/settting {@link error} and reloading the row list on success. */

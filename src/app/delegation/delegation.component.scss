@@ -83,6 +83,32 @@
 
       &:focus-visible { outline: 2px solid var(--hug-text, #{t.$offwhite}); outline-offset: 2px; }
     }
+
+    // Paired grant/revoke actions sit side by side rather than stacking down the grid.
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+
+      button[type='button'] {
+        background: var(--hug-bg-0, #{t.$charcoal});
+        color: var(--hug-text, #{t.$offwhite});
+        border: 1px solid var(--hug-border, #{t.$mid});
+        border-radius: t.$radius-sm;
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+
+        &:focus-visible { outline: 2px solid var(--hug-text, #{t.$offwhite}); outline-offset: 2px; }
+      }
+    }
+
+    // A capability-gated control that cannot act must LOOK inert, not merely refuse.
+    button:disabled,
+    select:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
   }
 
   table {

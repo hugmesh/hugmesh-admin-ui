@@ -2,16 +2,26 @@
   <h2 id="ns-heading">Namespace access</h2>
 
   <form (ngSubmit)="grant()" novalidate>
-    <label for="ns-user">User (email or Discord handle)</label>
-    <input
-      id="ns-user"
-      data-testid="ns-user"
-      [(ngModel)]="user"
+    <label for="ns-user">User</label>
+    <!--
+      Commits `provider:handle` — the form AccountStore#namespacesFor matches on
+      (Account.id()); the grant endpoint documents accepting either that or a bare username.
+      Suggestions are scoped to this admin's own domains SERVER-SIDE.
+    -->
+    <hug-user-typeahead
+      inputId="ns-user"
+      testId="ns-user"
       name="user"
-      placeholder="user (email/discord)"
-      [attr.aria-invalid]="userError() ? 'true' : null"
-      [attr.aria-describedby]="userError() ? 'ns-user-error' : null"
-    />
+      commit="qualified"
+      placeholder="start typing a user…"
+      [(value)]="user"
+      [invalid]="!!userError()"
+      [describedBy]="userError() ? 'ns-user-error ns-user-help' : 'ns-user-help'"
+    ></hug-user-typeahead>
+    <span id="ns-user-help" class="hint">
+      Suggestions are users in the domains you administer. You can also type an email or
+      Discord handle directly.
+    </span>
 
     <label for="ns-select">Namespace</label>
     <select id="ns-select" data-testid="ns-select" [(ngModel)]="namespace" name="namespace">

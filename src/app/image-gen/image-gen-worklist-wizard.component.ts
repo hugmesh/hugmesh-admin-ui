@@ -6,6 +6,7 @@ import { ImageGenStore } from './image-gen-store.service';
 import { SessionService } from '../session.service';
 import { MfaStepUpDialogComponent } from '../mfa/mfa-step-up-dialog.component';
 import { isStepUpRequiredError } from '../mfa/step-up-error';
+import { UserTypeaheadComponent } from '../a11y/user-typeahead.component';
 import {
   EncryptRoot,
   ENCRYPT_ROOT_OPTIONS,
@@ -57,7 +58,7 @@ const TARGET_USER_RE = /^[A-Za-z0-9._@\/-]{1,400}$/;
 @Component({
   selector: 'hug-image-gen-worklist-wizard',
   standalone: true,
-  imports: [CommonModule, FormsModule, MfaStepUpDialogComponent],
+  imports: [CommonModule, FormsModule, MfaStepUpDialogComponent, UserTypeaheadComponent],
   templateUrl: './image-gen-worklist-wizard.component.html',
   styleUrl: './image-gen-worklist-wizard.component.scss',
 })

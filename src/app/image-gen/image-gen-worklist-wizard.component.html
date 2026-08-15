@@ -38,16 +38,27 @@
 
               <div class="field">
                 <label [attr.for]="'wl-target-' + e.key">Target user</label>
-                <input
-                  [id]="'wl-target-' + e.key"
-                  [attr.data-target]="e.key"
-                  [ngModel]="e.targetUser"
-                  (ngModelChange)="patchEntry(e.key, { targetUser: $event })"
+                <!--
+                  Commits the bare Casdoor username, which is exactly the own-domain
+                  spelling: ImageBuildService reads an `org/` prefix as the cross-brand
+                  qualifier and walls a non-superadmin off a FOREIGN one. A superadmin
+                  composing cross-brand still types `org/user` by hand — the picker never
+                  refuses free text, so the qualified form stays reachable.
+                  Suggestions are scoped to this admin's own domains SERVER-SIDE.
+                -->
+                <hug-user-typeahead
+                  [inputId]="'wl-target-' + e.key"
+                  [testId]="'wl-target-' + e.key"
                   [name]="'target-' + e.key"
-                  maxlength="400"
-                  autocomplete="off"
-                />
-                <span class="hint">The subject the image is for (own-domain unless superadmin).</span>
+                  [maxLength]="400"
+                  placeholder="start typing a user…"
+                  [value]="e.targetUser"
+                  (valueChange)="patchEntry(e.key, { targetUser: $event })"
+                  [describedBy]="'wl-target-help-' + e.key"
+                ></hug-user-typeahead>
+                <span [id]="'wl-target-help-' + e.key" class="hint">
+                  The subject the image is for (own-domain unless superadmin).
+                </span>
               </div>
 
               <div class="field-row">
