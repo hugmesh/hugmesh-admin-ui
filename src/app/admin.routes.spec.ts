@@ -91,12 +91,13 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('superadmin/anubis')!.component).toBe(AnubisAdminComponent);
   });
 
-  it('exposes exactly the thirty-eight admin views the host expects (incl. delegation + appeals + account-appeals + the self-service security/MFA console + device-licenses + device-pending + phone-fleet + my-fleet + fleet-entitlements + node-storage + device-radios + domain-capabilities + desktop governance + egress-vpn + superadmin/domains + oidc-providers + games-services + superadmin/anubis + cloud-backups + backing-services + image-gen + the HIDDEN-tier workloads console + its logs/terminal sub-views)', () => {
+  it('exposes exactly the thirty-nine admin views the host expects (incl. delegation + the roles grant/revoke console + appeals + account-appeals + the self-service security/MFA console + device-licenses + device-pending + phone-fleet + my-fleet + fleet-entitlements + node-storage + device-radios + domain-capabilities + desktop governance + egress-vpn + superadmin/domains + oidc-providers + games-services + superadmin/anubis + cloud-backups + backing-services + image-gen + the HIDDEN-tier workloads console + its logs/terminal sub-views)', () => {
     expect(ADMIN_ROUTES.map((r) => r.path)).toEqual([
       '',
       'usage',
       'namespaces',
       'delegation',
+      'roles',
       'route-access',
       'routes',
       'isos',

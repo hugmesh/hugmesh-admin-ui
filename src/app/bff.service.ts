@@ -137,9 +137,18 @@ export class BffService {
   // (AdminController.GRANTABLE_ROLE_PATTERN) — service/bootstrap roles such as
   // ROLE_SUPERADMIN are deliberately NOT grantable through it, so this client
   // mirrors exactly that list and offers nothing the server would reject.
+  /** Grant a Casdoor role. Throws the BFF {error}: 403 when a capability gate denies it,
+   *  503 when the Casdoor admin client is not enabled in this deployment.
+   *
+   *  The two ROLE_*_EXTERNAL_CLIENT members are ADDITIONALLY gated server-side on the
+   *  `external-client-grant` domain capability, which answers 403 with {capability, domain}
+   *  when the brand has not been granted + enabled it (admin-bff AdminController
+   *  externalClientGate). Nothing here can bypass that — the gate is server-side. */
   async grantRole(role: GrantableRole, user: string): Promise<RoleGrantResult> {
     return this.roleSend('POST', role, user);
   }
+  /** Revoke a Casdoor role. Deliberately NOT capability-gated: taking a capability away
+   *  must never be blocked by that same capability being switched off. */
   async revokeRole(role: GrantableRole, user: string): Promise<RoleGrantResult> {
     return this.roleSend('DELETE', role, user);
   }
@@ -215,26 +224,6 @@ export class BffService {
   // ROLE_*_EXTERNAL_CLIENT roles are additionally gated server-side on the
   // `external-client-grant` domain capability (403 with {capability, domain} when the
   // brand has not been granted + enabled it).
-
-  /** Grant a Casdoor role to a user. Throws the BFF {error} (403 when a capability gate
-   *  denies it, 503 when the Casdoor admin client is not enabled in this deployment). */
-  async grantRole(roleName: string, user: string): Promise<{ granted: string; user: string }> {
-    return this.roleSend('POST', roleName, user);
-  }
-
-  /** Revoke a Casdoor role from a user. Never capability-gated — taking a capability away
-   *  must not be blocked by that capability being switched off. */
-  async revokeRole(roleName: string, user: string): Promise<{ revoked: string; user: string }> {
-    return this.roleSend('DELETE', roleName, user);
-  }
-
-  private async roleSend<T>(method: 'POST' | 'DELETE', roleName: string, user: string): Promise<T> {
-    const r = await fetch(
-      `${CFG.bff}/bff/admin/roles/${encodeURIComponent(roleName)}/${encodeURIComponent(user)}`,
-      { method, credentials: 'include' });
-    if (r.ok) return r.json() as Promise<T>;
-    throw await this.bffError(r);
-  }
 
   /** Extract the BFF's {error} message (string or object) for a thrown rejection. Falls back to
    *  {note} for the handful of hand-rolled non-ApiException bodies (e.g. AdminSshKeyIssuanceController's

@@ -7,8 +7,7 @@ import {
   BffService,
   DomainCapability,
   DomainLock,
-  DomainLockRole,
-} from '../bff.service';
+  DomainLockRole, GrantableRole } from '../bff.service';
 import { DelegationStore } from './delegation-store.service';
 import { accessibleName } from '../accessible-name';
 import { RovingFocusDirective } from '../a11y/roving-focus.directive';
@@ -18,7 +17,10 @@ import { GLOBAL_DOMAIN } from '../domain-capabilities.component';
 type Tab = 'suspensions' | 'domain-lock' | 'namespaces' | 'external-client';
 
 /** The two external-client roles, keyed by the platform an admin actually picks. */
-const EXTERNAL_CLIENT_ROLE: Record<'matrix' | 'mastodon', string> = {
+// Typed as GrantableRole, not string, so this map cannot drift out of the CLOSED
+// vocabulary the server enforces — a typo here becomes a compile error rather than a
+// 400 at grant time.
+const EXTERNAL_CLIENT_ROLE: Record<'matrix' | 'mastodon', GrantableRole> = {
   matrix: 'ROLE_MATRIX_EXTERNAL_CLIENT',
   mastodon: 'ROLE_MASTODON_EXTERNAL_CLIENT',
 };
@@ -316,7 +318,11 @@ export class DelegationComponent implements OnInit {
   });
 
   /** The Casdoor role the current platform selection maps to. */
-  private externalRole(): string {
+  /** Narrowed to GrantableRole, not string: BffService.grantRole takes the CLOSED
+   *  vocabulary the server enforces (AdminController.GRANTABLE_ROLE_PATTERN), so the
+   *  compiler refuses anything the BFF would reject. EXTERNAL_CLIENT_ROLE only ever
+   *  holds the two ROLE_*_EXTERNAL_CLIENT members, which are in that union. */
+  private externalRole(): GrantableRole {
     return EXTERNAL_CLIENT_ROLE[this.externalPlatform];
   }
 
