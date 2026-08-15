@@ -29,8 +29,28 @@ export const RAMPS = [
 ] as const;
 export const STYLES = ['soft', 'sharp', 'outlined', 'elevated', 'flat', 'glass'] as const;
 
+/**
+ * Decorative nav-link suffixes (`theme.DECOR_VARIANTS`), paired with what they actually
+ * render so the operator picks by effect rather than by codename.
+ *
+ * This axis exists because the ' UwU' chrome used to be hard-coded into every mesh. It is
+ * opt-in now, and `none` is a REAL selection rather than the absence of one — choosing it
+ * is how a mesh that has decoration switched on gets it switched off again.
+ *
+ * The suffixes are purely decorative and are marked as such in CSS (`content: var(--x) / ''`),
+ * so a screen reader announces the link text alone whichever variant is chosen.
+ */
+export const DECORS = [
+  { id: 'none', label: 'None', hint: 'No suffix — plain nav links.' },
+  { id: 'uwu', label: 'UwU', hint: 'Adds " UwU", hover " UwO", active " OwO".' },
+  { id: 'arrows', label: 'Arrows', hint: 'Hover "→", active "•".' },
+  { id: 'terminal', label: 'Terminal', hint: 'Hover "_", active "*".' },
+  { id: 'sparkle', label: 'Sparkle', hint: 'Hover "✦", active "✧".' },
+] as const;
+
 export type Ramp = (typeof RAMPS)[number];
 export type Style = (typeof STYLES)[number];
+export type Decor = (typeof DECORS)[number]['id'];
 
 /** One domain's theme as the editor works with it. */
 export interface ThemeRow extends DomainTheme {
@@ -97,7 +117,7 @@ export class DomainThemesStore {
   }
 
   async save(domain: string, body: {
-    preset: string; ramp: string; style: string;
+    preset: string; ramp: string; style: string; decor: string;
     primaryHex?: string; secondaryHex?: string;
   }): Promise<boolean> {
     this.error.set('');

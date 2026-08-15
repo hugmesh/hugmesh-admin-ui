@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SessionService } from '../session.service';
 import {
-  DomainThemesStore, RAMPS, STYLES, ThemeRow, MESH_DEFAULT_SEGMENT,
+  DomainThemesStore, RAMPS, STYLES, DECORS, ThemeRow, MESH_DEFAULT_SEGMENT,
 } from './domain-themes.service';
 
 /**
@@ -39,6 +39,7 @@ export class DomainThemesComponent implements OnInit {
 
   readonly ramps = RAMPS;
   readonly styles = STYLES;
+  readonly decors = DECORS;
   readonly meshDefaultSegment = MESH_DEFAULT_SEGMENT;
 
   /** The row being edited (its domain key), or null when the editor is closed. */
@@ -51,6 +52,7 @@ export class DomainThemesComponent implements OnInit {
   readonly draftPreset = signal('');
   readonly draftRamp = signal<string>('dark');
   readonly draftStyle = signal<string>('soft');
+  readonly draftDecor = signal<string>('none');
   readonly draftPrimary = signal('');
   readonly draftSecondary = signal('');
 
@@ -73,6 +75,11 @@ export class DomainThemesComponent implements OnInit {
       row.preset !== this.draftPreset().trim() ||
       row.ramp !== this.draftRamp() ||
       row.style !== this.draftStyle() ||
+      // Decor is part of the SELECTION the BFF compares, so a decor-only change drops the
+      // render exactly like any other. Leaving it out here would under-warn on the one
+      // edit an operator is most likely to make from this screen — switching a decoration
+      // off — and they would watch the domain go un-themed with no warning shown.
+      (row.decor ?? 'none') !== this.draftDecor() ||
       (row.primaryHex ?? '') !== this.draftPrimary().trim() ||
       (row.secondaryHex ?? '') !== this.draftSecondary().trim()
     );
@@ -112,6 +119,7 @@ export class DomainThemesComponent implements OnInit {
     this.draftPreset.set(t.preset ?? '');
     this.draftRamp.set(t.ramp ?? 'dark');
     this.draftStyle.set(t.style ?? 'soft');
+    this.draftDecor.set(t.decor ?? 'none');
     this.draftPrimary.set(t.primaryHex ?? '');
     this.draftSecondary.set(t.secondaryHex ?? '');
   }
@@ -129,6 +137,10 @@ export class DomainThemesComponent implements OnInit {
         preset: this.draftPreset().trim(),
         ramp: this.draftRamp(),
         style: this.draftStyle(),
+        // Always sent, 'none' included: 'none' is the selection that turns a decoration
+        // OFF, so omitting it would make switching one off indistinguishable from leaving
+        // it on and the decorated stylesheet would survive the write.
+        decor: this.draftDecor(),
         // Omit rather than send blank: absent is the honest encoding of "no override",
         // and the BFF's hex pattern rejects an empty string that is not truly absent.
         ...(this.draftPrimary().trim() ? { primaryHex: this.draftPrimary().trim() } : {}),

@@ -41,7 +41,7 @@ describe('DomainThemesComponent', () => {
 
   function row(over: Partial<ThemeRow> = {}): ThemeRow {
     return {
-      domain: 'brandx', preset: 'nord', ramp: 'dusk', style: 'sharp',
+      domain: 'brandx', preset: 'nord', ramp: 'dusk', style: 'sharp', decor: 'none',
       primaryHex: undefined, secondaryHex: undefined, updatedBy: 'admin@x',
       renderedBy: 'studio', isDefault: false, ...over,
     } as ThemeRow;
@@ -149,6 +149,19 @@ describe('DomainThemesComponent', () => {
       expect(el(f, 'unstyle-warning')).toBeTruthy();
     });
 
+    it('appears when ONLY the decor changed', () => {
+      // The edit this screen exists for: a mesh with decoration switched on, being
+      // switched off. Decor is part of the selection the BFF compares, so this drops the
+      // render exactly like a preset change — and it is the case most likely to be
+      // reached from here, so under-warning on it would be the worst possible omission.
+      const f = setup([row({ decor: 'uwu' })]);
+      const c = f.componentInstance;
+      c.open(c.store.themes()[0]);
+      c.draftDecor.set('none');
+      f.detectChanges();
+      expect(el(f, 'unstyle-warning')).toBeTruthy();
+    });
+
     it('stays hidden when there was never a render to lose', () => {
       // Nothing is being taken away, so warning about it would be noise.
       const f = setup([row({ renderedBy: undefined })]);
@@ -179,6 +192,26 @@ describe('DomainThemesComponent', () => {
       c.draftPrimary.set('#ff0088');
       await c.save();
       expect(store.save.calls.mostRecent().args[1].primaryHex).toBe('#ff0088');
+    });
+
+    it('sends decor ALWAYS, including "none"', async () => {
+      // Unlike the hexes above, decor is never omitted. "none" is the selection that
+      // turns a decoration off; if it were dropped as "empty", the BFF would compare the
+      // write as unchanged and keep serving the decorated stylesheet — the exact bug that
+      // made a switched-on decoration unclearable.
+      const f = setup([row({ decor: 'uwu' })]);
+      const c = f.componentInstance;
+      c.open(c.store.themes()[0]);
+      c.draftDecor.set('none');
+      await c.save();
+      expect(store.save.calls.mostRecent().args[1].decor).toBe('none');
+    });
+
+    it('carries a row\'s existing decor into the editor so it can be changed at all', () => {
+      const f = setup([row({ decor: 'sparkle' })]);
+      const c = f.componentInstance;
+      c.open(c.store.themes()[0]);
+      expect(c.draftDecor()).toBe('sparkle');
     });
 
     it('will not save without a preset', () => {

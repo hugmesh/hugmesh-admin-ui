@@ -108,6 +108,22 @@
     </div>
 
     <div class="field">
+      <label for="theme-decor">Nav decoration</label>
+      <select id="theme-decor" [ngModel]="draftDecor()" (ngModelChange)="draftDecor.set($event)"
+              aria-describedby="theme-decor-hint" data-testid="field-decor">
+        @for (d of decors; track d.id) {
+          <option [value]="d.id">{{ d.label }}</option>
+        }
+      </select>
+      <p class="hint" id="theme-decor-hint">
+        @for (d of decors; track d.id) {
+          @if (d.id === draftDecor()) { {{ d.hint }} }
+        }
+        Decorative only — screen readers announce the link text alone.
+      </p>
+    </div>
+
+    <div class="field">
       <label for="theme-primary">Primary colour override</label>
       <input id="theme-primary" type="text" placeholder="#rrggbb (optional)"
              [ngModel]="draftPrimary()" (ngModelChange)="draftPrimary.set($event)"
