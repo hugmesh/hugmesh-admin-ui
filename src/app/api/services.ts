@@ -10,6 +10,7 @@ export { AppProfileControllerService } from './services/app-profile-controller.s
 export { DomainThemeAdminControllerService } from './services/domain-theme-admin-controller.service';
 export { OidcProviderRolesControllerService } from './services/oidc-provider-roles-controller.service';
 export { MastodonAppearanceDefaultAdminService } from './services/mastodon-appearance-default-admin.service';
+export { EgressVpnControllerService } from './services/egress-vpn-controller.service';
 export { DomainRegistryControllerService } from './services/domain-registry-controller.service';
 export { DomainCapabilityAdminControllerService } from './services/domain-capability-admin-controller.service';
 export { BackupAdminControllerService } from './services/backup-admin-controller.service';
@@ -40,7 +41,6 @@ export { NotificationsFeatureInfraTriggersService } from './services/notificatio
 export { ImageBuildControllerService } from './services/image-build-controller.service';
 export { GoLiveControllerService } from './services/go-live-controller.service';
 export { ForumAdminControllerService } from './services/forum-admin-controller.service';
-export { EgressVpnControllerService } from './services/egress-vpn-controller.service';
 export { StoragePoolControllerService } from './services/storage-pool-controller.service';
 export { RadioDeviceControllerService } from './services/radio-device-controller.service';
 export { DeviceLicenseControllerService } from './services/device-license-controller.service';

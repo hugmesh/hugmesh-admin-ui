@@ -154,6 +154,7 @@ export type { VpnConfig } from './models/vpn-config';
 export type { VpnEgressEntry } from './models/vpn-egress-entry';
 export type { VpnExportBody } from './models/vpn-export-body';
 export type { VpnNodeAssignment } from './models/vpn-node-assignment';
+export type { VpnReportRequest } from './models/vpn-report-request';
 export type { WorkloadConfigRequest } from './models/workload-config-request';
 export type { WorkloadConsoleConfig } from './models/workload-console-config';
 export type { WorkloadConsoleGrant } from './models/workload-console-grant';
