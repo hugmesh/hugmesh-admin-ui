@@ -67,7 +67,7 @@ Then("{string}'s live admin read is cut by the revocation", async ({}, _username
   // revocation boundary answers a revoked custody token with EITHER 401 (the
   // introspect-not-found passthrough → the protected route's authenticated() rule)
   // OR 403 (BffSessionAuthFilter.rejectForbidden on a bff-forbidden introspect) —
-  // this is the platform's OWN documented contract (snapdragon-gateway
+  // this is the platform's OWN documented contract (hugmesh-gateway
   // BffSessionAuthFilter lines 177-189; admin-bff RevocationFilterTest: "401/403 at
   // the gateway filter boundary"). It is NOT a single deterministic value, so
   // asserting either specific number would be a guess; we assert the honest

@@ -18,9 +18,10 @@ import { BffService, RouteRule } from './bff.service';
  * This list is NOT cosmetic. Each gateway loads only the rows whose `gateway`
  * equals its OWN instance name, so a rule written against any other string is
  * persisted, listed, mirrored to Cassandra — and silently never enforced. That is
- * precisely what shipped: the console offered `snapdragon-*-gateway`, a name no
- * deployed instance has carried since the HugMesh rebrand, so every rule this
- * console wrote (including every `mfa_required` floor) was inert.
+ * precisely what shipped: the console offered gateway names under the retired
+ * pre-rebrand prefix (named and banned in route-access.gateway-vocabulary.spec.ts),
+ * names no deployed instance has carried since the HugMesh rebrand, so every rule
+ * this console wrote (including every `mfa_required` floor) was inert.
  *
  * admin-bff does NOT validate the name (RouteRuleRequest only bounds it @NotBlank
  * @Size(max=255)), so this console is the only place the vocabulary is enforced.

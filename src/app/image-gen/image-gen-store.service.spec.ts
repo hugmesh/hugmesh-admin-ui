@@ -36,7 +36,7 @@ function ev(buildId: string, over: Partial<ImageBuildEvent> = {}): ImageBuildEve
 }
 
 const ENVELOPE: WorklistEnvelope = {
-  schema: 'snapdragon-worklist/v1',
+  schema: 'hugmesh-worklist/v1',
   base: null,
   entries: [{ targetUser: 'a@brand', imageType: 'primary', hardwareClass: 'x86', sshKeysAllowed: false }],
   maxConcurrent: 1,

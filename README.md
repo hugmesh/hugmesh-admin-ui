@@ -11,7 +11,7 @@ at **/admin**.
 | Concern        | This repo                                                              |
 | -------------- | --------------------------------------------------------------------- |
 | Tier           | Frontend / micro-frontend (a federated **remote**, not a host)        |
-| Namespace      | `snapdragon-frontend` — runs as its own nginx pod (live k8s namespace still pre-rebrand; see note below) |
+| Namespace      | `hugmesh-frontend` — runs as its own nginx pod                         |
 | Fronted by     | the **fe-gateway** at `/admin`                                         |
 | Backed by      | **hugmesh-admin-bff-api** (Spring), in the backend namespace, behind the gateway |
 | Auth model     | Casdoor **admin role** for most routes; **superadmin role** for the superadmin-only routes; the host route-guards `/admin` |
@@ -418,13 +418,9 @@ regenerates a typed client into `src/app/api/` (config in
 models); the catch-all `BffService` remains hand-written against the shared
 API contract pending its own migration onto the generated client.
 
-> **Note:** the `gen:spec` script's own default path is still the pre-rebrand
-> sibling directory name, `../snapdragon-admin-bff-api/src/main/resources/openapi/openapi.json`
-> (matching its own error message, which likewise still says "in
-> snapdragon-admin-bff-api"). The real sibling repo on disk is
-> `hugmesh-admin-bff-api`, so running `gen:spec` with no override fails with
-> "spec not found" today — set `ADMIN_BFF_SPEC=../hugmesh-admin-bff-api/src/main/resources/openapi/openapi.json`
-> (or symlink/rename) until the script's default is updated to match.
+The `gen:spec` script defaults to the committed spec of the sibling checkout,
+`../hugmesh-admin-bff-api/src/main/resources/openapi/openapi.json`; set
+`ADMIN_BFF_SPEC` to point elsewhere.
 
 ## Accessibility
 
@@ -513,13 +509,11 @@ validation.
 > (es-module-shims nonce propagation) — that remains on the live-cluster browser
 > validation list.
 
-The resulting container runs as its own pod in the **snapdragon-frontend**
-namespace, fronted by the **fe-gateway** at `/admin`. (Yes, `snapdragon-*` —
-the org-wide `hugmesh` rebrand covered repo/doc naming; the live cluster's
-namespaces and gateway names, e.g. `snapdragon-frontend`/`snapdragon-backend`
-and `snapdragon-pki-gateway`/`snapdragon-be-gateway`/`snapdragon-fe-gateway`,
-have not been migrated yet and are still hardcoded as such in `Dockerfile`
-and the workload-console / route-access components.)
+The resulting container runs as its own pod in the **hugmesh-frontend**
+namespace, fronted by the **fe-gateway** at `/admin`. The canonical namespaces
+and gateway names are `hugmesh-frontend`/`hugmesh-backend` and
+`hugmesh-pki-gateway`/`hugmesh-be-gateway`/`hugmesh-fe-gateway`, as hardcoded
+in `Dockerfile` and the workload-console / route-access components.
 
 CI (`.gitlab-ci.yml`) runs **four stages** on every push and mirror-sync (CI is
 **GitLab** across the platform — there are no GitHub Actions):
@@ -547,14 +541,6 @@ The repo's `Makefile` mirrors the `pentest` stage for local use: `make pentest-s
 generator `run-pentest.sh` harness CI uses (ZAP + nuclei), shallow-cloning the
 generator's `tests/pentest` harness if it isn't already checked out as a sibling
 repo.
-
-> **Note:** the `include:`/clone target in `.gitlab-ci.yml` and the
-> `PENTEST_HARNESS` fallback clone in `Makefile` still point at the pre-rebrand
-> project path `Snapdragon-Systems/snapdragon-generator` rather than
-> `hugmesh-generator` — the CI include and Makefile clone target haven't been
-> updated to the new project path yet. Treat `hugmesh-generator` above as the
-> canonical name and the literal `snapdragon-generator` references in those
-> two files as leftover pre-rebrand identifiers still pending cleanup.
 
 ```mermaid
 flowchart LR

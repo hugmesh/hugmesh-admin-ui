@@ -123,8 +123,8 @@ describe('DesktopSshTerminalComponent (in-UI SSH, ships dark)', () => {
       expect(args.url).not.toContain('access_token');
       expect(args.url).not.toContain('stepUp=');
       // step-up rides the subprotocol, never the URL.
-      expect(args.protocols).toContain('snapdragon.device-terminal');
-      expect(args.protocols).toContain('snapdragon.device-terminal.stepup.STEPUP-TOK');
+      expect(args.protocols).toContain('hugmesh.device-terminal');
+      expect(args.protocols).toContain('hugmesh.device-terminal.stepup.STEPUP-TOK');
     });
 
     it('falls back to the canonical device-terminal path when the descriptor omits wsPath', async () => {
@@ -176,7 +176,7 @@ describe('DesktopSshTerminalComponent (in-UI SSH, ships dark)', () => {
       await component.onStepUpSatisfied();
       expect(component.stepUpChallenge()).toBeNull();
       expect(spy).toHaveBeenCalled();
-      expect(component.lastSocketArgs!.protocols).toContain('snapdragon.device-terminal.stepup.STEPUP-TOK');
+      expect(component.lastSocketArgs!.protocols).toContain('hugmesh.device-terminal.stepup.STEPUP-TOK');
     });
   });
 

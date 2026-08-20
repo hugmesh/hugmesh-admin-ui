@@ -106,10 +106,10 @@ describe('BackingServicesComponent', () => {
     component.startEdit(component.services()[0]);
     component.mode.set('managed');
     component.endpoint.set('db.rds.amazonaws.com:5432');
-    component.credsRef.set('snapdragon/postgres-admin-bff');
+    component.credsRef.set('hugmesh/postgres-admin-bff');
     api.setMode.and.resolveTo({
       id: 'bsm-1', serviceId: 'postgres-admin-bff', mode: 'managed',
-      endpoint: 'db.rds.amazonaws.com:5432', credsRef: 'snapdragon/postgres-admin-bff',
+      endpoint: 'db.rds.amazonaws.com:5432', credsRef: 'hugmesh/postgres-admin-bff',
       requestedBySubject: 'root', createdAt: 'T', generation: 1, note: 'intent only',
     });
     // second load reflects the new managed mode

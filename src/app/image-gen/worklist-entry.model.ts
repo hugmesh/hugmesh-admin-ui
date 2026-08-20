@@ -273,7 +273,7 @@ export function buildWorklistEnvelope(
   if (cleanUsers.length) base['users'] = cleanUsers;
 
   return {
-    schema: 'snapdragon-worklist/v1',
+    schema: 'hugmesh-worklist/v1',
     base: Object.keys(base).length ? base : null,
     entries: specs,
     maxConcurrent,
