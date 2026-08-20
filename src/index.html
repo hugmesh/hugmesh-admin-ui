@@ -14,7 +14,7 @@
   <meta name="theme-color" content="#0a0a12" />
   <link rel="icon" type="image/x-icon" href="favicon.ico" />
   <!-- Runtime THEME (colours + fonts), written at container start by
-       docker-entrypoint.d/50-snap-theme.sh from SNAP_THEME_CSS and served from
+       docker-entrypoint.d/50-hug-theme.sh from SNAP_THEME_CSS and served from
        /tmp via the nginx.conf exact-match alias (the docroot is root-owned
        under the unprivileged base, uid 101). Carries ALREADY-DERIVED sd token
        text under a doubled ":root:root" selector, which out-specifies the
@@ -24,8 +24,8 @@
        browser loads last. Empty (zero-byte) on unbranded deploys, so the
        shipped defaults render. RELATIVE path (no leading slash) so it resolves
        against the /admin/ base href; the fe-gateway StripPrefix=1 maps
-       /admin/snap-theme.css back to /snap-theme.css on this container. -->
-  <link rel="stylesheet" href="snap-theme.css" />
+       /admin/hug-theme.css back to /hug-theme.css on this container. -->
+  <link rel="stylesheet" href="hug-theme.css" />
 </head>
 <body>
   <hug-admin-root></hug-admin-root>
