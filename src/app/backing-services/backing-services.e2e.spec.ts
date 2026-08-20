@@ -15,7 +15,7 @@ import {
  *
  * These drive the REAL component through the REAL BackingServicesService, with ONLY `fetch`
  * stubbed at the network edge — so view → service → exact bff path/body/header is exercised
- * against the snapdragon-admin-bff-api `backingservices` contract, not a mocked service.
+ * against the hugmesh-admin-bff-api `backingservices` contract, not a mocked service.
  *
  * A backing in-memory "bff" holds the recorded modes and enforces the step-up gate exactly like
  * the bff's BackingServiceStepUpGate: a mode change is refused (403 naming step-up) unless the

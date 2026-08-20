@@ -9,7 +9,7 @@ import {
 
 /**
  * Service-layer specs for the hand-written backing-services client. They assert the EXACT bff
- * paths + bodies + headers the snapdragon-admin-bff-api `backingservices` package documents
+ * paths + bodies + headers the hugmesh-admin-bff-api `backingservices` package documents
  * (cloud-deploy DESIGN I8-DESIGN Lane M3), the empty-optional omission, the
  * X-BackingServices-StepUp header on the mode change, and the graceful mapping of the bff's
  * 401/403/409/503/400. Cloned from cloud-backups.service.spec.ts.
@@ -75,16 +75,16 @@ describe('BackingServicesService', () => {
 
   it('setMode PUTs the exact /{id}/mode path; managed sends endpoint+credsRef trimmed', async () => {
     fetchSpy.and.resolveTo(json({ id: 'bsm-1', serviceId: 'postgres-admin-bff', mode: 'managed',
-      endpoint: 'db.rds:5432', credsRef: 'snapdragon/pg', requestedBySubject: 'root',
+      endpoint: 'db.rds:5432', credsRef: 'hugmesh/pg', requestedBySubject: 'root',
       createdAt: 'T', generation: 1 }));
     await svc.setMode('postgres-admin-bff',
-      { mode: 'managed', endpoint: '  db.rds:5432  ', credsRef: '  snapdragon/pg  ' }, '  tok-1  ');
+      { mode: 'managed', endpoint: '  db.rds:5432  ', credsRef: '  hugmesh/pg  ' }, '  tok-1  ');
     expect(lastCall().url).toBe('/bff/superadmin/backing-services/postgres-admin-bff/mode');
     expect(lastCall().init.method).toBe('PUT');
     const body = lastBody();
     expect(body.mode).toBe('managed');
     expect(body.endpoint).toBe('db.rds:5432');
-    expect(body.credsRef).toBe('snapdragon/pg');
+    expect(body.credsRef).toBe('hugmesh/pg');
     // step-up token rides the header, trimmed.
     expect((lastCall().init.headers as any)['X-BackingServices-StepUp']).toBe('tok-1');
   });

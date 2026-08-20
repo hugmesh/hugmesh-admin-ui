@@ -15,7 +15,7 @@ import { isStepUpRequiredError } from '../mfa/step-up-error';
  * PATH). REUSES the workload-console ({@code WorkloadTerminalComponent}) xterm.js bridge pattern,
  * with one deliberate difference dictated by the device-terminal WS handler contract: the step-up
  * token is carried via the {@code Sec-WebSocket-Protocol} subprotocol
- * ({@code snapdragon.device-terminal.stepup.<TOKEN>}) rather than a {@code ?stepUp=} query, and
+ * ({@code hugmesh.device-terminal.stepup.<TOKEN>}) rather than a {@code ?stepUp=} query, and
  * there is NO {@code ?access_token=} query — the bearer rides the gateway-gated {@code /bff/admin/**}
  * path. Output is written to the terminal; keystrokes/resizes are {@code {"type":"stdin"|"resize"}}
  * frames.
@@ -155,8 +155,8 @@ export class DesktopSshTerminalComponent implements OnInit, AfterViewInit, OnDes
    * query). A browser {@code WebSocket} cannot set headers, so:
    *  - the bearer rides the gateway-gated {@code /bff/admin/**} path (no access_token query);
    *  - the step-up token is smuggled via the {@code Sec-WebSocket-Protocol} subprotocol as
-   *    {@code snapdragon.device-terminal.stepup.<TOKEN>} alongside the selector subprotocol
-   *    {@code snapdragon.device-terminal} (NOT a {@code ?stepUp=} query — token-in-URL leak).
+   *    {@code hugmesh.device-terminal.stepup.<TOKEN>} alongside the selector subprotocol
+   *    {@code hugmesh.device-terminal} (NOT a {@code ?stepUp=} query — token-in-URL leak).
    * Dormant until the descriptor flips {@code dark:false}.
    */
   private async openLiveTerminal(descriptor: DesktopSshSession): Promise<void> {
@@ -179,7 +179,7 @@ export class DesktopSshTerminalComponent implements OnInit, AfterViewInit, OnDes
     const path = descriptor.wsPath || `/bff/admin/device-terminal/${encodeURIComponent(descriptor.deviceId)}`;
     const q = new URLSearchParams({ cols: '80', rows: '24' });
     const url = `${wsBase}${path}?${q}`;
-    const subprotocols = ['snapdragon.device-terminal', `snapdragon.device-terminal.stepup.${stepUp}`];
+    const subprotocols = ['hugmesh.device-terminal', `hugmesh.device-terminal.stepup.${stepUp}`];
 
     this.term = new Terminal({ convertEol: true, cursorBlink: true });
     if (this.termRef) this.term.open(this.termRef.nativeElement);

@@ -7,7 +7,7 @@ import {
 } from '../mfa/step-up-error';
 
 /** Base URL of the admin BFF. The fe-gateway proxies same-origin /bff/** to
- *  snapdragon-admin-bff-api, so the default is the empty string = same origin.
+ *  hugmesh-admin-bff-api, so the default is the empty string = same origin.
  *  `globalThis.__SNAP_BFF_URL__` lets the host override the target at runtime
  *  (mirrors cloud-backups.service.ts + the other remotes' __SNAP_*_URL__ globals). */
 export const BACKING_SERVICES_BASE_URL = new InjectionToken<string>('BACKING_SERVICES_BASE_URL', {
@@ -15,7 +15,7 @@ export const BACKING_SERVICES_BASE_URL = new InjectionToken<string>('BACKING_SER
 });
 
 // ---------------------------------------------------------------------------
-// Contract — HAND-WRITTEN to mirror the snapdragon-admin-bff-api `backingservices`
+// Contract — HAND-WRITTEN to mirror the hugmesh-admin-bff-api `backingservices`
 // package (cloud-deploy DESIGN I8-DESIGN, Lane M3). Follows the cloud-backups
 // precedent: a typed hand-written client over the EXACT bff paths/DTOs (the Jackson
 // maps serialise camelCase — no @JsonProperty / global SNAKE_CASE in the bff — so
@@ -142,7 +142,7 @@ export class BackingServiceApiError extends BffHttpError {
 }
 
 /**
- * Hand-written reactive client over the snapdragon-admin-bff-api `backingservices` surfaces.
+ * Hand-written reactive client over the hugmesh-admin-bff-api `backingservices` surfaces.
  * Auth rides the HttpOnly `bff_` cookie sent via `credentials:'include'` (the same cookie every
  * other admin-ui BFF call uses — the gateway turns it into the bearer server-side). The mutating
  * PUT carries the step-up token via the `X-BackingServices-StepUp` header (extraHeaders).

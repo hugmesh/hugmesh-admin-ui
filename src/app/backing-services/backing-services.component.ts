@@ -13,7 +13,7 @@ import {
 /**
  * The MANAGED BACKING-SERVICES console (SUPERADMIN, route-guarded by
  * {@link superadminGuard}). The UI half of the managed/self-hosted axis (cloud-deploy DESIGN
- * I8-DESIGN, Lane M3), over the snapdragon-admin-bff-api `backingservices` surfaces. Cloned from
+ * I8-DESIGN, Lane M3), over the hugmesh-admin-bff-api `backingservices` surfaces. Cloned from
  * the cloud-backups module (shell + hand-written typed service + typed error + in-module e2e).
  * Mounted at /admin/backing-services.
  *

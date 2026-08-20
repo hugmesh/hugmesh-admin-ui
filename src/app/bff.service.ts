@@ -619,7 +619,7 @@ export class BffService {
 
   /**
    * Trigger a WORKLIST BATCH — up to 16 images from one worklist envelope
-   * ({@code {schema:'snapdragon-worklist/v1', base, entries, maxConcurrent}}) in a SINGLE
+   * ({@code {schema:'hugmesh-worklist/v1', base, entries, maxConcurrent}}) in a SINGLE
    * step-up-authorised POST to {@code /bff/admin/image-builds/batch}. Plumbing is byte-identical
    * to {@link triggerImageBuild}: the optional step-up token rides the X-ImageGen-StepUp header
    * (ONE step-up authorises the whole batch, mirroring the BFF's single {@code mfaStepUp.consume()}
@@ -2650,7 +2650,7 @@ export interface BatchImageSpec {
  *  {@link BatchImageSpec}s (ONE step-up authorises the whole batch, so the cap is a security
  *  invariant), {@code maxConcurrent} bounds launch fan-out (default 1 = sequential). */
 export interface WorklistEnvelope {
-  schema: 'snapdragon-worklist/v1';
+  schema: 'hugmesh-worklist/v1';
   base?: Record<string, unknown> | null;
   entries: BatchImageSpec[];
   maxConcurrent?: number | null;

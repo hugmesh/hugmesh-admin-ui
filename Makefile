@@ -8,13 +8,13 @@
 # Knobs:
 #   DAST_TARGET_URL   when set, run the DAST harness against this URL.
 #   PENTEST_HARNESS   path to a checked-out generator harness (tests/pentest dir);
-#                     defaults to ../snapdragon-generator/tests/pentest, else the
+#                     defaults to ../hugmesh-generator/tests/pentest, else the
 #                     harness is shallow-cloned into .pentest-harness.
 #   DC_IMAGE          dependency-check image (CI uses owasp/dependency-check).
 
 SHELL := /bin/bash
 DAST_TARGET_URL ?=
-PENTEST_HARNESS ?= ../snapdragon-generator/tests/pentest
+PENTEST_HARNESS ?= ../hugmesh-generator/tests/pentest
 DC_IMAGE ?= owasp/dependency-check:latest
 
 .PHONY: pentest pentest-sca pentest-dast
@@ -60,7 +60,7 @@ pentest-dast:
 		echo "==> [DAST] harness not found at $$HARNESS — shallow-cloning generator"; \
 		rm -rf .pentest-harness; \
 		git clone --depth 1 --branch main \
-			https://github.com/hugmesh/snapdragon-generator.git .pentest-harness \
+			https://github.com/hugmesh/hugmesh-generator.git .pentest-harness \
 			&& HARNESS=".pentest-harness/tests/pentest"; \
 	fi; \
 	if [ -f "$$HARNESS/run-pentest.sh" ]; then \

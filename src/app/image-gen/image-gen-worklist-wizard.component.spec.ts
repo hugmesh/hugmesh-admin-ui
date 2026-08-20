@@ -317,7 +317,7 @@ describe('ImageGenWorklistWizardComponent', () => {
       expect(bff.submitWorklistBatch).toHaveBeenCalledTimes(1);
       const [env, token] = bff.submitWorklistBatch.calls.mostRecent().args as [WorklistEnvelope, string];
       expect(token).toBe('stepup-1');
-      expect(env.schema).toBe('snapdragon-worklist/v1');
+      expect(env.schema).toBe('hugmesh-worklist/v1');
       expect(env.maxConcurrent).toBe(2);
       expect(env.entries.length).toBe(1);
       const spec = env.entries[0];

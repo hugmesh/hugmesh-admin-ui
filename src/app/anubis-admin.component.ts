@@ -4,7 +4,7 @@ import { BffService, AnubisStatus, AnubisMetric } from './bff.service';
 
 /**
  * Superadmin "Anubis" console — read-only view of the Anubis proof-of-work challenge
- * sidecar that fronts {@code snapdragon-fe-gateway}. SUPERADMIN-only (both route-guarded
+ * sidecar that fronts {@code hugmesh-fe-gateway}. SUPERADMIN-only (both route-guarded
  * by {@code superadminGuard} and enforced at the BFF with {@code hasRole('SUPERADMIN')}).
  *
  * <p>Anubis is configured entirely via environment variables at sidecar startup (difficulty,
