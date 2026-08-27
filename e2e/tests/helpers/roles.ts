@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { Browser, BrowserContext, Page } from '@playwright/test';
 
 /**
@@ -16,9 +18,12 @@ import { Browser, BrowserContext, Page } from '@playwright/test';
  *                         plain admin DENIED on a superadmin-only console.
  *
  * The `kind` tag selects which role-specific assertions a feature drives. The
- * `domain` tag drives the cross-domain isolation scenarios. Passwords default to
- * `process.env.E2E_PASSWORD` (or `e2e-pass`) unless a per-user override env var
- * is exported.
+ * `domain` tag drives the cross-domain isolation scenarios. Passwords resolve
+ * via {@link passwordFor} — per-user override env, then the shared
+ * `E2E_PASSWORD` env, then the run-state credentials file that
+ * `make stack-seed` (hugmesh-generator) writes. There is no literal fallback:
+ * an unresolved password throws rather than silently authenticating with a
+ * guessable default.
  */
 export type RoleKind = 'admin' | 'superadmin' | 'mod' | 'games-admin' | 'games-runner' | 'fleet-admin' | 'user';
 
@@ -75,12 +80,118 @@ export const SEED_USERS: SeedUser[] = [
   { username: 'plain-user', passwordEnv: 'E2E_USER_PASSWORD', provider: 'google', roles: [], kind: 'user' },
 ];
 
-/** Resolve a seed user's password — env override or `E2E_PASSWORD` fallback —
- *  without throwing on a missing env. */
+/**
+ * Walk up from `dir` looking for `filename`, the way you'd look for a `.git`
+ * or `package.json` root. This repo is a CONSUMER of hugmesh-generator's
+ * credentials file, not the generator: Playwright runs in its own process
+ * (possibly its own container) and may be invoked with `cwd` at the repo root
+ * or at `e2e/`, either of which the generator could consider "here" when it
+ * wrote `.e2e-credentials`. Returns `undefined` — never throws — when the walk
+ * reaches the filesystem root without a match.
+ */
+function findUpward(filename: string, dir: string): string | undefined {
+  for (;;) {
+    const candidate = path.join(dir, filename);
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) {
+      return undefined;
+    }
+    dir = parent;
+  }
+}
+
+/**
+ * The run-state credentials file path to use: `E2E_CREDENTIALS_FILE` verbatim
+ * if set (its existence is checked when reading, not here — an explicit path
+ * that doesn't exist yet should show up in the error message, not be silently
+ * swapped for something else), otherwise the nearest `.e2e-credentials`
+ * walking up from `cwd`, otherwise the conventional `<cwd>/.e2e-credentials`
+ * path (used only for the "not found" error message).
+ */
+function credentialsFilePath(): string {
+  return (
+    process.env['E2E_CREDENTIALS_FILE']
+    ?? findUpward('.e2e-credentials', process.cwd())
+    ?? path.join(process.cwd(), '.e2e-credentials')
+  );
+}
+
+/**
+ * Parse the plain `KEY=value` run-state credentials file written by
+ * hugmesh-generator's `e2e_password_ensure()` (`tests/stack/e2e-password.sh`
+ * in that repo — no quoting, no `export` keyword, so it also sources with
+ * `set -a; . file; set +a` and loads via `docker compose --env-file`).
+ *
+ * A missing or unreadable file is the expected, common case — a fresh
+ * checkout before anyone has run `make stack-seed` — so this returns an empty
+ * map rather than throwing; the caller turns "nothing resolved" into one clear
+ * error instead of letting an `ENOENT` stack trace stand in for it.
+ */
+function readCredentialsFile(filePath: string): Map<string, string> {
+  const values = new Map<string, string>();
+  let raw: string;
+  try {
+    raw = fs.readFileSync(filePath, 'utf8');
+  } catch {
+    return values;
+  }
+  for (const line of raw.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) {
+      continue;
+    }
+    const eq = trimmed.indexOf('=');
+    if (eq === -1) {
+      continue;
+    }
+    values.set(trimmed.slice(0, eq).trim(), trimmed.slice(eq + 1).trim());
+  }
+  return values;
+}
+
+/**
+ * Resolve a seed user's password. Precedence (Rule 4 of the random-password
+ * contract — consumers RESOLVE, they never invent):
+ *
+ *   1. the per-user override, `process.env[user.passwordEnv]`
+ *   2. the shared override/propagation var, `process.env.E2E_PASSWORD`
+ *   3. the run-state credentials file (`E2E_CREDENTIALS_FILE` or a
+ *      `.e2e-credentials` walked up from `cwd`), checked under the same two
+ *      keys in the same order
+ *
+ * If none of those resolve, this THROWS — naming `make stack-seed` and the
+ * file path it looked for — instead of ever falling back to a literal. A
+ * silent literal default is the exact bug this replaces: it would let a
+ * misconfigured run authenticate with a guessable password and still go
+ * green.
+ */
 export function passwordFor(user: SeedUser): string {
-  return process.env[user.passwordEnv]
-    ?? process.env['E2E_PASSWORD']
-    ?? 'e2e-pass';
+  const perUser = process.env[user.passwordEnv];
+  if (perUser) {
+    return perUser;
+  }
+
+  const shared = process.env['E2E_PASSWORD'];
+  if (shared) {
+    return shared;
+  }
+
+  const filePath = credentialsFilePath();
+  const fromFile = readCredentialsFile(filePath);
+  const fileValue = fromFile.get(user.passwordEnv) ?? fromFile.get('E2E_PASSWORD');
+  if (fileValue) {
+    return fileValue;
+  }
+
+  throw new Error(
+    `No e2e password for seed user "${user.username}": neither $${user.passwordEnv} nor $E2E_PASSWORD is ` +
+      `set, and neither key was found in the run-state credentials file (${filePath}). Run \`make stack-seed\` ` +
+      `(hugmesh-generator) to seed the stack and write that file, or export E2E_CREDENTIALS_FILE to point at ` +
+      `wherever it was written, then re-run.`,
+  );
 }
 
 /**
