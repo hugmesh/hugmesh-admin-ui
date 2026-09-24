@@ -223,9 +223,13 @@ export class WorkloadConsoleComponent implements OnInit {
    * Mint a short-TTL step-up token from the BFF and hold it in {@link stepUpToken}. The BFF
    * VALIDATES X-Workload-StepUp only for its DANGEROUS tier (live log-stream / exec /
    * port-forward / GitOps lifecycle). In this view the held token is forwarded by
-   * {@link rolloutRestart} and {@link deletePod}, which are the BFF's RUNTIME_MUTATE tier and
-   * do NOT require step-up today (see the note above `BffService.workloadRolloutRestart`), so
-   * minting is not a precondition for them. (The terminal view mints its own token.)
+   * {@link rolloutRestart} and {@link deletePod}. For ordinary names those are the BFF's
+   * RUNTIME_MUTATE tier and do NOT require step-up, so the UI does not make minting a
+   * precondition. But the BFF's tierOf substring match puts a namespace / workload / pod
+   * whose name BEGINS with exec, lifecycle or port-forward (or namespace `logs` with a name
+   * beginning `stream`) in DANGEROUS. For those names the kill applies, and the call needs
+   * this token (see the note above `BffService.workloadRolloutRestart`). (The terminal view
+   * mints its own token.)
    */
   async stepUp(): Promise<void> {
     this.actionMsg.set('');
@@ -242,9 +246,13 @@ export class WorkloadConsoleComponent implements OnInit {
   /**
    * Request a rollout-restart (pod-delete) on the workload owning the given pod.
    * The k8s controller recreates the pods. The token minted via {@link stepUp}, if one is
-   * held, rides X-Workload-StepUp; with none, no header is sent. The BFF does NOT currently
-   * require it here (RUNTIME_MUTATE: SUPERADMIN + not suspended + namespace allowlist is the
-   * gate) — it is forwarded for parity with the DANGEROUS calls, not as the gate.
+   * held, rides X-Workload-StepUp; with none, no header is sent. For ordinary names the BFF
+   * does NOT require it (RUNTIME_MUTATE: SUPERADMIN + not suspended + namespace allowlist is
+   * the gate), so there it is forwarded for parity only. For a namespace / workload name that
+   * BEGINS with exec, lifecycle or port-forward, the BFF misclassifies the call as DANGEROUS.
+   * There the forwarded token is validated and is what lets the call through (dangerous-tier
+   * kill permitting); without one it is "HTTP 403". See the note above
+   * `BffService.workloadRolloutRestart`.
    *
    * @param pod - The pod whose owning workload to restart.
    */
@@ -261,7 +269,9 @@ export class WorkloadConsoleComponent implements OnInit {
 
   /**
    * Delete a specific pod (the controller will recreate it). Forwards the held step-up token
-   * exactly like {@link rolloutRestart} (same RUNTIME_MUTATE tier; not required by the BFF today).
+   * exactly like {@link rolloutRestart}, with the same BFF treatment: RUNTIME_MUTATE with the
+   * token unchecked for ordinary names, but DANGEROUS (token validated, kill applies) for a
+   * namespace / pod name beginning with exec, lifecycle or port-forward.
    *
    * @param pod - The pod to delete.
    */

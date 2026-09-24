@@ -646,8 +646,11 @@ describe('BffService', () => {
 
   // ── Workload console runtime mutations: X-Workload-StepUp forwarding ──
   // rollout-restart / delete-pod used to take no token, so a minted one never reached the BFF.
-  // They now forward it the way workloadLifecycle does. (The BFF's RUNTIME_MUTATE tier does not
-  // VALIDATE it today — these specs pin the wire shape only, not any server behaviour.)
+  // They now forward it the way workloadLifecycle does. These specs pin the wire shape only, not
+  // any server behaviour. (For ordinary names the BFF puts these calls in RUNTIME_MUTATE, where
+  // the token is not validated. Its tierOf substring match puts names beginning with exec /
+  // lifecycle / port-forward in DANGEROUS, where the token IS validated; see the note in
+  // bff.service.ts.)
   describe('workload runtime mutations + X-Workload-StepUp', () => {
     function header(name: string): string | undefined {
       return (lastInit().headers as Record<string, string>)?.[name];
@@ -664,6 +667,25 @@ describe('BffService', () => {
       // No body, so no content-type — the token is the ONLY header this call adds.
       expect(lastInit().body).toBeUndefined();
       expect(header('content-type')).toBeUndefined();
+    });
+
+    it('an exec-/lifecycle-prefixed name goes out verbatim WITH the header (the case the BFF validates it)', async () => {
+      // The admin-bff's tierOf (5f0ee2f) substring-matches "/exec" and "/lifecycle" on the raw
+      // path before it looks for "/rollout-restart" or DELETE-on-"/pods/", so these two exact
+      // URLs are classified DANGEROUS there and pass only with a valid step-up token. This spec
+      // pins OUR half of that: encodeURIComponent leaves the name as-is (so the BFF does see
+      // "/executor" / "/lifecycle-controller") and the header rides along. The BFF half is not
+      // exercised here.
+      fetchSpy.and.resolveTo(jsonResponse({ deletedPods: 1, workload: 'executor' }));
+      await service.workloadRolloutRestart('hugmesh-backend', 'executor', 'WK-4');
+      expect(lastUrl()).toContain('/bff/superadmin/workloads/pods/hugmesh-backend/executor/rollout-restart');
+      expect(header('X-Workload-StepUp')).toBe('WK-4');
+
+      fetchSpy.and.resolveTo(jsonResponse({ deleted: 1, pod: 'lifecycle-controller-0' }));
+      await service.workloadDeletePod('apps', 'lifecycle-controller-0', 'WK-5');
+      expect(lastUrl()).toMatch(/\/bff\/superadmin\/workloads\/pods\/apps\/lifecycle-controller-0$/);
+      expect(lastInit().method).toBe('DELETE');
+      expect(header('X-Workload-StepUp')).toBe('WK-5');
     });
 
     it('workloadDeletePod DELETEs the encoded pod path with the step-up header', async () => {

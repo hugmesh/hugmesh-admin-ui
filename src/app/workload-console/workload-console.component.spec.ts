@@ -128,8 +128,11 @@ describe('WorkloadConsoleComponent', () => {
   // ── runtime mutations forward the minted step-up token ──
   // The console mints a token via stepUp() and holds it in stepUpToken(); rolloutRestart and
   // deletePod used to drop it on the floor. They now hand it to the BffService call, which puts
-  // it in X-Workload-StepUp. (The BFF does not require it for this tier today — see the note in
-  // bff.service.ts — so an unminted console must still be able to restart/delete.)
+  // it in X-Workload-StepUp. For ordinary names the BFF does not require it (RUNTIME_MUTATE), so
+  // an unminted console must still be able to restart/delete; the UI does not gate on it. For a
+  // name beginning with exec / lifecycle / port-forward the BFF misclassifies the call as
+  // DANGEROUS and DOES validate the token (see the note in bff.service.ts), which is why it must
+  // be forwarded rather than dropped.
   describe('runtime mutations + the minted step-up token', () => {
     beforeEach(() => {
       configure(true);
