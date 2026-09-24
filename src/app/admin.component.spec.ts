@@ -297,7 +297,9 @@ describe('AdminComponent menu — resolved navigation targets', () => {
     await TestBed.configureTestingModule({
       providers: [
         { provide: BffService, useValue: bff },
-        { provide: SessionService, useValue: { isSuperadmin: signal(true), isFleetAdmin: signal(true) } },
+        // isAdmin: the landing route carries the baseline adminGuard, which reads it — the
+        // persona here is an admin (+ superadmin, so the superadmin-only item renders too).
+        { provide: SessionService, useValue: { isAdmin: signal(true), isSuperadmin: signal(true), isFleetAdmin: signal(true) } },
         provideRouter([{ path: 'admin', children: ADMIN_ROUTES }]),
       ],
     }).compileComponents();

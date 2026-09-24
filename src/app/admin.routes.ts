@@ -39,6 +39,7 @@ import { CloudBackupsComponent } from './cloud-backups/cloud-backups.component';
 import { BackingServicesComponent } from './backing-services/backing-services.component';
 import { ImageGenComponent } from './image-gen/image-gen.component';
 import { MfaSecurityComponent } from './mfa/mfa-security.component';
+import { adminGuard } from './admin.guard';
 import { superadminGuard } from './superadmin.guard';
 import { fleetAdminGuard } from './fleet.guard';
 import { gamesServicesGuard } from './games-services.guard';
@@ -92,7 +93,7 @@ import { workloadConsoleGuard } from './workload-console.guard';
  *  superadmin has GRANTED the capability to their domain AND the domain's admin has ENABLED
  *  it, plus a platform-wide kill switch. ADMIN-reachable like node-storage/device-radios;
  *  the BFF's own list scoping is what differentiates the superadmin cross-domain table from
- *  the admin own-domain toggle — no route guard needed), and
+ *  the admin own-domain toggle — no guard beyond the baseline adminGuard needed), and
  *  /admin/egress-vpn (the SUPERADMIN-only Egress VPN console — import provider WireGuard/OpenVPN
  *  configs that nodes use for outgoing public egress, additionally superadmin-guarded), and
  *  /admin/games-services (the games app-store operator console — add/run dockerized FOSS game
@@ -106,48 +107,79 @@ import { workloadConsoleGuard } from './workload-console.guard';
  *  hugmesh-auth-core /bff/mfa/* contract; the SAME inline step-up dialog this console uses
  *  for its own step-up-gated remove/regenerate mutations is reusable by any privileged admin
  *  action elsewhere in this app — see {@code MfaStepUpDialogComponent}).
- *  Casdoor-admin-role guarded by the host. */
+ *
+ *  GUARD POLICY — every route carries EXACTLY ONE client-side `canActivate` guard, and a
+ *  route with no guard is a bug (`admin.routes.spec.ts` pins the whole path→guard map, so a
+ *  new route added without one fails there):
+ *   - the BASELINE is {@link adminGuard} (`roles` includes `admin`) — the SAME predicate the
+ *     host shell's own `adminGuard` applies on its `/admin` PARENT route. Angular runs
+ *     `canActivate` parent-before-child and stops at the first non-`true` result, so under
+ *     the host that check runs first and this one is a second check of an identical rule,
+ *     not a new policy (a signed-in non-admin is turned away by the host, to its
+ *     `/home?denied=` page, before reaching this guard). It is what gates these consoles
+ *     when the routes run WITHOUT that host guard (the `ng serve admin` standalone dev shell
+ *     mounts ADMIN_ROUTES bare — see `app.routes.ts`). This is the same shape hugmesh-mod-ui
+ *     uses (`modGuard` on every MOD_ROUTES entry, for host-mounted and standalone builds
+ *     alike).
+ *   - a route whose audience is NOT "holders of the `admin` role" carries its OWN guard
+ *     INSTEAD of adminGuard, never stacked on top of it: superadminGuard (a session whose
+ *     roles carry `superadmin` without the literal `admin` string must not be narrowed out),
+ *     fleetAdminGuard (admits a bare `fleet_admin`), gamesServicesGuard (admits a bare
+ *     `games_services_runner`) and workloadConsoleGuard (admin OR superadmin + a live grant
+ *     probe). Stacking adminGuard onto those would silently shrink each audience to
+ *     `admin`-holders. (Whether the host's own `/admin` gate already shrinks them that way is
+ *     a host-shell question — see the README's "Role gate & session" section.)
+ *  Every one of these guards is presentation-only; the BFF/gateway is the authority.
+ *
+ *  One honest caveat, NOT live-verified: this remote's SessionService reads only the
+ *  `hug.session` localStorage mirror, while the host's is additionally re-hydrated from
+ *  `GET /bff/session` (without writing the mirror back). If a role was GRANTED since
+ *  login-ui last wrote the mirror, the host can admit `/admin` while adminGuard here still
+ *  sees the old roles and sends the user to `/login` — where login-ui re-reads
+ *  `/bff/session` and rewrites the mirror. The superadmin/fleet/games/workload guards
+ *  below have always had exactly that exposure; wiring adminGuard extends it to the
+ *  baseline routes. */
 export const ADMIN_ROUTES: Routes = [
-  { path: '', component: AdminComponent },
-  { path: 'usage', component: UsageComponent },
-  { path: 'namespaces', component: NamespaceAccessComponent },
-  { path: 'delegation', component: DelegationComponent },
-  { path: 'roles', component: RolesComponent },
-  { path: 'route-access', component: RouteAccessComponent },
-  { path: 'routes', component: RouteDefinitionsComponent },
-  { path: 'isos', component: IsoDownloadsComponent },
-  { path: 'argocd', component: ArgocdDashboardComponent },
-  { path: 'tasks', component: AdminTaskWizardComponent },
-  { path: 'backup', component: BackupComponent },
-  { path: 'recovery', component: RecoveryComponent },
-  { path: 'backups', component: BackupHistoryComponent },
+  { path: '', component: AdminComponent, canActivate: [adminGuard] },
+  { path: 'usage', component: UsageComponent, canActivate: [adminGuard] },
+  { path: 'namespaces', component: NamespaceAccessComponent, canActivate: [adminGuard] },
+  { path: 'delegation', component: DelegationComponent, canActivate: [adminGuard] },
+  { path: 'roles', component: RolesComponent, canActivate: [adminGuard] },
+  { path: 'route-access', component: RouteAccessComponent, canActivate: [adminGuard] },
+  { path: 'routes', component: RouteDefinitionsComponent, canActivate: [adminGuard] },
+  { path: 'isos', component: IsoDownloadsComponent, canActivate: [adminGuard] },
+  { path: 'argocd', component: ArgocdDashboardComponent, canActivate: [adminGuard] },
+  { path: 'tasks', component: AdminTaskWizardComponent, canActivate: [adminGuard] },
+  { path: 'backup', component: BackupComponent, canActivate: [adminGuard] },
+  { path: 'recovery', component: RecoveryComponent, canActivate: [adminGuard] },
+  { path: 'backups', component: BackupHistoryComponent, canActivate: [adminGuard] },
   // Cloud Backups console (per-domain + superadmin TOTAL) over the bff `cloudbackup`
   // surfaces — DISTINCT from the legacy USB Backup/Recovery/Backups-history module
   // above (mirrors the bff's distinct /bff/admin/cloud-backups prefix). The TOTAL
   // tab inside is superadmin-only (hidden for an admin; the bff is authoritative).
-  { path: 'cloud-backups', component: CloudBackupsComponent },
+  { path: 'cloud-backups', component: CloudBackupsComponent, canActivate: [adminGuard] },
   // Managed backing-services console (SUPERADMIN-only, cross-domain infra): choose self-hosted
   // (default) vs a managed cloud equivalent per backing service. The bff
   // (/bff/superadmin/backing-services) is authoritative (SUPERADMIN + step-up + ships dark);
   // this guard is presentation-only.
   { path: 'backing-services', component: BackingServicesComponent, canActivate: [superadminGuard] },
-  { path: 'announcements', component: AnnouncementListComponent },
-  { path: 'themes', component: DomainThemesComponent },
-  { path: 'test-reports', component: TestReportsComponent },
+  { path: 'announcements', component: AnnouncementListComponent, canActivate: [adminGuard] },
+  { path: 'themes', component: DomainThemesComponent, canActivate: [adminGuard] },
+  { path: 'test-reports', component: TestReportsComponent, canActivate: [adminGuard] },
   // Image-generation console (ADMIN/SUPERADMIN) over the bff `imagegen` surfaces
   // (/bff/admin/image-builds). Trigger a build, stream SSE progress, download the
   // image and (only when ssh_keys_allowed + step-up) the non-secret keys bundle.
   // Capability-gated on the x86 build node + ships dark when the generator is disabled.
-  { path: 'image-gen', component: ImageGenComponent },
-  { path: 'forum', component: ForumAdminComponent },
-  { path: 'appeals', component: AppealsComponent },
-  { path: 'account-appeals', component: AccountAppealsComponent },
+  { path: 'image-gen', component: ImageGenComponent, canActivate: [adminGuard] },
+  { path: 'forum', component: ForumAdminComponent, canActivate: [adminGuard] },
+  { path: 'appeals', component: AppealsComponent, canActivate: [adminGuard] },
+  { path: 'account-appeals', component: AccountAppealsComponent, canActivate: [adminGuard] },
   // Self-service Security console: enroll/list/remove your OWN MFA factors (TOTP +
   // WebAuthn passkey) and regenerate recovery codes, over the shared hugmesh-auth-core
   // /bff/mfa/* contract (the same one login-ui's /login/security already uses). ANY
-  // authenticated admin/superadmin may reach it (no additional guard) — the BFF is the
-  // authoritative owner scope (a caller only ever sees/mutates their own factors).
-  { path: 'security', component: MfaSecurityComponent },
+  // `admin`-role holder may reach it (the baseline adminGuard, nothing stricter) — the BFF
+  // is the authoritative owner scope (a caller only ever sees/mutates their own factors).
+  { path: 'security', component: MfaSecurityComponent, canActivate: [adminGuard] },
   { path: 'device-licenses', component: DeviceLicensesComponent, canActivate: [superadminGuard] },
   { path: 'device-pending', component: DevicePendingComponent, canActivate: [superadminGuard] },
   { path: 'phone-fleet', component: PhoneFleetComponent, canActivate: [superadminGuard] },
@@ -157,13 +189,13 @@ export const ADMIN_ROUTES: Routes = [
   { path: 'my-fleet', component: MyFleetComponent, canActivate: [fleetAdminGuard] },
   // Fleet-entitlement admin (SUPERADMIN) — grant/update/revoke the FLEET_ADMIN subscription.
   { path: 'fleet-entitlements', component: FleetEntitlementsComponent, canActivate: [superadminGuard] },
-  { path: 'node-storage', component: StoragePoolsComponent },
-  { path: 'device-radios', component: DeviceRadiosComponent },
-  { path: 'domain-capabilities', component: DomainCapabilitiesComponent },
+  { path: 'node-storage', component: StoragePoolsComponent, canActivate: [adminGuard] },
+  { path: 'device-radios', component: DeviceRadiosComponent, canActivate: [adminGuard] },
+  { path: 'domain-capabilities', component: DomainCapabilitiesComponent, canActivate: [adminGuard] },
   { path: 'egress-vpn', component: EgressVpnComponent, canActivate: [superadminGuard] },
   { path: 'superadmin/domains', component: SuperadminDomainsComponent, canActivate: [superadminGuard] },
-  { path: 'oidc-providers', component: OidcProviderRolesComponent },
-  { path: 'desktop', component: DesktopGovernanceComponent },
+  { path: 'oidc-providers', component: OidcProviderRolesComponent, canActivate: [adminGuard] },
+  { path: 'desktop', component: DesktopGovernanceComponent, canActivate: [adminGuard] },
   { path: 'games-services', component: GamesServicesComponent, canActivate: [gamesServicesGuard] },
   { path: 'superadmin/anubis', component: AnubisAdminComponent, canActivate: [superadminGuard] },
   // ── WORKLOAD CONSOLE (HIDDEN tier) ──────────────────────────────────────────────

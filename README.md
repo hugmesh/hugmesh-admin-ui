@@ -59,8 +59,9 @@ tokens never leave the cluster.
 > **Multi-tenancy note:** The platform's per-domain CA + per-brand
 > gateway/BFF/UI model with its least-privilege cascade (SUPERADMIN→ADMIN→MOD→USER)
 > means this console is the **per-brand ADMIN surface**. As shipped (✅), the base
-> gate is a Casdoor `admin` role (`roles.includes('admin')`); a handful of routes
-> additionally require `superadmin` (enforced by `superadminGuard`); one route
+> gate is a Casdoor `admin` role (`roles.includes('admin')` — checked by the host shell on
+> its `/admin` mount and again by this repo's `adminGuard` on every baseline route); a
+> handful of routes instead require `superadmin` (enforced by `superadminGuard`); one route
 > uses the games-services derived roles; and one route (`/admin/my-fleet`) uses the
 > fleet-owner capability role (`fleetAdminGuard`). **Domain scoping is enforced upstream at the
 > gateway and BFF** (the BFF stamps every call to the caller's domain) — the
@@ -119,45 +120,46 @@ session bridge, recently unified across the platform:
 
 The remote exposes `ADMIN_ROUTES` (`src/app/admin.routes.ts`). The host mounts
 them at `/admin`, so they resolve to the paths below. The **Guard** column is the
-route-level `canActivate` (none = host/admin-guarded only); the **Menu** column is
+route-level `canActivate` — every route carries exactly one, `adminGuard` being the
+baseline (see *Role gate & session*); the **Menu** column is
 whether `AdminComponent`'s nav surfaces the route as a `routerLink`. All of these
 are ✅ shipped on `main`.
 
 | Host path                 | View                                                | Component                   | Guard            | Menu |
 | ------------------------- | --------------------------------------------------- | --------------------------- | ---------------- | ---- |
-| `/admin`                  | Registration allowlist + admin menu                 | `AdminComponent`            | —                | (landing) |
-| `/admin/usage`            | ClickHouse usage dashboard                          | `UsageComponent`            | —                | yes  |
-| `/admin/namespaces`       | Namespace access grants                             | `NamespaceAccessComponent`  | —                | yes  |
-| `/admin/delegation`       | Access-role suspend/ban + lift, domain-lock add/remove | `DelegationComponent`    | —                | yes  |
-| `/admin/route-access`     | Per-gateway role→URL access rules                   | `RouteAccessComponent`      | —                | yes  |
-| `/admin/routes`           | Gateway route definitions                           | `RouteDefinitionsComponent` | —                | yes  |
-| `/admin/isos`             | CI ISO download links                               | `IsoDownloadsComponent`     | —                | yes  |
-| `/admin/argocd`           | ArgoCD applications dashboard                        | `ArgocdDashboardComponent`  | —                | yes  |
-| `/admin/tasks`            | Guided admin-task wizard                             | `AdminTaskWizardComponent`  | —                | yes  |
-| `/admin/backup`           | Start a cloud/USB backup                            | `BackupComponent`           | —                | yes  |
-| `/admin/recovery`         | Restore a backup                                    | `RecoveryComponent`         | —                | yes  |
-| `/admin/backups`          | Backup + restore history                            | `BackupHistoryComponent`    | —                | yes  |
-| `/admin/cloud-backups`    | Cloud backups (per-domain + superadmin TOTAL, versioned, step-up restore) | `CloudBackupsComponent` | —          | yes  |
+| `/admin`                  | Registration allowlist + admin menu                 | `AdminComponent`            | `adminGuard`     | (landing) |
+| `/admin/usage`            | ClickHouse usage dashboard                          | `UsageComponent`            | `adminGuard`     | yes  |
+| `/admin/namespaces`       | Namespace access grants                             | `NamespaceAccessComponent`  | `adminGuard`     | yes  |
+| `/admin/delegation`       | Access-role suspend/ban + lift, domain-lock add/remove | `DelegationComponent`    | `adminGuard`     | yes  |
+| `/admin/route-access`     | Per-gateway role→URL access rules                   | `RouteAccessComponent`      | `adminGuard`     | yes  |
+| `/admin/routes`           | Gateway route definitions                           | `RouteDefinitionsComponent` | `adminGuard`     | yes  |
+| `/admin/isos`             | CI ISO download links                               | `IsoDownloadsComponent`     | `adminGuard`     | yes  |
+| `/admin/argocd`           | ArgoCD applications dashboard                        | `ArgocdDashboardComponent`  | `adminGuard`     | yes  |
+| `/admin/tasks`            | Guided admin-task wizard                             | `AdminTaskWizardComponent`  | `adminGuard`     | yes  |
+| `/admin/backup`           | Start a cloud/USB backup                            | `BackupComponent`           | `adminGuard`     | yes  |
+| `/admin/recovery`         | Restore a backup                                    | `RecoveryComponent`         | `adminGuard`     | yes  |
+| `/admin/backups`          | Backup + restore history                            | `BackupHistoryComponent`    | `adminGuard`     | yes  |
+| `/admin/cloud-backups`    | Cloud backups (per-domain + superadmin TOTAL, versioned, step-up restore) | `CloudBackupsComponent` | `adminGuard` | yes  |
 | `/admin/backing-services` | Managed backing-services console — self-hosted (default) vs managed-cloud mode per closed-catalog infra service | `BackingServicesComponent` | `superadminGuard` | no (route-only) |
-| `/admin/announcements`    | Announcements (create + schedule + target)          | `AnnouncementListComponent` | —                | yes  |
-| `/admin/test-reports`     | Test-architecture run history + on-demand run + download | `TestReportsComponent` | —                | yes  |
-| `/admin/image-gen`        | Image-generation console: worklist BATCH wizard (up to 16 images/step-up, role-aware package tiers) + build history/detail + SSE progress + download, capability-gated | `ImageGenComponent` | —          | yes  |
-| `/admin/forum`            | Forum (phpBB ACP) admin proxy                       | `ForumAdminComponent`       | —                | yes  |
-| `/admin/appeals`          | Appeals-Decide console — CONTENT-moderation appeals (decide-proxy, domain-scoped) | `AppealsComponent`         | —                | yes  |
-| `/admin/account-appeals`  | Account-ban appeal inbox — a curtailed user's own appeal against their `access_suspension` PROFILE ban; approve actually restores access (distinct from `/admin/appeals` above, which decides content-moderation rows) | `AccountAppealsComponent` | —          | yes  |
-| `/admin/security`         | Self-service Security console: enroll/list/remove your OWN MFA factors (TOTP + WebAuthn passkey), regenerate recovery codes; also the inline `MfaStepUpDialogComponent` any privileged action reuses for the "requires step-up" 403 | `MfaSecurityComponent` | — | yes |
+| `/admin/announcements`    | Announcements (create + schedule + target)          | `AnnouncementListComponent` | `adminGuard`     | yes  |
+| `/admin/test-reports`     | Test-architecture run history + on-demand run + download | `TestReportsComponent` | `adminGuard`     | yes  |
+| `/admin/image-gen`        | Image-generation console: worklist BATCH wizard (up to 16 images/step-up, role-aware package tiers) + build history/detail + SSE progress + download, capability-gated | `ImageGenComponent` | `adminGuard` | yes  |
+| `/admin/forum`            | Forum (phpBB ACP) admin proxy                       | `ForumAdminComponent`       | `adminGuard`     | yes  |
+| `/admin/appeals`          | Appeals-Decide console — CONTENT-moderation appeals (decide-proxy, domain-scoped) | `AppealsComponent`         | `adminGuard`     | yes  |
+| `/admin/account-appeals`  | Account-ban appeal inbox — a curtailed user's own appeal against their `access_suspension` PROFILE ban; approve actually restores access (distinct from `/admin/appeals` above, which decides content-moderation rows) | `AccountAppealsComponent` | `adminGuard` | yes  |
+| `/admin/security`         | Self-service Security console: enroll/list/remove your OWN MFA factors (TOTP + WebAuthn passkey), regenerate recovery codes; also the inline `MfaStepUpDialogComponent` any privileged action reuses for the "requires step-up" 403 | `MfaSecurityComponent` | `adminGuard` | yes |
 | `/admin/device-licenses`  | Device-ownership / SSH-operate-license registry      | `DeviceLicensesComponent`   | `superadminGuard` | superadmin-only |
 | `/admin/device-pending`   | Pending headscale-node pick-list (assign into registry) | `DevicePendingComponent` | `superadminGuard` | superadmin-only |
 | `/admin/phone-fleet`      | Sovereign MDM phone fleet registry — device management (managed/BYOD) + lock/unlock, device-reported Headwind or Azure Intune provider | `PhoneFleetComponent` | `superadminGuard` | superadmin-only |
 | `/admin/my-fleet`         | Fleet-owner view over the caller's own phones only (lock/unlock, no mark-managed/owner-assignment) — the tenancy-walled twin of Phone fleet | `MyFleetComponent` | `fleetAdminGuard` | fleet-owner only |
 | `/admin/fleet-entitlements` | Grant/update/revoke a subject's FLEET_ADMIN subscription (required to reach My fleet) | `FleetEntitlementsComponent` | `superadminGuard` | superadmin-only |
-| `/admin/node-storage`     | Attach + register additional node-pinned storage     | `StoragePoolsComponent`     | —                | yes  |
-| `/admin/device-radios`    | Attach a Meshtastic LoRa radio (USB serial, LoRa-WiFi TCP, or MQTT-broker WAN mesh) to a mesh node for the mesh↔Matrix bridge | `DeviceRadiosComponent` | — | yes  |
-| `/admin/domain-capabilities` | Per-domain capability gate (first capability: `user-mesh-devices`) — superadmin grant + domain-admin enable, plus a platform-wide kill switch | `DomainCapabilitiesComponent` | — | yes  |
-| `/admin/desktop`          | Desktop governance (Discover curation, sudo toggle, install inbox, remote-install + SSH terminal) | `DesktopGovernanceComponent` | —    | yes  |
+| `/admin/node-storage`     | Attach + register additional node-pinned storage     | `StoragePoolsComponent`     | `adminGuard`     | yes  |
+| `/admin/device-radios`    | Attach a Meshtastic LoRa radio (USB serial, LoRa-WiFi TCP, or MQTT-broker WAN mesh) to a mesh node for the mesh↔Matrix bridge | `DeviceRadiosComponent` | `adminGuard` | yes  |
+| `/admin/domain-capabilities` | Per-domain capability gate (first capability: `user-mesh-devices`) — superadmin grant + domain-admin enable, plus a platform-wide kill switch | `DomainCapabilitiesComponent` | `adminGuard` | yes  |
+| `/admin/desktop`          | Desktop governance (Discover curation, sudo toggle, install inbox, remote-install + SSH terminal) | `DesktopGovernanceComponent` | `adminGuard` | yes  |
 | `/admin/egress-vpn`       | Import provider WireGuard/OpenVPN egress configs     | `EgressVpnComponent`        | `superadminGuard` | superadmin-only |
 | `/admin/superadmin/domains` | Domain-registry (brand list) console + per-row provisioning-state chip | `SuperadminDomainsComponent`| `superadminGuard` | superadmin-only |
-| `/admin/oidc-providers`   | Per-OIDC-provider default-role mappings              | `OidcProviderRolesComponent`| —                | no (route-only) |
+| `/admin/oidc-providers`   | Per-OIDC-provider default-role mappings              | `OidcProviderRolesComponent`| `adminGuard`     | no (route-only) |
 | `/admin/games-services`   | Games app-store operator console                     | `GamesServicesComponent`    | `gamesServicesGuard` | no (route-only) |
 | `/admin/superadmin/anubis`| Anubis PoW sidecar status + metrics (read-only)      | `AnubisAdminComponent`      | `superadminGuard` | no (route-only) |
 | `/admin/workloads`        | Workload Console (HIDDEN tier — pod mgmt)            | `WorkloadConsoleComponent`  | `workloadConsoleGuard` | hidden (capability-probe) |
@@ -183,25 +185,39 @@ are ✅ shipped on `main`.
 ## Role gate & session
 
 The host route-guards `/admin` behind the Casdoor **admin role**. This repo also
-ships five `CanActivateFn` guards for finer-grained in-remote routing (though one,
-`adminGuard`, is not currently attached to any route — see the note below the
-table). All client-side role checks are **presentation-only** — the BFF and
-gateway are the authority:
+ships five `CanActivateFn` guards, and **every** `ADMIN_ROUTES` entry carries exactly
+one of them (`admin.routes.spec.ts` pins the full path→guard map, so a new route
+without a guard fails the build's unit tests). All client-side role checks are
+**presentation-only** — the BFF and gateway are the authority:
 
 | Guard                  | File                          | Allows when                                                                 | Guards |
 | ---------------------- | ----------------------------- | --------------------------------------------------------------------------- | ------ |
-| `adminGuard`           | `src/app/admin.guard.ts`      | `isAdmin()` (`roles` includes `admin`), else `/login`                        | **none today** — defined + unit-tested (`admin.guard.spec.ts`) but not wired into any `canActivate` in `ADMIN_ROUTES` |
+| `adminGuard`           | `src/app/admin.guard.ts`      | `isAdmin()` (`roles` includes the literal `admin`), else `/login`            | the **baseline**: every route not listed in the rows below — the landing and all the plain admin consoles |
 | `superadminGuard`      | `src/app/superadmin.guard.ts` | `isSuperadmin()` (`roles` includes `superadmin`), else `/login`              | device-licenses, device-pending, phone-fleet, fleet-entitlements, egress-vpn, superadmin/domains, superadmin/anubis, backing-services |
 | `fleetAdminGuard`      | `src/app/fleet.guard.ts`      | `isFleetAdmin()` (`roles` includes `fleet_admin`, or `admin`/`superadmin`), else `/login` | my-fleet |
 | `gamesServicesGuard`   | `src/app/games-services.guard.ts` | `isGamesServicesAdmin()` **or** `isGamesServicesRunner()`, else `/login`  | games-services |
 | `workloadConsoleGuard` | `src/app/workload-console.guard.ts` | admin/superadmin **and** a live server-confirmed `workloadCapability()` probe (200); else bounced to `/admin` | workloads + workloads/logs + workloads/terminal |
 
-> `adminGuard` predates most of the routes above and has never been attached to a
-> `canActivate`; today the equivalent gate for un-superadmin-guarded routes (e.g.
-> `/admin/node-storage`) is purely the host shell's own admin-role check before this
-> remote is even loaded (federation exposes only `./routes`, so the host cannot import
-> this exact function). See the `TODO` on `adminGuard` itself for the wire-in-or-remove
-> decision.
+> **Why one guard per route, never stacked.** `adminGuard` is the same predicate the
+> host shell's own `adminGuard` applies to its `/admin` parent route, which Angular runs
+> first — so under the host it is a second check of an identical rule, and its
+> independent value is the standalone dev shell (`app.routes.ts` mounts `ADMIN_ROUTES`
+> bare, with no host guard). The other four guards each admit an audience `adminGuard`
+> would refuse (a session with `superadmin` but not the literal `admin`, a bare
+> `fleet_admin`, a bare `games_services_runner`), so those routes carry their own guard
+> **instead of** `adminGuard`; stacking both would narrow them to `admin`-holders.
+> Whether the host's own `/admin` gate already narrows them that way (it admits only
+> `admin`, while the e2e personas `fleet-owner-a` and `games-runner` carry no `admin`
+> role) is a host-shell question this repo does not settle.
+>
+> **Known limitation (reasoned from code, not observed live).** This remote's
+> `SessionService` reads only the `hug.session` localStorage mirror, whereas the host's
+> is also re-hydrated from `GET /bff/session` without writing the mirror back. If a
+> role was granted since login-ui last wrote the mirror, the host can admit `/admin`
+> while this repo's guards still see the old roles and redirect to `/login` (where
+> login-ui re-reads `/bff/session` and rewrites the mirror). The superadmin / fleet /
+> games / workload guards always had this exposure; the baseline `adminGuard` now shares
+> it. The durable fix is for this remote to hydrate from `/bff/session` itself.
 
 `SessionService` (`src/app/session.service.ts`) reads the shared **`hug.session`**
 localStorage key written by the **login remote**. The key carries identity

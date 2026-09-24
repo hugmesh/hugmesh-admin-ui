@@ -15,9 +15,9 @@ import {
  * mesh through that node.
  *
  * <p>ADMIN-CAPABLE (NOT superadmin) — the same deliberate DIVERGENCE the Node-storage
- * console carries. This route carries no additional client-side `canActivate` guard beyond
- * the host shell's baseline Casdoor-admin-role gate on `/admin/**` ({@link adminGuard} itself
- * is not currently wired into any route — see its own TODO). The OWNERSHIP gating is enforced
+ * console carries. The route carries only the baseline {@link adminGuard} (the same `admin`-role
+ * predicate the host shell already applies to its `/admin` mount), with no superadmin guard in
+ * its place. The OWNERSHIP gating is enforced
  * by the BFF: an ADMIN may act ONLY on own-domain ADMIN-owned nodes (a SUPERADMIN-owned or
  * cross-domain node is a 403), SUPERADMIN is unrestricted. The list itself is BFF-scoped
  * (a brand admin sees only their brand's radios).
