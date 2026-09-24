@@ -211,11 +211,11 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(domains!.canActivate).toEqual([superadminGuard]);
   });
 
-  it('leaves the desktop-governance console UN-superadmin-guarded (baseline adminGuard only; the BFF gates ADMIN/SUPERADMIN own-domain)', () => {
+  it('leaves the desktop-governance console UN-superadmin-guarded (ADMIN/SUPERADMIN; the BFF gates ADMIN/SUPERADMIN own-domain)', () => {
     const desktop = byPath('desktop');
     expect(desktop).toBeDefined();
     expect(desktop!.component).toBe(DesktopGovernanceComponent);
-    expect(desktop!.canActivate).toEqual([adminGuard]);
+    expect(desktop!.canActivate).toBeUndefined();
   });
 
   it('games-gates the games-services operator console (behind the games-services guard)', () => {
@@ -232,84 +232,84 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(anubis!.canActivate).toEqual([superadminGuard]);
   });
 
-  it('exposes the appeals console as a plain ADMIN route (baseline adminGuard, no superadmin guard)', () => {
+  it('exposes the appeals console as a plain ADMIN route (no superadmin guard)', () => {
     const appeals = byPath('appeals');
     expect(appeals).toBeDefined();
     expect(appeals!.component).toBe(AppealsComponent);
-    expect(appeals!.canActivate).toEqual([adminGuard]);
+    expect(appeals!.canActivate).toBeUndefined();
   });
 
-  it('exposes the account-appeals console as a plain ADMIN route (baseline adminGuard, no superadmin guard) — DISTINCT from the content-moderation appeals console', () => {
+  it('exposes the account-appeals console as a plain ADMIN route (no superadmin guard) — DISTINCT from the content-moderation appeals console', () => {
     const accountAppeals = byPath('account-appeals');
     expect(accountAppeals).toBeDefined();
     expect(accountAppeals!.component).toBe(AccountAppealsComponent);
-    expect(accountAppeals!.canActivate).toEqual([adminGuard]);
+    expect(accountAppeals!.canActivate).toBeUndefined();
   });
 
   it('exposes the node-storage console as a plain ADMIN route (ADMIN-CAPABLE — the deliberate divergence from device-licenses; ownership is gated by the BFF)', () => {
     const storage = byPath('node-storage');
     expect(storage).toBeDefined();
     expect(storage!.component).toBe(StoragePoolsComponent);
-    expect(storage!.canActivate).toEqual([adminGuard]);
+    expect(storage!.canActivate).toBeUndefined();
   });
 
   it('exposes the device-radios console as a plain ADMIN route (ADMIN-CAPABLE — the same node-storage divergence; ownership is gated by the BFF)', () => {
     const radios = byPath('device-radios');
     expect(radios).toBeDefined();
     expect(radios!.component).toBe(DeviceRadiosComponent);
-    expect(radios!.canActivate).toEqual([adminGuard]);
+    expect(radios!.canActivate).toBeUndefined();
   });
 
-  it('exposes the domain-capabilities console as a plain ADMIN route (baseline adminGuard only — the BFF list endpoint itself scopes an ADMIN to their own domain vs. every domain for a SUPERADMIN)', () => {
+  it('exposes the domain-capabilities console as a plain ADMIN route (no route guard — the BFF list endpoint itself scopes an ADMIN to their own domain vs. every domain for a SUPERADMIN)', () => {
     const dc = byPath('domain-capabilities');
     expect(dc).toBeDefined();
     expect(dc!.component).toBe(DomainCapabilitiesComponent);
-    expect(dc!.canActivate).toEqual([adminGuard]);
+    expect(dc!.canActivate).toBeUndefined();
   });
 
   /**
    * The WHOLE path→guard map, pinned in one place (see the GUARD POLICY note on ADMIN_ROUTES).
-   * Every route carries exactly ONE client guard: the baseline adminGuard, or — for a route whose
-   * audience is not "holders of the `admin` role" — its own guard INSTEAD of adminGuard. A new
-   * route therefore fails here until someone decides which of the two it is; an unguarded route
-   * is never the silent default again.
+   * `undefined` is deliberate: the landing and the plain consoles carry NO remote-side guard —
+   * their client gate is the host shell's `/admin` guard. A guard added to or dropped from any
+   * route fails here, so the README routes/guard tables and the docblocks that describe this map
+   * get revisited in the same change.
    */
-  const EXPECTED_GUARDS: Record<string, CanActivateFn[]> = {
-    '': [adminGuard],
-    'usage': [adminGuard],
-    'namespaces': [adminGuard],
-    'delegation': [adminGuard],
-    'roles': [adminGuard],
-    'route-access': [adminGuard],
-    'routes': [adminGuard],
-    'isos': [adminGuard],
-    'argocd': [adminGuard],
-    'tasks': [adminGuard],
-    'backup': [adminGuard],
-    'recovery': [adminGuard],
-    'backups': [adminGuard],
-    'cloud-backups': [adminGuard],
+  const EXPECTED_GUARDS: Record<string, CanActivateFn[] | undefined> = {
+    '': undefined,
+    'usage': undefined,
+    'namespaces': undefined,
+    'delegation': undefined,
+    'roles': undefined,
+    'route-access': undefined,
+    'routes': undefined,
+    'isos': undefined,
+    'argocd': undefined,
+    'tasks': undefined,
+    'backup': undefined,
+    'recovery': undefined,
+    'backups': undefined,
+    'cloud-backups': undefined,
     'backing-services': [superadminGuard],
-    'announcements': [adminGuard],
-    'themes': [adminGuard],
-    'test-reports': [adminGuard],
-    'image-gen': [adminGuard],
-    'forum': [adminGuard],
-    'appeals': [adminGuard],
-    'account-appeals': [adminGuard],
-    'security': [adminGuard],
+    'announcements': undefined,
+    'themes': undefined,
+    'test-reports': undefined,
+    'image-gen': undefined,
+    'forum': undefined,
+    'appeals': undefined,
+    'account-appeals': undefined,
+    'security': undefined,
     'device-licenses': [superadminGuard],
     'device-pending': [superadminGuard],
     'phone-fleet': [superadminGuard],
     'my-fleet': [fleetAdminGuard],
     'fleet-entitlements': [superadminGuard],
-    'node-storage': [adminGuard],
-    'device-radios': [adminGuard],
-    'domain-capabilities': [adminGuard],
+    'node-storage': undefined,
+    'device-radios': undefined,
+    'domain-capabilities': undefined,
     'egress-vpn': [superadminGuard],
     'superadmin/domains': [superadminGuard],
-    'oidc-providers': [adminGuard],
-    'desktop': [adminGuard],
+    'oidc-providers': undefined,
+    'desktop': undefined,
     'games-services': [gamesServicesGuard],
     'superadmin/anubis': [superadminGuard],
     'workloads': [workloadConsoleGuard],
@@ -317,24 +317,15 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     'workloads/terminal': [workloadConsoleGuard],
   };
 
-  it('pins the whole path→guard map (baseline adminGuard everywhere except the routes with their own audience guard)', () => {
+  it('pins the whole path→guard map (plain consoles carry no remote-side guard; the rest carry their audience guard)', () => {
     const actual: Record<string, unknown> = {};
     for (const route of ADMIN_ROUTES) actual[route.path!] = route.canActivate;
     expect(actual).toEqual(EXPECTED_GUARDS);
   });
 
-  it('leaves no route without a client-side guard', () => {
+  it('wires adminGuard onto NO route — TODO(admin-guard) is an open decision (it reads only the hug.session mirror), and the README/docblocks say so', () => {
     for (const route of ADMIN_ROUTES) {
-      expect(route.canActivate?.length ?? 0).withContext(`route '${route.path}'`).toBe(1);
-    }
-  });
-
-  it('never stacks adminGuard onto a route that has its own audience guard (that would narrow fleet_admin / games-runner / superadmin-without-admin audiences to admin-holders)', () => {
-    for (const route of ADMIN_ROUTES) {
-      const guards = route.canActivate ?? [];
-      if (guards.includes(adminGuard)) {
-        expect(guards).withContext(`route '${route.path}'`).toEqual([adminGuard]);
-      }
+      expect(route.canActivate ?? []).withContext(`route '${route.path}'`).not.toContain(adminGuard);
     }
   });
 
@@ -351,12 +342,17 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
 });
 
 /**
- * Router-level proof of the wiring above: ADMIN_ROUTES mounted exactly as the standalone dev
- * shell mounts them (`app.routes.ts`: `{ path: '', children: ADMIN_ROUTES }`), plus a stub
- * `/login` so the guards' redirect has somewhere to land. The REAL guards and the REAL
- * SessionService run, fed by a seeded `hug.session` mirror — the same localStorage key every
- * remote reads. No RouterOutlet is rendered, so a passing guard activates the route without
- * instantiating the console (and none of its BFF calls fire).
+ * Router-level pin of the two regressions that ruled out wiring adminGuard onto the plain routes
+ * as written (see TODO(admin-guard) in admin.guard.ts). ADMIN_ROUTES is mounted exactly as the
+ * standalone dev shell mounts it (`app.routes.ts`: `{ path: '', children: ADMIN_ROUTES }`), plus
+ * a stub `/login` so a redirect is observable. The REAL guards and the REAL SessionService run,
+ * fed by the `hug.session` localStorage mirror (seeded, stale, or absent). No RouterOutlet is
+ * rendered, so an activated route does not instantiate its console (none of its BFF calls fire).
+ *
+ * What this can and cannot show: it runs this remote's router config in isolation. It does not
+ * load the host shell, so the host's own `/admin` guard (which reads roles hydrated from
+ * `GET /bff/session`) is not in the picture; the "host admitted them" premise of the stale- and
+ * absent-mirror cases is taken from hugmesh-host-shell's code, not exercised here.
  *
  * The workloads routes are left out on purpose: workloadConsoleGuard makes a live BFF probe.
  */
@@ -378,7 +374,7 @@ describe('ADMIN_ROUTES guard wiring (router-level, standalone mount)', () => {
   });
 
   /** Seed the mirror BEFORE anything injects SessionService (its signal reads the key once, at
-   *  construction), then navigate and report where the router settled. */
+   *  construction), then navigate and report where the router settled. `null` = no mirror. */
   async function navigateAs(roles: string[] | null, url: string): Promise<string> {
     if (roles) {
       localStorage.setItem(KEY, JSON.stringify({
@@ -396,34 +392,27 @@ describe('ADMIN_ROUTES guard wiring (router-level, standalone mount)', () => {
     return router.url;
   }
 
-  it('bounces an anonymous visitor from the admin landing to /login', async () => {
-    expect(await navigateAs(null, '/')).toBe('/login');
-  });
-
-  it('bounces a signed-in non-admin (mod) from a baseline admin console to /login', async () => {
-    expect(await navigateAs(['mod'], '/node-storage')).toBe('/login');
-  });
-
-  it('admits an admin to the landing and to baseline consoles', async () => {
-    expect(await navigateAs(['admin'], '/')).toBe('/');
+  it('does not bounce a caller with NO hug.session mirror off the landing or a plain console (cookie-only session the host supports; the dev shell writes no mirror)', async () => {
+    expect(await navigateAs(null, '/')).toBe('/');
     TestBed.resetTestingModule();
-    expect(await navigateAs(['admin'], '/device-radios')).toBe('/device-radios');
+    expect(await navigateAs(null, '/node-storage')).toBe('/node-storage');
   });
 
-  it('still admits a superadmin to the superadmin-only consoles (adminGuard is not stacked there)', async () => {
-    // A superadmin whose roles lack the literal 'admin' string: superadminGuard alone decides.
+  it('does not bounce a caller whose mirror predates a mid-session admin grant (still says "user") off the landing or a plain console', async () => {
+    expect(await navigateAs(['user'], '/')).toBe('/');
+    TestBed.resetTestingModule();
+    expect(await navigateAs(['user'], '/device-radios')).toBe('/device-radios');
+  });
+
+  it('still lets the audience guards refuse: an admin without superadmin is sent to /login from a superadmin-only console', async () => {
+    expect(await navigateAs(['admin'], '/device-licenses')).toBe('/login');
+  });
+
+  it('still admits each audience to its own console (superadmin, bare fleet_admin, bare games_services_runner)', async () => {
     expect(await navigateAs(['superadmin'], '/device-licenses')).toBe('/device-licenses');
-  });
-
-  it('is literal, not hierarchy-aware: a superadmin WITHOUT the admin role is refused a baseline console (same predicate as the host /admin gate)', async () => {
-    expect(await navigateAs(['superadmin'], '/usage')).toBe('/login');
-  });
-
-  it('does not narrow the fleet-owner console: a bare fleet_admin still reaches /my-fleet', async () => {
+    TestBed.resetTestingModule();
     expect(await navigateAs(['fleet_admin'], '/my-fleet')).toBe('/my-fleet');
-  });
-
-  it('does not narrow the games-services console: a bare games_services_runner still reaches it', async () => {
+    TestBed.resetTestingModule();
     expect(await navigateAs(['games_services_runner'], '/games-services')).toBe('/games-services');
   });
 });

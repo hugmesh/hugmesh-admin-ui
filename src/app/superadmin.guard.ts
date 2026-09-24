@@ -17,7 +17,9 @@ import { SessionService } from './session.service';
  * every `/bff/superadmin/**` endpoint as the authoritative gate.
  *
  * @returns `true` to activate, or a `UrlTree` redirect to `/login` when the role is absent.
- * @see {@link adminGuard} — the lower-tier guard for ROLE_ADMIN routes.
+ * @see {@link adminGuard} — the lower-tier `admin`-role guard; defined but NOT wired onto any
+ *   route (the plain ROLE_ADMIN routes are gated only by the host's `/admin` guard — see its
+ *   TODO).
  */
 export const superadminGuard: CanActivateFn = () => {
   const session = inject(SessionService);
