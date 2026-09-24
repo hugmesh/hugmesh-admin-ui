@@ -14,7 +14,7 @@
 // tells an admin's refusal apart from a mod's bare role 403 at the same status.
 
 import { expect } from '@playwright/test';
-import { When, Then } from '../support/fixtures';
+import { Given, When, Then } from '../support/fixtures';
 import { pageRegistry, responseState } from './_registry';
 
 function pageOf(username: string) {
@@ -27,6 +27,13 @@ function pageOf(username: string) {
 const captured = { status: 0, signal: null as string | null };
 
 // ── @offline: tabs and gate state ─────────────────────────────────────────
+
+Given('the desktop dial-capability probe answers dark for {string}', async ({ user }, username: string) => {
+  // GET /bff/superadmin/desktop/dials → 503, exactly what admin-bff answers while the
+  // dial leg ships dark (desktopDialCapability() hides the tab on anything but r.ok).
+  await pageOf(user(username).username).route('**/bff/superadmin/desktop/dials', (route) =>
+    route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'dial leg is dark' }) }));
+});
 
 When('{string} opens the {string} desktop tab', async ({ user }, username: string, testid: string) => {
   const page = pageOf(user(username).username);

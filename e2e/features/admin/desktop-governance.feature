@@ -55,9 +55,15 @@ Feature: Desktop governance — hidden dial tier, gated terminal and sudo, and t
     And "admin-domain-a" sees the "dg-tab-terminal" desktop tab
     And "admin-domain-a" sees no "dg-tab-dials" desktop tab
 
+  # The probe (bff.service.ts desktopDialCapability) is answered DARK here on purpose:
+  # an unmocked probe under `ng serve` hits the dev server's SPA fallback, which
+  # answers 200 text/html — and the probe trusts any `r.ok`, so the tab APPEARS
+  # (measured 2026-09-23; filed as a defect, see the PR). 503 is what admin-bff sends
+  # while the dial leg ships dark, so this row pins the real fail-closed answer.
   @offline
-  Scenario: a superadmin whose dial capability cannot be confirmed sees no SSH-dials tab either (fail-closed)
+  Scenario: a superadmin whose dial leg answers dark sees no SSH-dials tab either (fail-closed)
     Given "superadmin" has a seeded session
+    And the desktop dial-capability probe answers dark for "superadmin"
     When "superadmin" navigates to "/desktop"
     Then "superadmin" sees the "desktop-governance-view" console
     And "superadmin" sees the "dg-tab-sudo" desktop tab
