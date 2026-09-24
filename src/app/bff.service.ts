@@ -1427,25 +1427,43 @@ export class BffService {
     }
   }
 
-  // TODO(workload-console): unlike workloadLifecycle/triggerImageBuild/desktopRemoteInstall
-  // etc., this call has no stepUpToken parameter and never sends X-Workload-StepUp, even
-  // though the caller (WorkloadConsoleComponent.rolloutRestart) mints one via workloadStepUp()
-  // first. If the BFF's DANGEROUS-tier gate actually requires that header here (as the console's
-  // own docblock claims), every rollout-restart call is either silently unauthenticated for
-  // step-up or fails outright — worth confirming against WorkloadSuperadminController and wiring
-  // the token through if so.
-  /** SUPERADMIN rollout-restart = delete the workload's pods (selfHeal-neutral). */
-  async workloadRolloutRestart(namespace: string, workload: string): Promise<unknown> {
+  // ── Runtime mutations (rollout-restart / delete pod) and the X-Workload-StepUp header ──
+  // These two used to take no step-up token at all, so a token the SUPERADMIN had minted in
+  // the console never reached them. They now accept one and forward it in X-Workload-StepUp
+  // exactly like {@link workloadLifecycle} (via {@link workloadMutate}'s optional token).
+  //
+  // What the BFF actually does with it — read at admin-bff 5f0ee2f, NOT exercised end-to-end
+  // from this repo: WorkloadPathClassifier.tierOf puts `.../rollout-restart` and a DELETE on
+  // `.../pods/...` in the RUNTIME_MUTATE tier, not DANGEROUS. WorkloadAuthorizationFilter reads
+  // X-Workload-StepUp on every console request, but WorkloadAuthorizationService only VALIDATES
+  // it for DANGEROUS (decideSuperadminAccess / superadminFallback); for RUNTIME_MUTATE an active,
+  // unsuspended SUPERADMIN is allowed with no token (pinned there by
+  // WorkloadAuthorizationServiceTest#superadmin_runtimeMutate_allow, which passes a null token).
+  // The GLOBAL dangerous_tier_enabled kill (STEP 0) does not cover this tier either. So TODAY
+  // the header is accepted and ignored on these two paths: a call without it was never failing,
+  // and a call with it is no more privileged. What gates restart/delete server-side is the
+  // SUPERADMIN role + the suspension check + the namespace allowlist, not step-up.
+  //
+  // Forwarding it anyway is consistency and forward-compatibility, not a security control in
+  // this repo: every superadmin workload mutation now carries the same credential, and if the
+  // BFF ever raises RUNTIME_MUTATE to require step-up (a BFF policy change, not made here) the
+  // console already sends it. It does not burn the token: WorkloadStepUpService.validate never
+  // consumes; only a successful port-forward open calls consume(). The token stays optional —
+  // omitted (e.g. never minted) means no header, which the BFF currently accepts.
+  /** SUPERADMIN rollout-restart = delete the workload's pods (selfHeal-neutral). The optional
+   *  step-up token rides X-Workload-StepUp (see the block above for what the BFF does with it). */
+  async workloadRolloutRestart(namespace: string, workload: string, stepUpToken?: string): Promise<unknown> {
     return this.workloadMutate('POST',
-      `/bff/superadmin/workloads/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(workload)}/rollout-restart`);
+      `/bff/superadmin/workloads/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(workload)}/rollout-restart`,
+      undefined, stepUpToken);
   }
 
-  // TODO(workload-console): same gap as workloadRolloutRestart above — no stepUpToken
-  // parameter, so the minted X-Workload-StepUp token never rides this DELETE either.
-  /** SUPERADMIN delete one pod. */
-  async workloadDeletePod(namespace: string, pod: string): Promise<unknown> {
+  /** SUPERADMIN delete one pod. The optional step-up token rides X-Workload-StepUp, exactly as
+   *  on {@link workloadRolloutRestart} (same RUNTIME_MUTATE tier, same BFF treatment). */
+  async workloadDeletePod(namespace: string, pod: string, stepUpToken?: string): Promise<unknown> {
     return this.workloadMutate('DELETE',
-      `/bff/superadmin/workloads/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(pod)}`);
+      `/bff/superadmin/workloads/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(pod)}`,
+      undefined, stepUpToken);
   }
 
   /** SUPERADMIN mint a short-TTL step-up token (required for DANGEROUS ops). */
@@ -1507,12 +1525,17 @@ export class BffService {
     return r.json();
   }
 
-  private async workloadMutate<T = unknown>(method: string, path: string, body?: unknown): Promise<T> {
+  /** Shared superadmin/console mutation. `stepUpToken`, when present, is sent in
+   *  X-Workload-StepUp with the same `if (token)` guard as {@link workloadLifecycle}, so an
+   *  absent/empty token sends no header at all (callers that pass none are unchanged). */
+  private async workloadMutate<T = unknown>(method: string, path: string, body?: unknown,
+                                            stepUpToken?: string): Promise<T> {
     const init: RequestInit = { method, headers: {}, credentials: 'include' };
     if (body !== undefined) {
       (init.headers as Record<string, string>)['content-type'] = 'application/json';
       init.body = JSON.stringify(body);
     }
+    if (stepUpToken) (init.headers as Record<string, string>)['X-Workload-StepUp'] = stepUpToken;
     const r = await fetch(`${CFG.bff}${path}`, init);
     if (!r.ok) throw await this.bffError(r);
     return r.json().catch(() => ({} as T));

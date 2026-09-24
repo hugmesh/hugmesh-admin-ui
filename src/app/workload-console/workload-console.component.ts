@@ -83,7 +83,11 @@ export class WorkloadConsoleComponent implements OnInit {
   readonly logBody = signal('');
 
   // ── SUPERADMIN: step-up token + GitOps lifecycle ───────────────────────
-  /** The current short-TTL DANGEROUS-tier step-up token, or null when expired/unminted. */
+  /**
+   * The step-up token last minted via {@link stepUp}, or null until one is. It is NOT cleared
+   * when its server-side TTL lapses (nothing here tracks expiry), so a stale token can be
+   * forwarded; the BFF's TTL check is authoritative wherever it validates the token.
+   */
   readonly stepUpToken = signal<string | null>(null);
   /** Human-readable hint about when the step-up token expires (e.g. "step-up valid for ~5 min"). */
   readonly stepUpExpiresHint = signal('');
@@ -216,9 +220,12 @@ export class WorkloadConsoleComponent implements OnInit {
   // ── SUPERADMIN runtime mutations + step-up ──────────────────────────────────
 
   /**
-   * Mint a short-TTL DANGEROUS-tier step-up token from the BFF. Required before any
-   * mutation (rollout-restart, pod-delete, GitOps lifecycle). The token rides a request
-   * header on each dangerous call; the BFF re-validates it server-side.
+   * Mint a short-TTL step-up token from the BFF and hold it in {@link stepUpToken}. The BFF
+   * VALIDATES X-Workload-StepUp only for its DANGEROUS tier (live log-stream / exec /
+   * port-forward / GitOps lifecycle). In this view the held token is forwarded by
+   * {@link rolloutRestart} and {@link deletePod}, which are the BFF's RUNTIME_MUTATE tier and
+   * do NOT require step-up today (see the note above `BffService.workloadRolloutRestart`), so
+   * minting is not a precondition for them. (The terminal view mints its own token.)
    */
   async stepUp(): Promise<void> {
     this.actionMsg.set('');
@@ -234,14 +241,17 @@ export class WorkloadConsoleComponent implements OnInit {
 
   /**
    * Request a rollout-restart (pod-delete) on the workload owning the given pod.
-   * The k8s controller recreates the pods. Requires a prior step-up (the BFF enforces it).
+   * The k8s controller recreates the pods. The token minted via {@link stepUp}, if one is
+   * held, rides X-Workload-StepUp; with none, no header is sent. The BFF does NOT currently
+   * require it here (RUNTIME_MUTATE: SUPERADMIN + not suspended + namespace allowlist is the
+   * gate) — it is forwarded for parity with the DANGEROUS calls, not as the gate.
    *
    * @param pod - The pod whose owning workload to restart.
    */
   async rolloutRestart(pod: WorkloadPod): Promise<void> {
     if (!confirm(`Restart workload "${pod.workload}" in ${pod.namespace}? This deletes its pods (the controller recreates them).`)) return;
     try {
-      await this.bff.workloadRolloutRestart(pod.namespace, pod.workload);
+      await this.bff.workloadRolloutRestart(pod.namespace, pod.workload, this.stepUpToken() ?? undefined);
       this.actionMsg.set(`Requested rollout-restart of ${pod.workload}.`);
       await this.reload();
     } catch (e) {
@@ -250,14 +260,15 @@ export class WorkloadConsoleComponent implements OnInit {
   }
 
   /**
-   * Delete a specific pod (the controller will recreate it). Requires a prior step-up.
+   * Delete a specific pod (the controller will recreate it). Forwards the held step-up token
+   * exactly like {@link rolloutRestart} (same RUNTIME_MUTATE tier; not required by the BFF today).
    *
    * @param pod - The pod to delete.
    */
   async deletePod(pod: WorkloadPod): Promise<void> {
     if (!confirm(`Delete pod "${pod.name}" in ${pod.namespace}? The controller will recreate it.`)) return;
     try {
-      await this.bff.workloadDeletePod(pod.namespace, pod.name);
+      await this.bff.workloadDeletePod(pod.namespace, pod.name, this.stepUpToken() ?? undefined);
       this.actionMsg.set(`Deleted pod ${pod.name}.`);
       await this.reload();
     } catch (e) {

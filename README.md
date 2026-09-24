@@ -403,6 +403,10 @@ Tiering mirrors the BFF:
 - **Superadmins** call `/bff/superadmin/workloads/**` — mutating and dangerous
   surfaces (rollout-restart, delete, GitOps lifecycle). Dangerous-tier mutations
   require a short-TTL step-up token in the `X-Workload-StepUp` header.
+  Rollout-restart and pod delete are the BFF's separate RUNTIME_MUTATE tier. It
+  does **not** validate step-up today, and the `dangerous_tier_enabled` kill does
+  not cover it. The console still forwards a minted token on those two calls,
+  for parity only; it is not their gate.
 
 The live log stream uses SSE via a cookie-authenticated `fetch`; the pod TTY uses
 `@xterm/xterm`.

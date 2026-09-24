@@ -124,4 +124,49 @@ describe('WorkloadConsoleComponent', () => {
     expect(component.grantError()).toBeTruthy();
     expect(bff.workloadGrant).not.toHaveBeenCalled();
   });
+
+  // ── runtime mutations forward the minted step-up token ──
+  // The console mints a token via stepUp() and holds it in stepUpToken(); rolloutRestart and
+  // deletePod used to drop it on the floor. They now hand it to the BffService call, which puts
+  // it in X-Workload-StepUp. (The BFF does not require it for this tier today — see the note in
+  // bff.service.ts — so an unminted console must still be able to restart/delete.)
+  describe('runtime mutations + the minted step-up token', () => {
+    beforeEach(() => {
+      configure(true);
+      spyOn(window, 'confirm').and.returnValue(true);
+      bff.workloadStepUp.and.resolveTo({ stepUpToken: 'WK-minted', ttlMinutes: 5 });
+      bff.workloadRolloutRestart.and.resolveTo({ deletedPods: 2, workload: 'web' });
+      bff.workloadDeletePod.and.resolveTo({ deleted: 1, pod: 'web-abc' });
+    });
+
+    it('rolloutRestart() passes the minted token through to the BFF call', async () => {
+      await init();
+      await component.stepUp();
+      expect(component.stepUpToken()).toBe('WK-minted');
+
+      await component.rolloutRestart(pod('web-abc'));
+      expect(bff.workloadRolloutRestart).toHaveBeenCalledOnceWith('hugmesh-backend', 'web', 'WK-minted');
+      expect(component.actionMsg()).toBe('Requested rollout-restart of web.');
+    });
+
+    it('deletePod() passes the minted token through to the BFF call', async () => {
+      await init();
+      await component.stepUp();
+
+      await component.deletePod(pod('web-abc'));
+      expect(bff.workloadDeletePod).toHaveBeenCalledOnceWith('hugmesh-backend', 'web-abc', 'WK-minted');
+      expect(component.actionMsg()).toBe('Deleted pod web-abc.');
+    });
+
+    it('with no token minted, both still call the BFF (token undefined → no header) — not gated client-side', async () => {
+      await init();
+      expect(component.stepUpToken()).toBeNull();
+
+      await component.rolloutRestart(pod('web-abc'));
+      await component.deletePod(pod('web-abc'));
+      expect(bff.workloadRolloutRestart).toHaveBeenCalledOnceWith('hugmesh-backend', 'web', undefined);
+      expect(bff.workloadDeletePod).toHaveBeenCalledOnceWith('hugmesh-backend', 'web-abc', undefined);
+      expect(bff.workloadStepUp).not.toHaveBeenCalled();
+    });
+  });
 });

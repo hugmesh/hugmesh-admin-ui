@@ -643,6 +643,61 @@ describe('BffService', () => {
         .toBeRejectedWithError(/requires step-up/);
     });
   });
+
+  // ── Workload console runtime mutations: X-Workload-StepUp forwarding ──
+  // rollout-restart / delete-pod used to take no token, so a minted one never reached the BFF.
+  // They now forward it the way workloadLifecycle does. (The BFF's RUNTIME_MUTATE tier does not
+  // VALIDATE it today — these specs pin the wire shape only, not any server behaviour.)
+  describe('workload runtime mutations + X-Workload-StepUp', () => {
+    function header(name: string): string | undefined {
+      return (lastInit().headers as Record<string, string>)?.[name];
+    }
+
+    it('workloadRolloutRestart POSTs the encoded rollout-restart path with the step-up header', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ deletedPods: 2, workload: 'web' }));
+      const res = await service.workloadRolloutRestart('hugmesh-backend', 'web/x', 'WK-1');
+      expect(res).toEqual({ deletedPods: 2, workload: 'web' });
+      expect(lastUrl()).toContain('/bff/superadmin/workloads/pods/hugmesh-backend/web%2Fx/rollout-restart');
+      expect(lastInit().method).toBe('POST');
+      expect(lastInit().credentials).toBe('include');
+      expect(header('X-Workload-StepUp')).toBe('WK-1');
+      // No body, so no content-type — the token is the ONLY header this call adds.
+      expect(lastInit().body).toBeUndefined();
+      expect(header('content-type')).toBeUndefined();
+    });
+
+    it('workloadDeletePod DELETEs the encoded pod path with the step-up header', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ deleted: 1, pod: 'web-abc' }));
+      await service.workloadDeletePod('hugmesh-backend', 'web-abc', 'WK-2');
+      expect(lastUrl()).toContain('/bff/superadmin/workloads/pods/hugmesh-backend/web-abc');
+      expect(lastInit().method).toBe('DELETE');
+      expect(header('X-Workload-StepUp')).toBe('WK-2');
+    });
+
+    it('sends NO X-Workload-StepUp header when no token is held (or it is empty)', async () => {
+      // Same `if (token)` guard as workloadLifecycle: never an empty/"undefined" header value.
+      fetchSpy.and.resolveTo(jsonResponse({}));
+      await service.workloadRolloutRestart('ns', 'web');
+      expect(header('X-Workload-StepUp')).toBeUndefined();
+      await service.workloadDeletePod('ns', 'web-abc', '');
+      expect(header('X-Workload-StepUp')).toBeUndefined();
+    });
+
+    it('other workloadMutate callers (the step-up mint itself) still send no step-up header', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ stepUpToken: 'fresh', ttlMinutes: 5 }));
+      await service.workloadStepUp();
+      expect(lastUrl()).toContain('/bff/superadmin/workloads/step-up');
+      expect(header('X-Workload-StepUp')).toBeUndefined();
+    });
+
+    it('still THROWS on a non-OK (e.g. the authz filter\'s body-less 403)', async () => {
+      // The filter's deny has no body: r.json() rejects there and errorOf() falls back to {},
+      // which this stub models directly — so the message is the HTTP <status> fallback.
+      fetchSpy.and.resolveTo(jsonResponse({}, { ok: false, status: 403 }));
+      await expectAsync(service.workloadDeletePod('ns', 'web-abc', 'WK-3'))
+        .toBeRejectedWithError('HTTP 403');
+    });
+  });
 });
 
 /** A minimal ReadableStream whose single chunk is the given SSE text. */
