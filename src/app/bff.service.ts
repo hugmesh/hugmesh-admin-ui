@@ -1447,9 +1447,18 @@ export class BffService {
   // Forwarding it anyway is consistency and forward-compatibility, not a security control in
   // this repo: every superadmin workload mutation now carries the same credential, and if the
   // BFF ever raises RUNTIME_MUTATE to require step-up (a BFF policy change, not made here) the
-  // console already sends it. It does not burn the token: WorkloadStepUpService.validate never
-  // consumes; only a successful port-forward open calls consume(). The token stays optional —
-  // omitted (e.g. never minted) means no header, which the BFF currently accepts.
+  // console already sends it. Forwarding it cannot burn the token: on these two paths the BFF
+  // does not even call WorkloadStepUpService.validate (the `tier == DANGEROUS &&` guard
+  // short-circuits first; validate itself only ever evicts an already-EXPIRED entry), and
+  // neither the restart nor the delete handler calls consume(). The token IS single-use
+  // elsewhere, though. WorkloadStepUpService keeps ONE slot per JWT subject, shared across
+  // features: among the workload-console endpoints only a successful port-forward open
+  // consumes it, but the device SSH terminal, desktop remote-install and desktop dial paths
+  // consume that same slot too (directly or via DeviceTerminalStepUpGate), and any successful
+  // mint (e.g. the terminal view's own) overwrites it. So the token this console holds can go
+  // stale for reasons it cannot see — harmless for these two calls, which do not check it.
+  // The token stays optional — omitted (e.g. never minted) means no header, which the BFF
+  // currently accepts.
   /** SUPERADMIN rollout-restart = delete the workload's pods (selfHeal-neutral). The optional
    *  step-up token rides X-Workload-StepUp (see the block above for what the BFF does with it). */
   async workloadRolloutRestart(namespace: string, workload: string, stepUpToken?: string): Promise<unknown> {
