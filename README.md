@@ -119,7 +119,8 @@ session bridge, recently unified across the platform:
 
 The remote exposes `ADMIN_ROUTES` (`src/app/admin.routes.ts`). The host mounts
 them at `/admin`, so they resolve to the paths below. The **Guard** column is the
-route-level `canActivate` (none = host/admin-guarded only); the **Menu** column is
+route-level `canActivate` in this remote (— = none: gated client-side only by the host
+shell's admin-role guard on `/admin`; see *Role gate & session*); the **Menu** column is
 whether `AdminComponent`'s nav surfaces the route as a `routerLink`. All of these
 are ✅ shipped on `main`.
 
@@ -196,12 +197,32 @@ gateway are the authority:
 | `gamesServicesGuard`   | `src/app/games-services.guard.ts` | `isGamesServicesAdmin()` **or** `isGamesServicesRunner()`, else `/login`  | games-services |
 | `workloadConsoleGuard` | `src/app/workload-console.guard.ts` | admin/superadmin **and** a live server-confirmed `workloadCapability()` probe (200); else bounced to `/admin` | workloads + workloads/logs + workloads/terminal |
 
-> `adminGuard` predates most of the routes above and has never been attached to a
-> `canActivate`; today the equivalent gate for un-superadmin-guarded routes (e.g.
-> `/admin/node-storage`) is purely the host shell's own admin-role check before this
-> remote is even loaded (federation exposes only `./routes`, so the host cannot import
-> this exact function). See the `TODO` on `adminGuard` itself for the wire-in-or-remove
-> decision.
+> **Why `adminGuard` is not wired (open decision).** The landing and the plain consoles
+> (Guard "—" in the routes table, e.g. `/admin/node-storage`) are gated client-side only
+> by the host shell's own admin-role guard on its `/admin` parent route (federation
+> exposes only `./routes`, so the host cannot import this exact function). That host
+> check is a `canActivate`: it decides whether a console *activates*, but Angular runs a
+> route's `loadChildren` before its `canActivate`, so it does not stop the host from
+> fetching this remote's `./routes` module (checked against a plain Angular 22 router in
+> a throwaway Karma probe, not against the host itself).
+>
+> Wiring this repo's `adminGuard` onto those routes was evaluated and backed out, because
+> as written it is not safe there. It reads only the `hug.session` localStorage mirror,
+> while the host's `SessionService` re-hydrates from `GET /bff/session` and deliberately
+> never writes that mirror. After a mid-session role grant (a flow the host supports on
+> purpose — its `e2e/features/role-change-midsession.feature`), or with a cookie-only
+> session that has no mirror, the host would admit an admin to `/admin` and `adminGuard`
+> would then send them to `/login`. The standalone dev shell has no `/login` route and
+> nothing that writes `hug.session`, so there `/` would stop rendering. The owner has to
+> choose: **(a)** make this remote's `SessionService` hydrate from `/bff/session` and send
+> a signed-in caller without the role to the host's `/home?denied=` page instead of
+> `/login`, then wire it (never stacked onto the superadmin / fleet / games / workload
+> routes, whose audiences it would narrow to `admin`-holders); **(b)** wire it as-is and
+> accept both regressions; or **(c)** delete it. Details are in the `TODO(admin-guard)`
+> on `adminGuard`. The four wired guards above take their role check from the same
+> mirror, so their routes already have the stale-mirror exposure; that is pre-existing
+> and not changed here. All of this is reasoned from the host-shell and admin-ui code, not reproduced on
+> a live stack.
 
 `SessionService` (`src/app/session.service.ts`) reads the shared **`hug.session`**
 localStorage key written by the **login remote**. The key carries identity

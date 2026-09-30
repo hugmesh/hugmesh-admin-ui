@@ -1,3 +1,6 @@
+import { Component } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
+import { CanActivateFn, Router, provideRouter } from '@angular/router';
 import { ADMIN_ROUTES } from './admin.routes';
 import { AdminComponent } from './admin.component';
 import { UsageComponent } from './usage.component';
@@ -34,6 +37,7 @@ import { GamesServicesComponent } from './games-services/games-services.componen
 import { AnubisAdminComponent } from './anubis-admin.component';
 import { DesktopGovernanceComponent } from './desktop-governance/desktop-governance.component';
 import { BackingServicesComponent } from './backing-services/backing-services.component';
+import { adminGuard } from './admin.guard';
 import { superadminGuard } from './superadmin.guard';
 import { fleetAdminGuard } from './fleet.guard';
 import { gamesServicesGuard } from './games-services.guard';
@@ -263,6 +267,68 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(dc!.canActivate).toBeUndefined();
   });
 
+  /**
+   * The WHOLE path→guard map, pinned in one place (see the GUARD POLICY note on ADMIN_ROUTES).
+   * `undefined` is deliberate: the landing and the plain consoles carry NO remote-side guard —
+   * their client gate is the host shell's `/admin` guard. A guard added to or dropped from any
+   * route fails here, so the README routes/guard tables and the docblocks that describe this map
+   * get revisited in the same change.
+   */
+  const EXPECTED_GUARDS: Record<string, CanActivateFn[] | undefined> = {
+    '': undefined,
+    'usage': undefined,
+    'namespaces': undefined,
+    'delegation': undefined,
+    'roles': undefined,
+    'route-access': undefined,
+    'routes': undefined,
+    'isos': undefined,
+    'argocd': undefined,
+    'tasks': undefined,
+    'backup': undefined,
+    'recovery': undefined,
+    'backups': undefined,
+    'cloud-backups': undefined,
+    'backing-services': [superadminGuard],
+    'announcements': undefined,
+    'themes': undefined,
+    'test-reports': undefined,
+    'image-gen': undefined,
+    'forum': undefined,
+    'appeals': undefined,
+    'account-appeals': undefined,
+    'security': undefined,
+    'device-licenses': [superadminGuard],
+    'device-pending': [superadminGuard],
+    'phone-fleet': [superadminGuard],
+    'my-fleet': [fleetAdminGuard],
+    'fleet-entitlements': [superadminGuard],
+    'node-storage': undefined,
+    'device-radios': undefined,
+    'domain-capabilities': undefined,
+    'egress-vpn': [superadminGuard],
+    'superadmin/domains': [superadminGuard],
+    'oidc-providers': undefined,
+    'desktop': undefined,
+    'games-services': [gamesServicesGuard],
+    'superadmin/anubis': [superadminGuard],
+    'workloads': [workloadConsoleGuard],
+    'workloads/logs': [workloadConsoleGuard],
+    'workloads/terminal': [workloadConsoleGuard],
+  };
+
+  it('pins the whole path→guard map (plain consoles carry no remote-side guard; the rest carry their audience guard)', () => {
+    const actual: Record<string, unknown> = {};
+    for (const route of ADMIN_ROUTES) actual[route.path!] = route.canActivate;
+    expect(actual).toEqual(EXPECTED_GUARDS);
+  });
+
+  it('wires adminGuard onto NO route — TODO(admin-guard) is an open decision (it reads only the hug.session mirror), and the README/docblocks say so', () => {
+    for (const route of ADMIN_ROUTES) {
+      expect(route.canActivate ?? []).withContext(`route '${route.path}'`).not.toContain(adminGuard);
+    }
+  });
+
   it('declares every route with either a component or children (no dead routes)', () => {
     for (const route of ADMIN_ROUTES) {
       expect(route.component || route.children).withContext(`route ${route.path}`).toBeTruthy();
@@ -272,5 +338,81 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
   it('contains no duplicate paths', () => {
     const paths = ADMIN_ROUTES.map((r) => r.path);
     expect(new Set(paths).size).toBe(paths.length);
+  });
+});
+
+/**
+ * Router-level pin of the two regressions that ruled out wiring adminGuard onto the plain routes
+ * as written (see TODO(admin-guard) in admin.guard.ts). ADMIN_ROUTES is mounted exactly as the
+ * standalone dev shell mounts it (`app.routes.ts`: `{ path: '', children: ADMIN_ROUTES }`), plus
+ * a stub `/login` so a redirect is observable. The REAL guards and the REAL SessionService run,
+ * fed by the `hug.session` localStorage mirror (seeded, stale, or absent). No RouterOutlet is
+ * rendered, so an activated route does not instantiate its console (none of its BFF calls fire).
+ *
+ * What this can and cannot show: it runs this remote's router config in isolation. It does not
+ * load the host shell, so the host's own `/admin` guard (which reads roles hydrated from
+ * `GET /bff/session`) is not in the picture; the "host admitted them" premise of the stale- and
+ * absent-mirror cases is taken from hugmesh-host-shell's code, not exercised here.
+ *
+ * The workloads routes are left out on purpose: workloadConsoleGuard makes a live BFF probe.
+ */
+describe('ADMIN_ROUTES guard wiring (router-level, standalone mount)', () => {
+  @Component({ standalone: true, template: '' })
+  class LoginStubComponent {}
+
+  const KEY = 'hug.session';
+  let saved: string | null;
+
+  beforeEach(() => {
+    saved = localStorage.getItem(KEY);
+    localStorage.removeItem(KEY);
+  });
+
+  afterEach(() => {
+    if (saved === null) localStorage.removeItem(KEY);
+    else localStorage.setItem(KEY, saved);
+  });
+
+  /** Seed the mirror BEFORE anything injects SessionService (its signal reads the key once, at
+   *  construction), then navigate and report where the router settled. `null` = no mirror. */
+  async function navigateAs(roles: string[] | null, url: string): Promise<string> {
+    if (roles) {
+      localStorage.setItem(KEY, JSON.stringify({
+        id: 'google:e2e@example.test', label: 'e2e', provider: 'google', roles, registrationComplete: true,
+      }));
+    }
+    TestBed.configureTestingModule({
+      providers: [provideRouter([
+        { path: 'login', component: LoginStubComponent },
+        { path: '', children: ADMIN_ROUTES },
+      ])],
+    });
+    const router = TestBed.inject(Router);
+    await router.navigateByUrl(url);
+    return router.url;
+  }
+
+  it('does not bounce a caller with NO hug.session mirror off the landing or a plain console (cookie-only session the host supports; the dev shell writes no mirror)', async () => {
+    expect(await navigateAs(null, '/')).toBe('/');
+    TestBed.resetTestingModule();
+    expect(await navigateAs(null, '/node-storage')).toBe('/node-storage');
+  });
+
+  it('does not bounce a caller whose mirror predates a mid-session admin grant (still says "user") off the landing or a plain console', async () => {
+    expect(await navigateAs(['user'], '/')).toBe('/');
+    TestBed.resetTestingModule();
+    expect(await navigateAs(['user'], '/device-radios')).toBe('/device-radios');
+  });
+
+  it('still lets the audience guards refuse: an admin without superadmin is sent to /login from a superadmin-only console', async () => {
+    expect(await navigateAs(['admin'], '/device-licenses')).toBe('/login');
+  });
+
+  it('still admits each audience to its own console (superadmin, bare fleet_admin, bare games_services_runner)', async () => {
+    expect(await navigateAs(['superadmin'], '/device-licenses')).toBe('/device-licenses');
+    TestBed.resetTestingModule();
+    expect(await navigateAs(['fleet_admin'], '/my-fleet')).toBe('/my-fleet');
+    TestBed.resetTestingModule();
+    expect(await navigateAs(['games_services_runner'], '/games-services')).toBe('/games-services');
   });
 });

@@ -106,7 +106,27 @@ import { workloadConsoleGuard } from './workload-console.guard';
  *  hugmesh-auth-core /bff/mfa/* contract; the SAME inline step-up dialog this console uses
  *  for its own step-up-gated remove/regenerate mutations is reusable by any privileged admin
  *  action elsewhere in this app — see {@code MfaStepUpDialogComponent}).
- *  Casdoor-admin-role guarded by the host. */
+ *  Casdoor-admin-role guarded by the host.
+ *
+ *  GUARD POLICY — what is actually wired (`admin.routes.spec.ts` pins the whole path→guard map,
+ *  so a guard added to or dropped from any route fails there until this note is revisited):
+ *   - The landing and every PLAIN console (no `canActivate` below) carry NO client-side guard
+ *     in this remote. Their client gate is the host shell's own `adminGuard` on its `/admin`
+ *     PARENT route (`roles` includes `admin`, read from the HOST's SessionService, which
+ *     re-hydrates from `GET /bff/session`); the BFF's role checks on `/bff/admin/**` are the
+ *     authority. Mounted bare by the standalone dev shell (`app.routes.ts`) they have none.
+ *   - This repo's own `adminGuard` (`admin.guard.ts`) is deliberately NOT on those routes: it
+ *     reads only the `hug.session` localStorage mirror, which the host never writes, so it would
+ *     send an admin the host has just admitted (mid-session role grant, or a cookie-only session)
+ *     to `/login`, and it would break `/` in the dev shell. See the TODO(admin-guard) on it for
+ *     the decision that has to come first.
+ *   - A route whose audience is NOT "holders of the `admin` role" carries its OWN guard:
+ *     superadminGuard, fleetAdminGuard (also admits a bare `fleet_admin`), gamesServicesGuard
+ *     (admits a bare `games_services_admin`/`games_services_runner`) and workloadConsoleGuard
+ *     (admin/superadmin + a live grant probe). If adminGuard is ever wired, it must not be
+ *     stacked onto these: that would narrow each audience to `admin`-holders. These four take
+ *     their role check from the same mirror, so they already carry the stale-mirror exposure
+ *     described there (pre-existing, not changed here). */
 export const ADMIN_ROUTES: Routes = [
   { path: '', component: AdminComponent },
   { path: 'usage', component: UsageComponent },
