@@ -82,9 +82,17 @@
 				"serve-original": {
 					"builder": "@angular-devkit/build-angular:dev-server",
 					"options": {
-						"buildTarget": "admin:build",
 						"port": 4204
-					}
+					},
+					"configurations": {
+						"production": {
+							"buildTarget": "admin:esbuild:production"
+						},
+						"development": {
+							"buildTarget": "admin:esbuild:development"
+						}
+					},
+					"defaultConfiguration": "development"
 				},
 				"test": {
 					"builder": "@angular-devkit/build-angular:karma",
