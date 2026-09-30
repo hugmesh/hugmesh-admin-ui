@@ -403,6 +403,19 @@ Tiering mirrors the BFF:
 - **Superadmins** call `/bff/superadmin/workloads/**` — mutating and dangerous
   surfaces (rollout-restart, delete, GitOps lifecycle). Dangerous-tier mutations
   require a short-TTL step-up token in the `X-Workload-StepUp` header.
+  For ordinary names, rollout-restart and pod delete fall in the BFF's separate
+  RUNTIME_MUTATE tier. That tier does **not** validate step-up, and the
+  `dangerous_tier_enabled` kill does not cover it. The BFF picks the tier by
+  substring match on the raw path, though, and it checks the dangerous markers
+  first. So a namespace, workload or pod whose name **begins with** `exec`,
+  `lifecycle` or `port-forward` (or namespace `logs` with a name beginning
+  `stream`) is classified DANGEROUS. For those names the kill applies, and the
+  call succeeds only with a valid step-up token; otherwise it is a body-less
+  `HTTP 403`. That looks like a BFF classifier bug (the result was checked
+  against admin-bff `5f0ee2f`, not against a live cluster). The console forwards
+  its minted token on both calls, which is what makes those names work once a
+  token is minted. For every other name the token is forwarded for parity only
+  and is not the gate.
 
 The live log stream uses SSE via a cookie-authenticated `fetch`; the pod TTY uses
 `@xterm/xterm`.

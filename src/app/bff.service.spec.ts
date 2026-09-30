@@ -643,6 +643,83 @@ describe('BffService', () => {
         .toBeRejectedWithError(/requires step-up/);
     });
   });
+
+  // ── Workload console runtime mutations: X-Workload-StepUp forwarding ──
+  // rollout-restart / delete-pod used to take no token, so a minted one never reached the BFF.
+  // They now forward it the way workloadLifecycle does. These specs pin the wire shape only, not
+  // any server behaviour. (For ordinary names the BFF puts these calls in RUNTIME_MUTATE, where
+  // the token is not validated. Its tierOf substring match puts names beginning with exec /
+  // lifecycle / port-forward in DANGEROUS, where the token IS validated; see the note in
+  // bff.service.ts.)
+  describe('workload runtime mutations + X-Workload-StepUp', () => {
+    function header(name: string): string | undefined {
+      return (lastInit().headers as Record<string, string>)?.[name];
+    }
+
+    it('workloadRolloutRestart POSTs the encoded rollout-restart path with the step-up header', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ deletedPods: 2, workload: 'web' }));
+      const res = await service.workloadRolloutRestart('hugmesh-backend', 'web/x', 'WK-1');
+      expect(res).toEqual({ deletedPods: 2, workload: 'web' });
+      expect(lastUrl()).toContain('/bff/superadmin/workloads/pods/hugmesh-backend/web%2Fx/rollout-restart');
+      expect(lastInit().method).toBe('POST');
+      expect(lastInit().credentials).toBe('include');
+      expect(header('X-Workload-StepUp')).toBe('WK-1');
+      // No body, so no content-type — the token is the ONLY header this call adds.
+      expect(lastInit().body).toBeUndefined();
+      expect(header('content-type')).toBeUndefined();
+    });
+
+    it('an exec-/lifecycle-prefixed name goes out verbatim WITH the header (the case the BFF validates it)', async () => {
+      // The admin-bff's tierOf (5f0ee2f) substring-matches "/exec" and "/lifecycle" on the raw
+      // path before it looks for "/rollout-restart" or DELETE-on-"/pods/", so these two exact
+      // URLs are classified DANGEROUS there and pass only with a valid step-up token. This spec
+      // pins OUR half of that: encodeURIComponent leaves the name as-is (so the BFF does see
+      // "/executor" / "/lifecycle-controller") and the header rides along. The BFF half is not
+      // exercised here.
+      fetchSpy.and.resolveTo(jsonResponse({ deletedPods: 1, workload: 'executor' }));
+      await service.workloadRolloutRestart('hugmesh-backend', 'executor', 'WK-4');
+      expect(lastUrl()).toContain('/bff/superadmin/workloads/pods/hugmesh-backend/executor/rollout-restart');
+      expect(header('X-Workload-StepUp')).toBe('WK-4');
+
+      fetchSpy.and.resolveTo(jsonResponse({ deleted: 1, pod: 'lifecycle-controller-0' }));
+      await service.workloadDeletePod('apps', 'lifecycle-controller-0', 'WK-5');
+      expect(lastUrl()).toMatch(/\/bff\/superadmin\/workloads\/pods\/apps\/lifecycle-controller-0$/);
+      expect(lastInit().method).toBe('DELETE');
+      expect(header('X-Workload-StepUp')).toBe('WK-5');
+    });
+
+    it('workloadDeletePod DELETEs the encoded pod path with the step-up header', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ deleted: 1, pod: 'web-abc' }));
+      await service.workloadDeletePod('hugmesh-backend', 'web-abc', 'WK-2');
+      expect(lastUrl()).toContain('/bff/superadmin/workloads/pods/hugmesh-backend/web-abc');
+      expect(lastInit().method).toBe('DELETE');
+      expect(header('X-Workload-StepUp')).toBe('WK-2');
+    });
+
+    it('sends NO X-Workload-StepUp header when no token is held (or it is empty)', async () => {
+      // Same `if (token)` guard as workloadLifecycle: never an empty/"undefined" header value.
+      fetchSpy.and.resolveTo(jsonResponse({}));
+      await service.workloadRolloutRestart('ns', 'web');
+      expect(header('X-Workload-StepUp')).toBeUndefined();
+      await service.workloadDeletePod('ns', 'web-abc', '');
+      expect(header('X-Workload-StepUp')).toBeUndefined();
+    });
+
+    it('other workloadMutate callers (the step-up mint itself) still send no step-up header', async () => {
+      fetchSpy.and.resolveTo(jsonResponse({ stepUpToken: 'fresh', ttlMinutes: 5 }));
+      await service.workloadStepUp();
+      expect(lastUrl()).toContain('/bff/superadmin/workloads/step-up');
+      expect(header('X-Workload-StepUp')).toBeUndefined();
+    });
+
+    it('still THROWS on a non-OK (e.g. the authz filter\'s body-less 403)', async () => {
+      // The filter's deny has no body: r.json() rejects there and errorOf() falls back to {},
+      // which this stub models directly — so the message is the HTTP <status> fallback.
+      fetchSpy.and.resolveTo(jsonResponse({}, { ok: false, status: 403 }));
+      await expectAsync(service.workloadDeletePod('ns', 'web-abc', 'WK-3'))
+        .toBeRejectedWithError('HTTP 403');
+    });
+  });
 });
 
 /** A minimal ReadableStream whose single chunk is the given SSE text. */

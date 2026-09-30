@@ -1427,25 +1427,79 @@ export class BffService {
     }
   }
 
-  // TODO(workload-console): unlike workloadLifecycle/triggerImageBuild/desktopRemoteInstall
-  // etc., this call has no stepUpToken parameter and never sends X-Workload-StepUp, even
-  // though the caller (WorkloadConsoleComponent.rolloutRestart) mints one via workloadStepUp()
-  // first. If the BFF's DANGEROUS-tier gate actually requires that header here (as the console's
-  // own docblock claims), every rollout-restart call is either silently unauthenticated for
-  // step-up or fails outright — worth confirming against WorkloadSuperadminController and wiring
-  // the token through if so.
-  /** SUPERADMIN rollout-restart = delete the workload's pods (selfHeal-neutral). */
-  async workloadRolloutRestart(namespace: string, workload: string): Promise<unknown> {
+  // ── Runtime mutations (rollout-restart / delete pod) and the X-Workload-StepUp header ──
+  // These two used to take no step-up token at all, so a token the SUPERADMIN had minted in
+  // the console never reached them. They now accept one and forward it in X-Workload-StepUp
+  // exactly like {@link workloadLifecycle} (via {@link workloadMutate}'s optional token).
+  //
+  // What the BFF actually does with it — read at admin-bff 5f0ee2f, NOT exercised end-to-end
+  // from this repo. WorkloadAuthorizationFilter reads X-Workload-StepUp on every console
+  // request, but WorkloadAuthorizationService only VALIDATES it for the DANGEROUS tier
+  // (decideSuperadminAccess / superadminFallback), and the GLOBAL dangerous_tier_enabled kill
+  // (STEP 0) likewise only fires for DANGEROUS. The route alone does NOT fix which tier these
+  // two calls land in. WorkloadPathClassifier.tierOf is a plain substring test on the raw
+  // request path, and it tests the DANGEROUS markers FIRST: `path.contains("/exec")`,
+  // `"/port-forward"`, `"/lifecycle"`, `"/logs/stream"`, and only then `"/rollout-restart"` and
+  // DELETE-on-`"/pods/"`. The namespace / workload / pod names are path segments of these URLs
+  // (encodeURIComponent leaves a Kubernetes name unchanged), so:
+  //
+  //  - For ordinary names (e.g. `.../pods/hugmesh-backend/web/rollout-restart`) the call is
+  //    RUNTIME_MUTATE. There step-up is never validated (an active, unsuspended SUPERADMIN is
+  //    allowed with no token, pinned by WorkloadAuthorizationServiceTest#
+  //    superadmin_runtimeMutate_allow, which passes a null token) and the kill does not apply.
+  //    The header is accepted and ignored; what gates the call is the SUPERADMIN role, the
+  //    suspension check and the namespace allowlist.
+  //  - For any namespace, workload or pod whose name BEGINS with `exec`, `lifecycle` or
+  //    `port-forward` (or namespace `logs` with a name beginning `stream`), e.g.
+  //    `POST .../pods/hugmesh-backend/executor/rollout-restart` or
+  //    `DELETE .../pods/apps/exec-runner-abc`, tierOf returns DANGEROUS. Then the kill applies:
+  //    a body-less 403, token or not, while the GLOBAL row's dangerous_tier_enabled is false or
+  //    the row is absent. Otherwise, on top of the usual role / suspension / allowlist gates,
+  //    the call is allowed ONLY with a valid, unexpired token for this JWT subject. Without one
+  //    it is a body-less 403, which surfaces here as "HTTP 403". A name that merely CONTAINS
+  //    the word (`web-executor-0`) is unaffected, because the match needs the leading `/`. The
+  //    classifier's own docblock keys the tier on the capability (the route), so this reads as
+  //    a substring-matching bug in the BFF rather than intended policy. That is our reading;
+  //    it has not been confirmed with the BFF owners. The tierOf results above were confirmed
+  //    by compiling the unmodified WorkloadPathClassifier and calling it on these paths; the
+  //    authz consequences come from reading the source only.
+  //
+  // So forwarding the token is NOT merely parity. For the misclassified names it is what lets
+  // the call through once a token has been minted (and the kill is off); before this change
+  // those calls sent no header and so could never pass. For every other name it is
+  // consistency and forward-compatibility: if the BFF ever raises RUNTIME_MUTATE to require
+  // step-up (a BFF policy change, not made here) the console already sends it. Neither case is
+  // a security control in this repo. Forwarding it cannot burn the token. On RUNTIME_MUTATE the
+  // BFF never calls WorkloadStepUpService.validate (the `tier == DANGEROUS &&` guard
+  // short-circuits first). On a misclassified DANGEROUS path it does call validate, but
+  // validate never removes a token that matched; it only evicts an already-EXPIRED entry. And
+  // neither the restart nor the delete handler calls consume(). The token IS single-use
+  // elsewhere, though. WorkloadStepUpService keeps ONE slot per JWT subject, shared across
+  // features: among the workload-console endpoints only a successful port-forward open
+  // consumes it, but the device SSH terminal, desktop remote-install and desktop dial paths
+  // consume that same slot too (directly or via DeviceTerminalStepUpGate), and any successful
+  // mint (e.g. the terminal view's own) overwrites it. So the token this console holds can go
+  // stale for reasons it cannot see. For ordinary names that is harmless, because nothing
+  // checks it. For a misclassified name it gives the same "HTTP 403" as having no token, and
+  // minting again fixes it (kill permitting). The token stays optional and is not a
+  // client-side precondition: omitted (e.g. never minted) means no header, which the BFF
+  // accepts for ordinary names.
+  /** SUPERADMIN rollout-restart = delete the workload's pods (selfHeal-neutral). The optional
+   *  step-up token rides X-Workload-StepUp (see the block above for what the BFF does with it,
+   *  including the name-prefix case where it is validated). */
+  async workloadRolloutRestart(namespace: string, workload: string, stepUpToken?: string): Promise<unknown> {
     return this.workloadMutate('POST',
-      `/bff/superadmin/workloads/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(workload)}/rollout-restart`);
+      `/bff/superadmin/workloads/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(workload)}/rollout-restart`,
+      undefined, stepUpToken);
   }
 
-  // TODO(workload-console): same gap as workloadRolloutRestart above — no stepUpToken
-  // parameter, so the minted X-Workload-StepUp token never rides this DELETE either.
-  /** SUPERADMIN delete one pod. */
-  async workloadDeletePod(namespace: string, pod: string): Promise<unknown> {
+  /** SUPERADMIN delete one pod. The optional step-up token rides X-Workload-StepUp, exactly as
+   *  on {@link workloadRolloutRestart}. The BFF classifies it the same way: RUNTIME_MUTATE for
+   *  ordinary names, DANGEROUS for the name prefixes described in the block above. */
+  async workloadDeletePod(namespace: string, pod: string, stepUpToken?: string): Promise<unknown> {
     return this.workloadMutate('DELETE',
-      `/bff/superadmin/workloads/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(pod)}`);
+      `/bff/superadmin/workloads/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(pod)}`,
+      undefined, stepUpToken);
   }
 
   /** SUPERADMIN mint a short-TTL step-up token (required for DANGEROUS ops). */
@@ -1507,12 +1561,17 @@ export class BffService {
     return r.json();
   }
 
-  private async workloadMutate<T = unknown>(method: string, path: string, body?: unknown): Promise<T> {
+  /** Shared superadmin/console mutation. `stepUpToken`, when present, is sent in
+   *  X-Workload-StepUp with the same `if (token)` guard as {@link workloadLifecycle}, so an
+   *  absent/empty token sends no header at all (callers that pass none are unchanged). */
+  private async workloadMutate<T = unknown>(method: string, path: string, body?: unknown,
+                                            stepUpToken?: string): Promise<T> {
     const init: RequestInit = { method, headers: {}, credentials: 'include' };
     if (body !== undefined) {
       (init.headers as Record<string, string>)['content-type'] = 'application/json';
       init.body = JSON.stringify(body);
     }
+    if (stepUpToken) (init.headers as Record<string, string>)['X-Workload-StepUp'] = stepUpToken;
     const r = await fetch(`${CFG.bff}${path}`, init);
     if (!r.ok) throw await this.bffError(r);
     return r.json().catch(() => ({} as T));
