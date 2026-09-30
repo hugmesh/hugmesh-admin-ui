@@ -1,7 +1,12 @@
 # USER-SITUATIONAL coverage — each admin / superadmin surface, ALLOW + DENY.
 #
-# The admin-ui mounts every console behind a guard (admin.routes.ts):
-#   adminGuard               — the admin micro-frontend itself.
+# Every console sits behind a client-side guard:
+#   adminGuard               — the admin micro-frontend itself: the HOST shell's
+#                              guard on its /admin mount. admin-ui's own adminGuard
+#                              is NOT wired into admin.routes.ts (see
+#                              TODO(admin-guard) in src/app/admin.guard.ts), so the
+#                              plain consoles have no remote-side guard.
+#   (the rest are admin-ui's own guards, in admin.routes.ts)
 #   superadminGuard          — device-licenses, device-pending, egress-vpn,
 #                              superadmin/domains, superadmin/anubis.
 #   gamesServicesGuard       — games-services (admin OR runner).

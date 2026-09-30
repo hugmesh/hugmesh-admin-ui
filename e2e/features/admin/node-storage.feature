@@ -1,6 +1,7 @@
 # FUNCTIONAL/WRITE coverage for the Node-storage console (admin.routes.ts
 # `/node-storage` → StoragePoolsComponent, storage-pools-view). ADMIN-CAPABLE
-# (adminGuard, NOT superadmin); the BFF ownership-gates the writes (an admin may act
+# (only the host's /admin adminGuard — no remote-side guard — NOT superadmin); the
+# BFF ownership-gates the writes (an admin may act
 # only on own-domain ADMIN-owned nodes). Two write seams: attach a pool to a node
 # (POST /bff/admin/device-storage-pools/{deviceId}/pools) and assign a service to a
 # pool (POST …/pools/{poolId}/assignments).
