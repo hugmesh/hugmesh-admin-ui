@@ -1,0 +1,43 @@
+# WITHOUT THIS FILE THE IMAGE IS BUILT FROM THE DEVELOPER'S DISK.
+#
+# The Dockerfile runs `npm ci` from package.json/package-lock.json and only then
+# does `COPY . .`. With no ignore list that COPY includes the host's own
+# node_modules, which lands ON TOP of the freshly installed lockfile tree and
+# silently replaces it, so the image is built against whatever the developer had
+# installed locally. hugmesh-host-shell and hugmesh-login-ui carry the same file
+# for the same reason. It is also the biggest cost in the build: the context
+# upload is mostly node_modules and the .angular cache.
+#
+# `**/node_modules` (not bare `node_modules`): a pattern matches the WHOLE
+# relative path, so the bare form excludes only the root-level tree and e2e/
+# has its own.
+**/node_modules
+.angular
+dist
+out-tsc
+coverage
+
+# VCS, CI and editor metadata. Never read by the build.
+.git
+.gitignore
+.gitattributes
+.github
+.gitlab-ci.yml
+.vscode
+.idea
+**/*.swp
+
+# Local env/secrets must never enter an image layer.
+.env
+.env.*
+!.env.example
+.e2e-credentials
+
+# Test and report output.
+test-results
+playwright-report
+**/*.log
+
+# Docker's own files: editing the Dockerfile should not invalidate the context.
+Dockerfile
+.dockerignore
