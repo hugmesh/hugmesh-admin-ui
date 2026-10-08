@@ -80,6 +80,9 @@ E2E_BASE_URL=http://localhost:<port> npx playwright test --grep-invert @cluster
 No backend is started: the components render their default / empty / degraded
 states (their BFF fetches simply reject and the templates render their fallbacks,
 or the fail-safe absent capability envelope drives the capability-gate).
+One exception: the theme-editor scenarios answer `GET /bff/admin/themes` with a
+Playwright `page.route()` stub that returns one themed domain, because the editor
+needs a row to open (`features/admin/theme-editor-axes.feature`).
 
 ## Ships dark (wave 2b-1)
 
