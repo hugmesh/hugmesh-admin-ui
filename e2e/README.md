@@ -36,6 +36,15 @@ with the deepest cross-user / DENY coverage:
 | MUTATION | `features/admin/concurrent-admin-edits.feature` | two **same-domain** admins on one announcement: a save onto a rival-deleted row is refused (404, not a silent recreate); rival retitles converge on the last write for both |
 | MUTATION | `features/admin/ssh-key-issuance.feature` | SSH credential mint: the ships-**dark** panel state, a domain admin's issue POST → 403 (superadmin-only), and the enabled-feature mint → step-up → **one-time** download journey |
 | EVERY-FUNCTION | `features/admin/device-radios.feature` | `@offline` the per-transport form shape (serial/tcp/mqtt fields) + blank-attach validation; `@cluster` a mod attach POST → 403 |
+| MUTATION | `features/admin/access-suspension.feature` | Delegation console: an admin bans then lifts a user's PROFILE access role (the ban and restore lever); a mod's suspend POST → 403; a domain-B admin cannot see domain-A's ban |
+| MUTATION | `features/admin/allowlist-invite.feature` | an admin invites a Gmail and a Discord identity through the console; the write is the durable allowlist row the login-ui registration gate reads |
+| MUTATION | `features/admin/announcement-dismissal.feature` | the `dismissible` flag round-trips through create and re-read, for a dismissible and a non-dismissible announcement; the per-user suppression belongs to the host shell and is not asserted here |
+| MUTATION | `features/admin/appeals-decide.feature` | Appeals console: an admin approves a mod-referred appeal; the referring mod cannot decide it; a cross-domain admin cannot decide another brand's appeal (victim-creates-first) |
+| EVERY-FUNCTION | `features/admin/desktop-governance.feature` | Desktop-governance console: `@offline` a domain admin never sees the superadmin-only SSH-dials tab, a dark dial leg hides it too, and the terminal and sudo controls stay disabled with no device; `@cluster` the BFF role matrix behind sudo, step-up mint, remote install and the SSH terminal. No scenario dials a device |
+| MUTATION | `features/admin/namespace-access.feature` | Namespace-access console: a domain admin grants a user a namespace; a mod's grant is denied; a cross-domain admin's grant list excludes another brand's grant |
+| MUTATION | `features/admin/role-grant.feature` | `POST/DELETE /bff/admin/roles/{roleName}/{user}`: an admin grants then revokes `ROLE_MATRIX`; a mod's grant POST → 403 |
+| MUTATION | `features/admin/superadmin-domains.feature` | Domains console: a superadmin registers a domain through the console; a domain admin's create POST → 403 |
+| EVERY-FUNCTION | `features/admin/theme-editor-axes.feature` | `@offline` the Themes editor offers the ramp, style and nav-decoration choices; one `@fixme` scenario records the missing background-effect axis (host-shell issue 19) |
 
 ## Two lanes: `@offline` (default, runs on `ng serve`) and `@cluster` (dark)
 
@@ -47,7 +56,7 @@ UI behaviour that needs no backend.
   validation, a client-side heuristic warning, empty/degraded states, a disabled
   control. These carry **no `@cluster` tag**, so the default config
   (`tags: 'not @cluster'`) INCLUDES them — `npx bddgen` now generates the offline
-  lane (currently **11 scenarios**). They run against the standalone dev shell
+  lane (currently **17 scenarios in 8 files**, one of them tagged `@fixme`). They run against the standalone dev shell
   (`ng serve admin`, which mounts `ADMIN_ROUTES` at the root — see
   `src/app/app.routes.ts`) with `E2E_BASE_URL` pointed at it. Every assertion is a
   real observable state change that fails against a blank page — never a bare
@@ -86,25 +95,31 @@ the default lane is empty or holds the `@offline` scenarios.
 `@skip` drops a scenario from generation entirely (`bddgen` emits 0 specs for
 it), so a `@skip`-tagged suite cannot be *discovered*. `@cluster` is a plain
 filter tag — the no-filter validation below generates and lists every scenario
-(**149 today across 32 files**), proving the Gherkin compiles, while the default
+(**178 today across 34 files**), proving the Gherkin compiles, while the default
 config keeps the `@cluster` ones dark and surfaces the `@offline` lane.
 
 ## Structural validation (no cluster, no browser)
 
 ```sh
 npm install
-npx bddgen            # default: 'not @cluster' → the 11 @offline specs (run them via
+npx bddgen            # default: 'not @cluster' → the 17 @offline specs (run them via
                       # the Offline UI lane above; @cluster scenarios stay dark)
 
 # Prove every feature compiles + all scenarios are discovered (no filter). The
 # no-filter config is committed as pw-validate.config.ts (it drops the `not @cluster`
 # tag filter the default config carries), so validation is just:
 npx bddgen -c pw-validate.config.ts
-npx playwright test --list -c pw-validate.config.ts   # → 149 tests in 32 files
+npx playwright test --list -c pw-validate.config.ts   # → 178 tests in 34 files
 ```
 
 ## Running against a live stack (later wave)
 
 Drop the `@cluster` tag from a feature (or run with an override config that
-omits the `not @cluster` filter), export `E2E_BASE_URL` + the per-role
-`E2E_*_PASSWORD` vars, then `npm run bdd`.
+omits the `not @cluster` filter), export `E2E_BASE_URL` (default
+`https://host.docker.internal:8443`) and give each seed user a password, then
+`npm run bdd`. A password resolves in this order: the per-role `E2E_*_PASSWORD`
+variable (`E2E_ADMIN_A_PASSWORD`, `E2E_SUPERADMIN_PASSWORD`, `E2E_MOD_PASSWORD`
+and so on), then `E2E_PASSWORD`, then the run-state file `.e2e-credentials`
+(found upward from the working directory, or at `E2E_CREDENTIALS_FILE`) that
+`make stack-seed` in hugmesh-generator writes. There is no literal fallback: an
+unresolved password throws.
