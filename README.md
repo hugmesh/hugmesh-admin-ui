@@ -638,6 +638,8 @@ read the Routes or BFF contract tables above as covering any of them.
 
 The **Superadmin Service Catalog** UI is **not** part of this remote — it lives in its own
 federated remote (`hugmesh-superadmin-service-catalog-ui`); its data layer is on the
-admin-bff `main` and its infra legs (AddService effector, ArgoCD create/delete,
-✅ Kaniko in-cluster builder (KanikoBuildLauncher — admin-bff PR #152), tailnet superadmin-gateway + federation registration) — all except Kaniko are 🚧 in-flight.
+admin-bff `main`, and so are its AddService effector (ArgoCD create/delete; dark
+unless `app.appstore.effector.enabled`) and ✅ Kaniko in-cluster builder
+(`KanikoBuildLauncher`, admin-bff PR #152; gated by `app.appstore.builder.enabled`).
+Its tailnet superadmin-gateway and federation-registration legs are 🚧 in-flight.
 Readers should not expect those screens here.
