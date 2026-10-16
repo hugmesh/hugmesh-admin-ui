@@ -1,10 +1,10 @@
 # hugmesh-admin-ui
 
 Admin console for the HugMesh platform. This repo is an **Angular 22
-native-federation REMOTE** (remote name `admin`) that was split out of
-hugmesh-social-ui. At runtime the **hugmesh.net host** loads this
-remote's single exposed module (`./routes`) and mounts its `ADMIN_ROUTES`
-at **/admin**.
+native-federation REMOTE** (remote name `admin`), split out of
+hugmesh-social-ui. At runtime the **hugmesh.net host** loads its one exposed
+module (`./routes`) and mounts `ADMIN_ROUTES` at **/admin**. The console is a
+window onto the admin BFF and holds no authority of its own.
 
 ## Where it sits in the architecture
 
@@ -44,92 +44,93 @@ flowchart LR
   BFF -->|"role-secured proxy"| CLUSTER
 ```
 
-> The diagram shows the **shipped** wiring. Roles are **owned by Casdoor**; this UI
-> never mints or evaluates authority on its own — it only reflects the
-> `hug.session` roles and lets the BFF/gateway enforce. See the **Roadmap** section
-> for surfaces that are designed/in-flight but not yet shipped here.
+> The diagram shows the **shipped** wiring. Casdoor **owns the roles**. This UI
+> never mints or evaluates authority; it reflects the `hug.session` roles and
+> lets the BFF and gateway enforce. The **Roadmap** section lists surfaces that
+> are designed or in flight but not shipped here.
 
-This is the admin surface of the multi-brand / multi-tenant platform. It is a
-*presentation layer only*: every privileged action is brokered by the admin BFF,
-which is the single cluster contract. The BFF reaches **Casdoor through the
-hugmesh-pki gateway** for identity and role operations, and proxies in-cluster
-systems (ArgoCD, ClickHouse, the gateway route registries) so their URLs and
-tokens never leave the cluster.
+This is the admin surface of the multi-brand, multi-tenant platform, and it is
+*presentation only*. The admin BFF brokers every privileged action; it is the
+single cluster contract. The BFF reaches **Casdoor through the hugmesh-pki
+gateway** for identity and role operations. It proxies in-cluster systems
+(ArgoCD, ClickHouse, the gateway route registries), so their URLs and tokens
+never leave the cluster.
 
-> **Multi-tenancy note:** The platform's per-domain CA + per-brand
-> gateway/BFF/UI model with its least-privilege cascade (SUPERADMIN→ADMIN→MOD→USER)
-> means this console is the **per-brand ADMIN surface**. As shipped (✅), the base
-> gate is a Casdoor `admin` role (`roles.includes('admin')`); a handful of routes
-> additionally require `superadmin` (enforced by `superadminGuard`); one route
-> uses the games-services derived roles; and one route (`/admin/my-fleet`) uses the
-> fleet-owner capability role (`fleetAdminGuard`). **Domain scoping is enforced upstream at the
-> gateway and BFF** (the BFF stamps every call to the caller's domain) — the
-> client-side role flags are presentation-only, and the BFF/gateway is the authority.
+> **Multi-tenancy note:** The platform runs a CA, gateway, BFF and UI per brand,
+> with a least-privilege cascade (SUPERADMIN→ADMIN→MOD→USER). This console is the
+> **per-brand ADMIN surface**. As shipped (✅), the base gate is the Casdoor
+> `admin` role (`roles.includes('admin')`). A handful of routes also require
+> `superadmin` (`superadminGuard`). One route uses the games-services derived
+> roles. One route, `/admin/my-fleet`, uses the fleet-owner capability role
+> (`fleetAdminGuard`). **The gateway and BFF enforce domain scoping**; the BFF
+> stamps every call with the caller's domain. The client-side role flags are
+> presentation only, and the BFF and gateway decide.
 
-> State convention used below: **✅ shipped** = merged to `main`;
-> **🚧 in-flight** = code on an open branch/PR; **🔭 planned** = design-complete, no
-> code in this repo. Unless marked otherwise, everything documented here is ✅ shipped.
+> State markers used below: **✅ shipped** = merged to `main`; **🚧 in-flight** =
+> code on an open branch or PR; **🔭 planned** = designed, no code in this repo.
+> Unmarked items are ✅ shipped.
 
 ## Current State
 
-The whole route surface, role gate, and BFF contract documented in this README are
-**✅ shipped on `main`** (Angular 22 native-federation remote, exposed `./routes`).
-No auth-relevant work is sitting unmerged on a side branch — every prior
-auth/route/oidc/delegation branch has landed (or was a superseded draft fully
-absorbed into `main`).
+The route surface, role gate and BFF contract in this README are **✅ shipped on
+`main`** (Angular 22 native-federation remote, exposed `./routes`). Every
+auth, route, oidc and delegation branch has landed, or was a superseded draft
+absorbed into `main`.
 
-The one place this UI is **deliberately tracking a moving backend** is the auth /
-session bridge, recently unified across the platform:
+This UI **deliberately tracks a moving backend** in one place: the auth and
+session bridge, recently unified across the platform.
 
 - **Login is native, not a Casdoor redirect.** The old OIDC authorization-code
-  (PKCE) browser-redirect flow has been superseded platform-wide: each service's
-  own login-ui remote posts credentials to a login-style endpoint on that
-  service's own BFF, and **`hugmesh-user-bff` holds per-session JWT
-  custody/refresh server-side.** **Casdoor is internal-only and never redirects
-  the browser.** The browser holds only the opaque, HttpOnly **`bff_` cookie**
-  (never readable by JS) plus the identity/roles `hug.session` localStorage
-  payload. **The user never sees their own Casdoor JWT.**
+  (PKCE) redirect flow is gone platform-wide. Each service's own login-ui remote
+  posts credentials to a login-style endpoint on that service's BFF, and
+  **`hugmesh-user-bff` holds per-session JWT custody and refresh server-side.**
+  **Casdoor is internal-only and never redirects the browser.** The browser holds
+  only the opaque, HttpOnly **`bff_` cookie** (JS cannot read it) and the
+  identity/roles `hug.session` localStorage payload. **The user never sees their
+  own Casdoor JWT.**
 - **The gateway is a pure Casdoor-JWT OAuth2 resource server.** A pre-security
-  exchange filter swaps the opaque `bff_` session → the internal custody JWT, so
-  the gateway's JWT validation + role gate run unchanged. Authorization is
-  data-driven by the `gateway_route_access` Postgres table (source of truth) via
-  `GatewayRouteAccessFilter`; ADMIN/GAME-MASTER bypass within their own domain,
-  SUPERADMIN cross-domain. The SCG-5 route-namespace move
-  (`spring.cloud.gateway.routes` → `spring.cloud.gateway.server.webflux.routes`)
-  is already applied across the gateways + generator route templates. Cloudflare
-  fronts prod.
-- **Login / session / account logic is being RELOCATED from admin-bff to
-  user-bff**, with the shared account/session/MFA/Casdoor-admin infra extracted
-  into the new **`hugmesh-auth-core`** Maven artifact (2.3.0, consumed by
-  user-bff + admin-bff only). **Account / session DATA still lives in
-  admin-bff-db**; user-bff reaches it via admin-bff `/bff/internal` over
-  mTLS + `X-Internal-Token`.
+  exchange filter swaps the opaque `bff_` session for the internal custody JWT,
+  so the gateway's JWT validation and role gate run unchanged. Access is
+  data-driven by the `gateway_route_access` table through
+  `GatewayRouteAccessFilter` (admin-bff keeps the source of truth in Postgres and
+  mirrors it to a Cassandra table that the gateways poll). ADMIN/GAME-MASTER
+  bypass within their own domain; SUPERADMIN crosses domains. The SCG-5
+  route-namespace move (`spring.cloud.gateway.routes` →
+  `spring.cloud.gateway.server.webflux.routes`) is already applied across the
+  gateways and the generator route templates. Cloudflare fronts prod.
+- **Login, session and account logic is moving from admin-bff to user-bff.** The
+  shared account, session, MFA and Casdoor-admin code now lives in the
+  **`hugmesh-auth-core`** Maven artifact (2.5.1 on `main`; of the BFFs only
+  user-bff and admin-bff consume it, both pinned to 2.5.1).
+  **Account and session DATA still lives in admin-bff-db**; user-bff reaches it
+  through admin-bff `/bff/internal` with `X-Internal-Token`, and over mTLS when
+  `hugmesh.mtls.client.enabled=true`.
 - Backend baseline (recently unified): **Spring Boot 4.0.7 / Spring Cloud
-  2025.1.2 / Java 25 LTS**, on `hugmesh-parent` (metapom 2.7.0) +
-  `hugmesh-commons` (2.7.0).
+  2025.1.2 / Java 25 LTS**, on `hugmesh-parent` (metapom 2.8.0) +
+  `hugmesh-commons` (2.1.0).
 
-> Implication for this UI: the opaque **`bff_` session lives in an HttpOnly
-> cookie**, not a field on `hug.session` — the gateway performs the `bff_`→JWT
-> swap server-side. `BffService` continues to send it automatically via
-> `credentials: 'include'` on every call; the registration / login /
-> service-token broker flow lives in the **login remote** (now backed by user-bff),
-> not here.
+> For this UI: the opaque **`bff_` session lives in an HttpOnly cookie**, not in
+> `hug.session`. The gateway swaps it for the JWT server-side. `BffService` sends
+> it on every call with `credentials: 'include'`. The registration, login and
+> service-token broker flow lives in the **login remote** (now backed by
+> user-bff), not here.
 
 ## Routes (mounted by the host at `/admin`)
 
 The remote exposes `ADMIN_ROUTES` (`src/app/admin.routes.ts`). The host mounts
 them at `/admin`, so they resolve to the paths below. The **Guard** column is the
-route-level `canActivate` in this remote (— = none: gated client-side only by the host
-shell's admin-role guard on `/admin`; see *Role gate & session*); the **Menu** column is
-whether `AdminComponent`'s nav surfaces the route as a `routerLink`. All of these
-are ✅ shipped on `main`.
+route-level `canActivate` in this remote. A dash means none: only the host
+shell's admin-role guard on `/admin` gates the route client-side (see *Role gate
+& session*). The **Menu** column says whether the `AdminComponent` nav links to
+the route with a `routerLink`. All of these are ✅ shipped on `main`.
 
 | Host path                 | View                                                | Component                   | Guard            | Menu |
 | ------------------------- | --------------------------------------------------- | --------------------------- | ---------------- | ---- |
 | `/admin`                  | Registration allowlist + admin menu                 | `AdminComponent`            | —                | (landing) |
 | `/admin/usage`            | ClickHouse usage dashboard                          | `UsageComponent`            | —                | yes  |
 | `/admin/namespaces`       | Namespace access grants                             | `NamespaceAccessComponent`  | —                | yes  |
-| `/admin/delegation`       | Access-role suspend/ban + lift, domain-lock add/remove | `DelegationComponent`    | —                | yes  |
+| `/admin/delegation`       | Four tabs: access-role suspend/ban + lift, domain-lock add/remove, namespace grants, external-client role grants | `DelegationComponent`    | —                | yes  |
+| `/admin/roles`            | Grant or revoke a role from the BFF's closed grantable list | `RolesComponent`    | —                | yes  |
 | `/admin/route-access`     | Per-gateway role→URL access rules                   | `RouteAccessComponent`      | —                | yes  |
 | `/admin/routes`           | Gateway route definitions                           | `RouteDefinitionsComponent` | —                | yes  |
 | `/admin/isos`             | CI ISO download links                               | `IsoDownloadsComponent`     | —                | yes  |
@@ -141,6 +142,7 @@ are ✅ shipped on `main`.
 | `/admin/cloud-backups`    | Cloud backups (per-domain + superadmin TOTAL, versioned, step-up restore) | `CloudBackupsComponent` | —          | yes  |
 | `/admin/backing-services` | Managed backing-services console — self-hosted (default) vs managed-cloud mode per closed-catalog infra service | `BackingServicesComponent` | `superadminGuard` | no (route-only) |
 | `/admin/announcements`    | Announcements (create + schedule + target)          | `AnnouncementListComponent` | —                | yes  |
+| `/admin/themes`           | Per-domain theme editor (ramp, style, nav decoration) | `DomainThemesComponent` | —                | yes  |
 | `/admin/test-reports`     | Test-architecture run history + on-demand run + download | `TestReportsComponent` | —                | yes  |
 | `/admin/image-gen`        | Image-generation console: worklist BATCH wizard (up to 16 images/step-up, role-aware package tiers) + build history/detail + SSE progress + download, capability-gated | `ImageGenComponent` | —          | yes  |
 | `/admin/forum`            | Forum (phpBB ACP) admin proxy                       | `ForumAdminComponent`       | —                | yes  |
@@ -165,29 +167,29 @@ are ✅ shipped on `main`.
 | `/admin/workloads/logs`   | Workload live-log view (SUPERADMIN)                  | `WorkloadLogsComponent`     | `workloadConsoleGuard` | hidden |
 | `/admin/workloads/terminal` | Workload pod TTY (SUPERADMIN, xterm.js)            | `WorkloadTerminalComponent` | `workloadConsoleGuard` | hidden |
 
-`AdminComponent` is both the landing view (registration allowlist) and the admin
-**menu**. The menu does **not** auto-surface every route:
+`AdminComponent` is the landing view (registration allowlist) and the admin
+**menu**. The menu does **not** show every route:
 
 - **Superadmin-only items** appear only when the session carries the `superadmin`
-  role. The route guard (`superadminGuard`) provides a second layer of enforcement.
-- The **My fleet** item appears only when the session carries the fleet capability
-  (`fleet_admin` role, or the broader `admin`/`superadmin` roles — see
-  `SessionService.isFleetAdmin()`). The route guard (`fleetAdminGuard`) provides a
-  second layer of enforcement.
-- The **Workload Console** is a **HIDDEN tier** entry that appears only after a
+  role. The route guard (`superadminGuard`) enforces it a second time.
+- **My fleet** appears only when the session carries the fleet capability
+  (`fleet_admin` role, or the broader `admin`/`superadmin` roles; see
+  `SessionService.isFleetAdmin()`). The route guard (`fleetAdminGuard`) enforces
+  it a second time.
+- The **Workload Console** is a **HIDDEN tier** entry. It appears only after a
   server-confirmed capability probe succeeds (`/bff/admin/workloads/capability`;
-  `200` = live grant/role, `404` = dark or denied).
+  `200` = live grant or role, `404` = dark or denied).
 - A few routes (`/admin/backing-services`, `/admin/oidc-providers`,
-  `/admin/games-services`, `/admin/superadmin/anubis`) have no top-level menu entry
-  and are reached only by direct navigation or cross-links from other views.
+  `/admin/games-services`, `/admin/superadmin/anubis`) have no menu entry. You
+  reach them by direct navigation or from links in other views.
 
 ## Role gate & session
 
 The host route-guards `/admin` behind the Casdoor **admin role**. This repo also
-ships five `CanActivateFn` guards for finer-grained in-remote routing (though one,
-`adminGuard`, is not currently attached to any route — see the note below the
-table). All client-side role checks are **presentation-only** — the BFF and
-gateway are the authority:
+ships five `CanActivateFn` guards for finer routing inside the remote. One of
+them, `adminGuard`, is attached to no route (see the note below the table). Every
+client-side role check is **presentation only**; the BFF and gateway are the
+authority:
 
 | Guard                  | File                          | Allows when                                                                 | Guards |
 | ---------------------- | ----------------------------- | --------------------------------------------------------------------------- | ------ |
@@ -195,96 +197,104 @@ gateway are the authority:
 | `superadminGuard`      | `src/app/superadmin.guard.ts` | `isSuperadmin()` (`roles` includes `superadmin`), else `/login`              | device-licenses, device-pending, phone-fleet, fleet-entitlements, egress-vpn, superadmin/domains, superadmin/anubis, backing-services |
 | `fleetAdminGuard`      | `src/app/fleet.guard.ts`      | `isFleetAdmin()` (`roles` includes `fleet_admin`, or `admin`/`superadmin`), else `/login` | my-fleet |
 | `gamesServicesGuard`   | `src/app/games-services.guard.ts` | `isGamesServicesAdmin()` **or** `isGamesServicesRunner()`, else `/login`  | games-services |
-| `workloadConsoleGuard` | `src/app/workload-console.guard.ts` | admin/superadmin **and** a live server-confirmed `workloadCapability()` probe (200); else bounced to `/admin` | workloads + workloads/logs + workloads/terminal |
+| `workloadConsoleGuard` | `src/app/workload-console.guard.ts` | `admin` or `superadmin` in the session (else `/login`) **and** a live server-confirmed `workloadCapability()` probe (200; otherwise bounced to `/admin`) | workloads + workloads/logs + workloads/terminal |
 
-> **Why `adminGuard` is not wired (open decision).** The landing and the plain consoles
-> (Guard "—" in the routes table, e.g. `/admin/node-storage`) are gated client-side only
-> by the host shell's own admin-role guard on its `/admin` parent route (federation
-> exposes only `./routes`, so the host cannot import this exact function). That host
-> check is a `canActivate`: it decides whether a console *activates*, but Angular runs a
-> route's `loadChildren` before its `canActivate`, so it does not stop the host from
-> fetching this remote's `./routes` module (checked against a plain Angular 22 router in
-> a throwaway Karma probe, not against the host itself).
+> **Why `adminGuard` is not wired (open decision).** The landing and the plain
+> consoles (Guard "—" in the routes table, e.g. `/admin/node-storage`) have one
+> client-side gate: the host shell's admin-role guard on its `/admin` parent
+> route. Federation exposes only `./routes`, so the host cannot import this
+> remote's function. The host check is a `canActivate`. It decides whether a
+> console *activates*, but Angular runs a route's `loadChildren` before its
+> `canActivate`, so the check does not stop the host from fetching this remote's
+> `./routes` module. (Checked against a plain Angular 22 router in a throwaway
+> Karma probe, not against the host itself.)
 >
-> Wiring this repo's `adminGuard` onto those routes was evaluated and backed out, because
-> as written it is not safe there. It reads only the `hug.session` localStorage mirror,
-> while the host's `SessionService` re-hydrates from `GET /bff/session` and deliberately
-> never writes that mirror. After a mid-session role grant (a flow the host supports on
-> purpose — its `e2e/features/role-change-midsession.feature`), or with a cookie-only
-> session that has no mirror, the host would admit an admin to `/admin` and `adminGuard`
-> would then send them to `/login`. The standalone dev shell has no `/login` route and
-> nothing that writes `hug.session`, so there `/` would stop rendering. The owner has to
-> choose: **(a)** make this remote's `SessionService` hydrate from `/bff/session` and send
-> a signed-in caller without the role to the host's `/home?denied=` page instead of
-> `/login`, then wire it (never stacked onto the superadmin / fleet / games / workload
-> routes, whose audiences it would narrow to `admin`-holders); **(b)** wire it as-is and
-> accept both regressions; or **(c)** delete it. Details are in the `TODO(admin-guard)`
-> on `adminGuard`. The four wired guards above take their role check from the same
-> mirror, so their routes already have the stale-mirror exposure; that is pre-existing
-> and not changed here. All of this is reasoned from the host-shell and admin-ui code, not reproduced on
-> a live stack.
+> Wiring this repo's `adminGuard` onto those routes was tried and backed out,
+> because as written it is unsafe there. It reads only the `hug.session`
+> localStorage mirror. The host's `SessionService` re-hydrates from
+> `GET /bff/session` and deliberately never writes that mirror. After a
+> mid-session role grant (a flow the host supports on purpose; see its
+> `e2e/features/role-change-midsession.feature`), or with a cookie-only session
+> that has no mirror, the host admits an admin to `/admin` and `adminGuard` then
+> sends them to `/login`. The standalone dev shell has no `/login` route and
+> nothing that writes `hug.session`, so `/` would stop rendering there. The
+> owner must choose: **(a)** make this remote's `SessionService` hydrate from
+> `/bff/session`, send a signed-in caller without the role to the host's
+> `/home?denied=` page instead of `/login`, then wire it (never stacked onto the
+> superadmin, fleet, games or workload routes, whose audiences it would narrow to
+> `admin` holders); **(b)** wire it as is and accept both regressions; or **(c)**
+> delete it. The details are in the `TODO(admin-guard)` on `adminGuard`. The four
+> wired guards take their role check from the same mirror, so their routes
+> already have the stale-mirror exposure; that predates this change and is
+> unchanged. All of this is reasoned from the host-shell and admin-ui code, not
+> reproduced on a live stack.
 
 `SessionService` (`src/app/session.service.ts`) reads the shared **`hug.session`**
 localStorage key written by the **login remote**. The key carries identity
 (`id`, `label`, `provider`), `roles`, and `registrationComplete`. It **no longer
-carries a bearer token or provider credentials** — the browser holds only the
-opaque, HttpOnly `bff_` cookie (never readable by JS); every `/bff/*` call rides
-that cookie (`credentials: 'include'`) and the gateway's `BffCookieToBearerWebFilter`
-swaps it for the internal custody JWT server-side. The login/registration flow
-that writes this key is owned by the login remote (now backed by
-`hugmesh-user-bff`, which holds the per-session JWT custody).
+carries a bearer token or provider credentials**. The browser holds only the
+opaque, HttpOnly `bff_` cookie (JS cannot read it). Every `/bff/*` call rides
+that cookie (`credentials: 'include'`), and the gateway's
+`BffCookieToBearerWebFilter` swaps it for the internal custody JWT server-side.
+The login remote (now backed by `hugmesh-user-bff`, which holds the per-session
+JWT custody) owns the flow that writes this key.
 
 The service exposes role state as **computed signals**:
 
-- `isAdmin` / `isSuperadmin` — derived from the `roles` array.
-- `isFleetAdmin` — the fleet-owner capability gating the My-fleet menu item + route:
-  a dedicated `fleet_admin` role, or the broader `admin`/`superadmin` roles.
-- `isGamesServicesAdmin` / `isGamesServicesRunner` — games-services derived roles,
+- `isAdmin` / `isSuperadmin`: derived from the `roles` array.
+- `isFleetAdmin`: the fleet-owner capability that gates the My-fleet menu item
+  and route. It is a dedicated `fleet_admin` role, or the broader
+  `admin`/`superadmin` roles.
+- `isGamesServicesAdmin` / `isGamesServicesRunner`: games-services derived roles,
   materialised in Casdoor and surfaced in `session.roles` with the `ROLE_` prefix
   stripped and lowercased.
-- `fullyRegistered` — the registration-complete gate.
+- `fullyRegistered`: the registration-complete gate.
 
-The host shell and every remote each hold their own `SessionService` instance over
-the same localStorage key. All instances re-read on a same-document broadcast
-(`hug-session-change`) and on cross-tab `storage` events, so a session change —
-for example, registration completing inside the login remote — propagates
-immediately without a page reload.
+The host shell and every remote each hold their own `SessionService` instance
+over the same localStorage key. All instances re-read on a same-document
+broadcast (`hug-session-change`) and on cross-tab `storage` events. A session
+change, such as registration completing in the login remote, shows up at once
+with no page reload.
 
 ## BFF contract
 
-`BffService` (`src/app/bff.service.ts`) is the hand-written typed client against
-**hugmesh-admin-bff-api**. Every call sends `credentials: 'include'` so the
-opaque, HttpOnly `bff_` cookie rides the request (the browser never holds a
-bearer token); the gateway's `BffCookieToBearerWebFilter` swaps it for the
-internal Casdoor custody JWT server-side. Calls target the admin-scoped (and a
-few superadmin-scoped) endpoints — the registration/login/Matrix-Mastodon
+`BffService` (`src/app/bff.service.ts`) is the hand-written typed client for
+**hugmesh-admin-bff-api**. Every call sends `credentials: 'include'`, so the
+opaque HttpOnly `bff_` cookie rides the request (the browser never holds a bearer
+token). The gateway's `BffCookieToBearerWebFilter` swaps it for the internal
+Casdoor custody JWT server-side. Calls target the admin-scoped endpoints and a
+few superadmin-scoped ones. The registration, login and Matrix-Mastodon
 service-token broker flow lives in the login remote (backed by user-bff).
 
-The BFF base URL and the Uptrace URL are read from runtime globals
+The BFF base URL and the Uptrace URL come from runtime globals
 (`__HUG_BFF_URL__`, `__HUG_UPTRACE_URL__`).
 
-SSE streams (backup/restore progress, test-run progress, live workload logs) are
-read with a `fetch({ credentials: 'include' })` + `ReadableStream` reader rather
-than raw `EventSource`, so every streamed endpoint shares the same cookie-auth +
-error-handling path as the rest of `BffService`.
+SSE streams (backup/restore progress, test-run progress, image-build progress,
+live workload logs) use `fetch({ credentials: 'include' })` with a
+`ReadableStream` reader, not raw `EventSource`. Every stream then shares the
+cookie auth and error handling of the rest of `BffService`.
 
 | Module                  | Endpoint(s)                                                | Notes |
 | ----------------------- | ---------------------------------------------------------- | ----- |
 | Registration allowlist  | `GET/POST /bff/admin/allowlist`                            | Invite by Gmail address or Discord username; the BFF invites the identity in Casdoor via the pki gateway. |
 | Usage analytics         | `GET /bff/admin/usage` (+ Uptrace link)                    | Aggregated by the BFF from ClickHouse (events arrive via Kafka in prod). |
 | Namespace access        | `GET/POST/DELETE /bff/admin/namespace-access`, `GET /bff/me/namespaces` | Grant users access to cluster namespaces (maps to Casdoor groups + k8s RBAC server-side); scopes what each user sees in observability. |
-| Route **access**        | `GET/POST/DELETE /bff/admin/route-access`                 | Per-gateway role→URL allow/deny rules. Persisted in Postgres (`gateway_route_access`, the gateway's source of truth via `GatewayRouteAccessFilter`); each gateway caches them and denies external access unless the caller's Casdoor roles match. Role-based locking of known services only — no arbitrary URLs. |
+| Route **access**        | `GET/POST/DELETE /bff/admin/route-access`                 | Per-gateway role→URL allow/deny rules. Persisted in admin-bff Postgres (`gateway_route_access`, the source of truth) and mirrored to a Cassandra table the gateways poll; `GatewayRouteAccessFilter` in each gateway caches the rules and denies external access unless the caller's Casdoor roles match. Role-based locking of known services only — no arbitrary URLs. |
 | Route **definitions**   | `GET/POST /bff/admin/routes`, `DELETE /bff/admin/routes/{pathPrefix}` | Admin-editable `url_registry` rows the gateway turns into live Spring Cloud Gateway routes (`path_prefix` → `downstream_uri`, under the SCG-5 `spring.cloud.gateway.server.webflux.routes` namespace). Distinct from route-access. |
 | ISO downloads           | `GET /bff/admin/isos`                                      | Latest ISO artifacts from the GitLab/ArgoCD CI pipeline. Signed gateway-internal URLs; **KEYS material is never in these images**, so nothing secret is exposed. |
 | ArgoCD dashboard        | `GET /bff/admin/argocd/applications[/{name}]`, `POST .../sync` | Role-secured proxy in the BFF (ArgoCD's own URL/token never leave the cluster). Live state; the sync mutation requires a typed `{confirm: name}` token. When ArgoCD is not wired the BFF returns `503` → an honest "ArgoCD not connected" notice. |
 | Guided tasks            | `GET /bff/admin/tasks`, `POST .../steps/{stepId}/{validate\|preview\|apply}` | Data-driven step/task wizard over cluster-admin ops (gateway-route, RBAC/route-access, Casdoor user); a new server-side task appears with no UI change. Reuses the BFF's ReservedNames validation. |
-| Backup & Recovery       | `POST /bff/admin/backups`, `POST /bff/admin/restores`, `GET /bff/admin/backups`, `GET /bff/admin/usb-devices`, SSE `GET /bff/admin/backups/{id}/events` | Cloud/USB targets with optional AES-256 encryption. The BFF orchestrates a k8s backup/restore worker Job and streams progress over SSE (read via `fetch`, not `EventSource`, so the bearer token can be sent). The plaintext password is sent ONCE and never stored client-side; only the BFF stores a PBKDF2 verifier and the worker derives the key. |
+| Backup & Recovery       | `POST /bff/admin/backups`, `POST /bff/admin/restores`, `GET /bff/admin/backups`, `GET /bff/admin/usb-devices`, SSE `GET /bff/admin/backups/{id}/events` | Cloud/USB targets with optional AES-256 encryption. The BFF orchestrates a k8s backup/restore worker Job and streams progress over SSE (read via `fetch` with `credentials: 'include'`, not `EventSource`, so the stream shares the cookie auth and error handling of every other call). The plaintext password is sent ONCE and never stored client-side; only the BFF stores a PBKDF2 verifier and the worker derives the key. |
+| Cloud backups           | `GET/POST /bff/admin/cloud-backups`, `GET .../{id}/versions`, `GET .../{id}/artifacts`, `POST .../{id}/restore` (`X-Backup-StepUp`), `GET .../services`, `GET/PUT .../destinations`, `POST /bff/superadmin/cloud-backups/total` | Versioned per-domain backup sets (a run adds a version to the set); the TOTAL scope is superadmin-only. Destination is object store or node storage. Restore needs a step-up token. |
 | Announcements           | `GET/POST/PUT/DELETE /bff/admin/announcements`             | See below. |
-| Delegation / access-roles | `GET/POST/DELETE /bff/admin/access-roles/{role}/{user}`, `GET/POST/DELETE /bff/admin/domain-lock/{role}/{user}` | The narrow, AdminController-verified delegation surface: access-role suspend/ban (+ TTL or permanent) + lift, and domain-lock add/remove (force local-only, keeps the base role). Closed role vocabularies (`ROLE_MATRIX`/`ROLE_MASTODON`/`PROFILE`; `*_DOMAINLOCKED`). No general role grant/revoke exists. |
+| Delegation / access-roles | `GET/POST/DELETE /bff/admin/access-roles/{role}/{user}`, `GET/POST/DELETE /bff/admin/domain-lock/{role}/{user}` | The narrow, AdminController-verified delegation surface: access-role suspend/ban (+ TTL or permanent) + lift, and domain-lock add/remove (force local-only, keeps the base role). Closed role vocabularies (`ROLE_MATRIX`/`ROLE_MASTODON`/`PROFILE`; `*_DOMAINLOCKED`). The same console also drives the namespace grants above and the external-client role grants (`ROLE_MATRIX_EXTERNAL_CLIENT`/`ROLE_MASTODON_EXTERNAL_CLIENT`, gated server-side on the `external-client-grant` domain capability). Direct role grant/revoke is the separate Roles surface below. |
+| Roles (grant/revoke)    | `POST/DELETE /bff/admin/roles/{roleName}/{user}`           | Direct grant surface, distinct from access-roles: no timed-ban semantics, no reconcile loop. The vocabulary is closed server-side (`AdminController.GRANTABLE_ROLE_PATTERN`); `ROLE_SUPERADMIN` and the service roles are not grantable. Revoke is deliberately not capability-gated. Where the deployment reports `casdoorAdminEnabled: false`, the grant is recorded but does not reach Casdoor, and the console says so. |
+| User search             | `GET /bff/admin/users/search?q=&limit=`                    | Typeahead behind every user picker. The BFF scopes the result to the caller's own brand and bounds `limit` to 1..25 (`UserDirectoryService.MAX_LIMIT`); a blank `q` returns `[]` without reading the directory; a failed search degrades to no suggestions. |
+| Themes                  | `GET /bff/admin/themes`, `GET/PUT/DELETE /bff/admin/themes/{domain}` | Per-domain theme (ramp, style, decor), through the generated client (`DomainThemesStore`). The BFF decides which rows a caller sees. The editor cannot derive CSS, so saving a changed selection clears the stored stylesheet until the Studio re-renders it. |
 | Appeals (decide-proxy)  | `POST /bff/admin/moderation/{id}/decide?approve=<bool>`    | Approve/deny a referred moderation request — **CONTENT**-moderation (posts/profiles). The admin-bff does NOT own the table — it **proxies** to hugmesh-federation-api, forwarding the caller's JWT so federation-api applies its own `@PreAuthorize(ADMIN\|SUPERADMIN)` + **per-domain scope** (a row in another brand is invisible/404). No list endpoint yet — the console drives the decide action by known id. |
 | Account appeals         | `GET /bff/admin/account-appeals`, `POST .../{id}/decide?status=APPROVED\|DENIED` | The **ACCOUNT**-ban appeal inbox — distinct from Appeals above. Decides `account_appeal` rows a curtailed user files (via login-ui's `/login/appeal` → `POST /bff/me/appeal`) against their own `access_suspension` PROFILE ban. An `APPROVED` decide **clears the underlying suspension server-side first** (`SuspensionService.clear`) — the call fails outright if that restore fails, so a failed approve is surfaced as an error, never a false success. MOD is deliberately not gated in (MOD cannot ban/unban an account, so it cannot approve an appeal against one). |
 | Forum admin             | `GET/POST/DELETE /bff/admin/forum/**`                      | Proxies the phpBB ACP capability (stats/usage/users/categories/moderation-queue/audit + ban/groups/categories/moderation approve-reject/styles/extensions). Every response is the `ForumOutcome` envelope with a `result` marker (`ok` / `stubbed` / `degraded:<reason>`). |
-| Test reports            | `GET /bff/admin/test-reports[/{id}]`, `GET .../{id}/download`, `POST .../run`, SSE `GET .../{id}/events` | Durable test-architecture run history + on-demand trigger + bearer-gated `tar.gz` download + live SSE progress. |
+| Test reports            | `GET /bff/admin/test-reports[/{id}]`, `GET .../{id}/download`, `POST .../run`, SSE `GET .../{id}/events` | Durable test-architecture run history + on-demand trigger + credentialed (cookie) `tar.gz` download + live SSE progress. |
 | Image generation        | `GET /bff/admin/image-builds`, `GET .../{id}`, `POST .../batch` (up to 16 entries, one step-up), SSE `GET .../{id}/events`, `GET .../{id}/image`, `GET .../{id}/keys` (`X-ImageGen-StepUp`), `GET .../catalog` | See *Image generation* below. |
 | MFA (self-service + step-up) | `POST /bff/mfa/enroll/totp[/verify]`, `POST /bff/mfa/enroll/webauthn/options`, `POST /bff/mfa/enroll/webauthn/verify`, `POST /bff/mfa/assert/webauthn/options`, `GET /bff/mfa/factors`, `DELETE /bff/mfa/factors/{id}`, `POST /bff/mfa/recovery/regenerate`, `POST /bff/mfa/challenge` | Own hand-written client (`MfaService`, `src/app/mfa/mfa.service.ts` — NOT part of `BffService`, mirroring login-ui's `MfaService` against the same shared `hugmesh-auth-core` `MfaEnrollmentController`/`MfaChallengeController`). `/admin/security` (`MfaSecurityComponent`) is enroll/list/remove/regenerate; `MfaStepUpDialogComponent` is the reusable inline step-up challenge any privileged action shows on the platform's "requires step-up" 403 (see `isStepUpRequiredError`). Ships dark: every call 503s while `app.casdoor.mfa.enabled=false`. |
 | Device licenses         | `GET /bff/admin/device-licenses`, `POST .../{id}/grant`, `POST .../domains/{domain}/grant`, `DELETE .../licenses/{id}` | **Superadmin**: the source of truth for device ownership / domain-residency / SSH operate-licenses. List is admin-readable (own-domain, BFF-scoped); every mutation is `hasRole('SUPERADMIN')`. Grants pin SSH key fingerprints; revoke is a CAS flip (never a delete). |
@@ -294,6 +304,7 @@ error-handling path as the rest of `BffService`.
 | My fleet (fleet-owner)  | `GET /bff/admin/phone-fleet[/{deviceId}]`, `POST .../lock`, `POST .../unlock` (`X-PhoneLock-StepUp`) | The **PUBLIC**, tenancy-walled twin of Phone fleet above — a non-superadmin FLEET_ADMIN/ADMIN sees + locks/unlocks ONLY their own owned-and-managed devices (`physical_owner = caller AND owner_domain = caller-domain`, BFF-scoped); reads are fail-soft (a denied/un-entitled read shows an honest empty fleet). No mark-managed or owner-assignment here — those stay SUPERADMIN-only above. |
 | Fleet entitlements      | `GET /bff/superadmin/fleet-entitlements`, `PUT/DELETE .../{subject}` (`X-PhoneLock-StepUp`) | **Superadmin**: grant/update/revoke the per-subject FLEET_ADMIN subscription (active flag + advisory seats + optional expiry) a non-superadmin needs to reach the "My fleet" owner surface above. |
 | Node storage            | `GET /bff/admin/device-storage-pools`, `POST .../{deviceId}/pools`, `DELETE .../pools/{poolId}`, `POST .../pools/{poolId}/assignments`, `DELETE .../assignments/{id}` | **Admin-capable** (deliberate divergence from device-licenses) but **ownership-gated** downstream: an admin acts only on own-domain admin-owned nodes (403 on deny); superadmin-owned nodes are superadmin-only. Attach node-pinned storage + assign services (capacity-aware; over-subscription → 422). |
+| Desktop governance       | `GET/POST /bff/admin/desktop/catalog`, `POST .../catalog/{id}/enable\|disable`, `DELETE .../catalog/{id}`, `GET /bff/admin/desktop/install-requests`, `POST .../{id}/decide?status=`, `GET/POST /bff/admin/desktop/sudo[/grant]`, `DELETE .../sudo/{grantId}`, `POST /bff/admin/desktop/step-up`, `POST /bff/admin/desktop/remote-install`, `POST /bff/admin/desktop/ssh-terminal/sessions?deviceId=`, superadmin `GET /bff/superadmin/desktop/dials[/{deviceId}]`, `POST .../{deviceId}/activate\|revoke` | Discover curation, install inbox, sudo grants, remote install and an SSH terminal. Remote install and the terminal need a token in `X-Device-Terminal-StepUp`; the step-up mint ships dark. The SSH-dials tab is superadmin-only and hidden when the dial leg answers dark. |
 | Device radios            | `GET /bff/admin/device-radios`, `POST .../{deviceId}/radios`, `DELETE .../radios/{radioId}` | Attach a Meshtastic LoRa radio (USB serial, LoRa-WiFi TCP, or an MQTT-broker WAN mesh) to a mesh node so the meshbridge optional service can reach the LoRa mesh. **Admin-capable** like Node storage — ownership-gated downstream (own-domain admin-owned nodes only; superadmin unrestricted); each radio shows a propagation chip (pending/applied/failed/degraded). |
 | Domain capabilities      | `GET /bff/admin/domain-capabilities`, `PUT .../{domain}/{capability}`, `PUT .../{domain}/{capability}/enabled` | Per-domain capability gate — first (and so far only) capability `user-mesh-devices`. Two independent keys (SUPERADMIN grants a domain, that domain's ADMIN enables it) plus a platform-wide kill switch; one route, server-scoped by the list endpoint into a superadmin cross-domain table vs. an admin own-domain toggle. |
 | Egress VPN              | `GET /bff/admin/egress-vpn`, `POST .../configs`, `DELETE .../configs/{id}`, `POST .../configs/{id}/assign/{node\|domain}/{id}`, `DELETE .../assignments/{id}` | **Superadmin** mutations: import provider WireGuard/OpenVPN configs that nodes use for **outgoing** public egress. The `.conf` text is sent for parse-validation only — the BFF stores a `secret_ref` + metadata, never the private key (secrets off-DB / off-git). |
@@ -306,82 +317,86 @@ error-handling path as the rest of `BffService`.
 
 ## Announcements
 
-`/admin/announcements` creates, schedules, and targets announcements via the admin
-BFF (`/bff/admin/announcements`, ROLE_ADMIN). Each announcement carries:
+`/admin/announcements` creates, schedules and targets announcements through the
+admin BFF (`/bff/admin/announcements`, ROLE_ADMIN). Each announcement carries:
 
-- `body_html` — WYSIWYG HTML body shown to end users.
-- `state` — `draft` | `published` | `archived`.
-- `starts_at` / `ends_at` / `timezone` — optional display schedule.
-- `priority` and `dismissible` flag.
-- **Four per-surface target flags** — a single announcement can appear on any
-  combination of the logged-in **Home** top banner, the public **Login** page
-  (including anonymous visitors), **Mastodon/akkoma** (as a local-only admin
-  announcement, propagated by the BFF on publish), and the **Forum** main page.
+- `body_html`: a WYSIWYG HTML body shown to end users.
+- `state`: `draft` | `published` | `archived`.
+- `starts_at` / `ends_at` / `timezone`: an optional display schedule.
+- `priority` and a `dismissible` flag.
+- **Four per-surface target flags.** One announcement can appear on any mix of:
+  the logged-in **Home** top banner, the public **Login** page (anonymous
+  visitors included), **Mastodon/akkoma** (a local-only admin announcement the
+  BFF propagates on publish), and the **Forum** main page.
 
-The per-surface read endpoints (`/bff/announcements/home`,
-`/bff/public/announcements/login`, `/bff/announcements/forum`) are owned by the BFF
-and apply the authoritative ACTIVE rule. The UI computes an "active now" badge
-client-side for display only.
+The BFF owns the per-surface read endpoints (`/bff/announcements/home`,
+`/bff/public/announcements/login`, `/bff/announcements/forum`) and applies the
+authoritative ACTIVE rule. The UI computes an "active now" badge client-side, for
+display only.
 
-**HTML safety:** `body_html` is shown to end users including anonymous visitors,
-so it is **sanitised server-side by the BFF** (the authority) and the editor
-**never uses raw `innerHTML`**: the live preview renders the sanitised body inside
-a **sandboxed null-origin `srcdoc` iframe** (`sandbox=""` — no `allow-scripts`, no
-`allow-same-origin`), mirroring the hugmesh-user-ui card-builder two-wall model.
+**HTML safety:** `body_html` reaches end users, anonymous visitors included, so
+the BFF (the authority) **sanitises it server-side**, and the editor **never uses
+raw `innerHTML`**. The live preview renders the sanitised body in a **sandboxed
+null-origin `srcdoc` iframe** (`sandbox=""`: no `allow-scripts`, no
+`allow-same-origin`), the same two-wall model as the hugmesh-user-ui card
+builder.
 
 `AnnouncementsStore` is the signal-backed typed client. Note (✅):
-`ng-openapi-gen` **is** wired AND the generated client **is committed** to
+`ng-openapi-gen` **is** wired and the generated client **is committed** to
 `src/app/api/` (see *OpenAPI client generation* below). `AnnouncementsStore` is
-the **first module migrated onto the generated client** — it calls the generated
-`AnnouncementAdminControllerService` and reuses the generated `Announcement` /
-`AnnouncementRequest` models. The remaining catch-all client (`BffService`) is
-still hand-written against the shared API contract pending its own migration.
+the **first module migrated onto the generated client** (`DomainThemesStore` is
+the second). It calls the generated `AnnouncementAdminControllerService` and
+reuses the generated `Announcement` / `AnnouncementRequest` models. The
+catch-all `BffService` is still hand-written against the shared API contract,
+pending its own migration.
 
 ## Image generation ✅
 
 `/admin/image-gen` (`ImageGenComponent`, ADMIN/SUPERADMIN) is a device-image build
-console over the admin-bff `ImageBuildController` (`/bff/admin/image-builds`). The
-trigger surface is the **worklist BATCH wizard**
-(`ImageGenWorklistWizardComponent`): up to **16** role×platform image entries
-authorised by **one** step-up, built in four steps — **Images** (per-entry
-branding / tailnet-SSO / Home encryption sub-forms, gated on the catalog's
-desktop-vs-node image class) → **Domains** (attach registry domains per entry) →
-**Users** (mesh users with a registry-domain dropdown) → **Review** (assemble the
-frozen worklist v1 envelope and submit). The envelope carries only per-image
-content axes — it never carries a brand/org/superdomain or a per-build domain;
-those are always server-derived, and the own-domain wall is re-enforced
-server-side. Cross-tenant affordances (tailnet/SSO on branded desktops,
-cross-brand composition) are additionally SUPERADMIN-gated in the wizard as a UX
-affordance only — the BFF is authoritative.
+console over the admin-bff `ImageBuildController` (`/bff/admin/image-builds`).
+Builds start from the **worklist BATCH wizard**
+(`ImageGenWorklistWizardComponent`): up to **16** role×platform image entries,
+authorised by **one** step-up, in four steps.
 
-After submit, `ImageGenStore` fans out **one SSE reader per build** in the batch
-(a `Map<buildId, BuildStream>`, each with its own `AbortController`), so the
-progress screen renders one live card per image and a single stream breaking
-never disturbs its siblings.
+1. **Images**: per-entry branding, tailnet-SSO and Home-encryption sub-forms,
+   shown according to the catalog's desktop-or-node image class.
+2. **Domains**: attach registry domains per entry.
+3. **Users**: mesh users, with a registry-domain dropdown.
+4. **Review**: assemble the frozen worklist v1 envelope and submit.
 
-**Package selection (role-aware tiers, ✅ shipped PR #77):** each entry's
-"Edit packages" opens `PackageCatalogModalComponent`, which renders the BFF's
-gate-grouped package catalog as a tree. When the catalog carries a
-`roles[platform][role]` tier map (generator-emitted), the modal locks that role's
-`essential` atoms as a checked+disabled floor, pre-checks `removable` atoms as
-the toggleable default set, and folds any enabled adhoc add-on's atoms into the
-locked floor too — a role's real package baseline drives the tree instead of a
-flat gate list. **Legacy fallback:** a catalog without `roles` maps (or an
-unknown/uncovered role) falls back to the older behaviour — the gate-`base`
-atoms are the locked essential floor and every other atom starts unchecked, with
-byte-identical wire emission to the pre-tiers behaviour.
+The envelope carries only per-image content axes. It never carries a brand, org,
+superdomain or per-build domain; the server always derives those, and re-enforces
+the own-domain wall. The wizard also gates cross-tenant options (tailnet/SSO on
+branded desktops, cross-brand composition) to SUPERADMIN, as a UX affordance
+only. The BFF is the authority.
 
-**Capability-gate / ships dark:** the whole console needs an x86 build node, so
-it is gated on the `buildNode` platform capability (`CapabilityGateComponent`) —
-when absent, the wizard and history table are suppressed in favour of an honest
-notice, never a broken console. The backend also ships dark
-(`imagegen.launch.enabled=false`), surfacing a stub notice.
+After submit, `ImageGenStore` opens **one SSE reader per build** in the batch (a
+`Map<buildId, BuildStream>`, each with its own `AbortController`). The progress
+screen shows one live card per image, and one broken stream never disturbs its
+siblings.
 
-**Keys download** (`GET /bff/admin/image-builds/{id}/keys`) is step-up gated —
-a "requires step-up" 403 opens the inline `MfaStepUpDialogComponent` and retries
-the same download once the dialog reports success. A private key is never
-displayed or persisted client-side; the bundle streamed is backend-guaranteed
-non-secret.
+**Package selection (role-aware tiers, ✅ shipped PR #77):** each entry's "Edit
+packages" opens `PackageCatalogModalComponent`, which shows the BFF's gate-grouped
+package catalog as a tree. If the catalog has a generator-emitted
+`roles[platform][role]` tier map, the modal locks that role's `essential` atoms as
+a checked, disabled floor; pre-checks `removable` atoms as the toggleable default
+set; and folds the atoms of any enabled adhoc add-on into the locked floor. The
+role's real package baseline drives the tree, not a flat gate list. **Legacy
+fallback:** a catalog without `roles` maps (or with an unknown or uncovered role)
+behaves as before. The gate-`base` atoms are the locked essential floor, every
+other atom starts unchecked, and the wire output is byte-identical to the
+pre-tiers behaviour.
+
+**Capability gate; ships dark:** the console needs an x86 build node, so it is
+gated on the `buildNode` platform capability (`CapabilityGateComponent`). When the
+capability is absent, an honest notice replaces the wizard and the history table;
+the console is never broken. The backend also ships dark
+(`imagegen.launch.enabled=false`) and shows a stub notice.
+
+**Keys download** (`GET /bff/admin/image-builds/{id}/keys`) needs a step-up. A
+"requires step-up" 403 opens the inline `MfaStepUpDialogComponent`, and the same
+download retries once when the dialog reports success. The client never shows or
+stores a private key; the backend guarantees the streamed bundle is non-secret.
 
 ```mermaid
 flowchart TD
@@ -399,13 +414,13 @@ flowchart TD
 
 ## Workload Console (HIDDEN tier) ✅
 
-`/admin/workloads` is a podman/OpenShift-equivalent pod-management module. It is
-**registered but never auto-surfaced**: both the menu entry and the
-`workloadConsoleGuard` gate on a single server-confirmed truth — the
+`/admin/workloads` is a pod-management module, the podman/OpenShift equivalent. It
+is **registered but never auto-surfaced**. The menu entry and the
+`workloadConsoleGuard` both rest on one server-confirmed fact: the
 `workloadCapability()` probe. The probe returns `200` with a capability body when
-the caller has a live grant/role, and `404` on deny (no existence leak — a `403`
-would reveal the feature's presence). When the feature is dark (generator gate off,
-DB master flag off, or no active grant), the entire surface responds with `404`.
+the caller has a live grant or role, and `404` on deny. A `403` would reveal that
+the feature exists, so it is not used. When the feature is dark (generator gate
+off, DB master flag off, or no active grant), the whole surface answers `404`.
 
 ```mermaid
 flowchart TD
@@ -420,40 +435,40 @@ flowchart TD
 
 Tiering mirrors the BFF:
 
-- **Admins** call `/bff/admin/workloads/**` — read-only, own-domain, grant-gated.
-- **Superadmins** call `/bff/superadmin/workloads/**` — mutating and dangerous
+- **Admins** call `/bff/admin/workloads/**`: read-only, own-domain, grant-gated.
+- **Superadmins** call `/bff/superadmin/workloads/**`: the mutating and dangerous
   surfaces (rollout-restart, delete, GitOps lifecycle). Dangerous-tier mutations
-  require a short-TTL step-up token in the `X-Workload-StepUp` header.
+  need a short-TTL step-up token in the `X-Workload-StepUp` header.
   For ordinary names, rollout-restart and pod delete fall in the BFF's separate
   RUNTIME_MUTATE tier. That tier does **not** validate step-up, and the
-  `dangerous_tier_enabled` kill does not cover it. The BFF picks the tier by
-  substring match on the raw path, though, and it checks the dangerous markers
-  first. So a namespace, workload or pod whose name **begins with** `exec`,
-  `lifecycle` or `port-forward` (or namespace `logs` with a name beginning
-  `stream`) is classified DANGEROUS. For those names the kill applies, and the
-  call succeeds only with a valid step-up token; otherwise it is a body-less
-  `HTTP 403`. That looks like a BFF classifier bug (the result was checked
-  against admin-bff `5f0ee2f`, not against a live cluster). The console forwards
-  its minted token on both calls, which is what makes those names work once a
-  token is minted. For every other name the token is forwarded for parity only
-  and is not the gate.
+  `dangerous_tier_enabled` kill does not cover it. But the BFF picks the tier by
+  substring match on the raw path, and it checks the dangerous markers first. So a
+  namespace, workload or pod whose name **begins with** `exec`, `lifecycle` or
+  `port-forward` (or namespace `logs` with a name beginning `stream`) is
+  classified DANGEROUS. For those names the kill applies, and the call succeeds
+  only with a valid step-up token; otherwise it is a body-less `HTTP 403`. This
+  looks like a BFF classifier bug (read in `WorkloadPathClassifier.tierOf` on
+  admin-bff `81edc7c`, `origin/main` on 2026-10-07; not run against a live
+  cluster). The console forwards its minted token on both calls, which makes those
+  names work once a token is minted. For every other name the token is forwarded
+  for parity only and is not the gate.
 
-The live log stream uses SSE via a cookie-authenticated `fetch`; the pod TTY uses
-`@xterm/xterm`.
+The live log stream uses SSE through a cookie-authenticated `fetch`. The pod TTY
+uses `@xterm/xterm`.
 
 ## OpenAPI client generation ✅ (wired + committed)
 
-`ng-openapi-gen` is a devDependency and **is wired**: `npm run gen:spec` copies the
-admin BFF's committed OpenAPI spec to `openapi.json`, and `npm run gen`
-regenerates a typed client into `src/app/api/` (config in
-`ng-openapi-gen.json`). The generated output **is committed** to `src/app/api/`
-(per-controller services + models). The first consumer migrated onto it is
-`AnnouncementsStore` (`AnnouncementAdminControllerService` + generated
-models); the catch-all `BffService` remains hand-written against the shared
-API contract pending its own migration onto the generated client.
+`ng-openapi-gen` is a devDependency and **is wired**. `npm run gen:spec` copies
+the admin BFF's committed OpenAPI spec to `openapi.json`. `npm run gen`
+regenerates a typed client into `src/app/api/` (config in `ng-openapi-gen.json`).
+The generated output **is committed** there (per-controller services and models).
+`AnnouncementsStore` (`AnnouncementAdminControllerService` and generated models)
+was the first consumer; `DomainThemesStore` (`DomainThemeAdminControllerService`)
+is the second. The catch-all `BffService` stays hand-written against the shared
+API contract until it migrates too.
 
-The `gen:spec` script defaults to the committed spec of the sibling checkout,
-`../hugmesh-admin-bff-api/src/main/resources/openapi/openapi.json`; set
+`gen:spec` defaults to the committed spec of the sibling checkout,
+`../hugmesh-admin-bff-api/src/main/resources/openapi/openapi.json`. Set
 `ADMIN_BFF_SPEC` to point elsewhere.
 
 ## Accessibility
@@ -472,7 +487,7 @@ The standalone dev shell also provides a skip link and a `<main id="main">` land
 
 ## Federation
 
-`federation.config.js` (composed via `federation-base.js`, the shared HugMesh
+`federation.config.js` (composed through `federation-base.js`, the shared HugMesh
 federation base) exposes one module:
 
 ```
@@ -480,11 +495,11 @@ federation base) exposes one module:
 ```
 
 The remote name `admin` and the exposed module key `./routes` **must stay
-unchanged** — the host references them by these exact strings, and renaming either
-breaks the admin console in production.
+unchanged**. The host references these exact strings, and renaming either breaks
+the admin console in production.
 
-The build emits `dist/admin/browser/remoteEntry.json`. The `exposes` entry in that
-manifest is what the host fetches to lazy-load the routes at runtime.
+The build emits `dist/admin/browser/remoteEntry.json`. The host fetches its
+`exposes` entry to lazy-load the routes at runtime.
 
 ## Develop
 
@@ -494,8 +509,8 @@ npm start            # ng serve admin → http://localhost:4204 (standalone dev 
 ```
 
 The standalone dev shell (`AppComponent`, selector `hug-admin-root`) mounts
-`ADMIN_ROUTES` at `/`, making the remote browsable in isolation. In production the
-host loads the `./routes` module directly and the dev shell is not used.
+`ADMIN_ROUTES` at `/`, so the remote is browsable alone. In production the host
+loads the `./routes` module directly and the dev shell is unused.
 
 ## Build
 
@@ -503,8 +518,8 @@ host loads the `./routes` module directly and the dev shell is not used.
 npm run build        # ng build admin
 ```
 
-The Angular application builder nests output under **`dist/admin/browser/`**
-(incl. `remoteEntry.json`).
+The Angular application builder nests its output under **`dist/admin/browser/`**
+(`remoteEntry.json` included).
 
 ## Test
 
@@ -512,69 +527,79 @@ The Angular application builder nests output under **`dist/admin/browser/`**
 npm test             # ng test admin --watch=false --browsers=ChromeHeadlessCI
 ```
 
-In CI this runs as the `test` stage (a `node:24-alpine` + Chromium container,
-emitting JUnit via `karma-junit-reporter`) and **gates** the image build — see
-*Deploy*.
+In CI this is the `test` stage (a `node:24-alpine` + Chromium container, JUnit
+through `karma-junit-reporter`). It **gates** the image build; see *Deploy*.
 
 ## Deploy
 
-`Dockerfile` builds the remote and serves `dist/admin/browser` via nginx with
-`Access-Control-Allow-Origin "*"` (so the host can fetch `remoteEntry.json` and
-chunks cross-origin) and an SPA fallback to `/index.html`; `GET /healthz` returns
-`200`. The nginx config also emits the baseline security-header set on every
-response (`always`): `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
-`Referrer-Policy: strict-origin-when-cross-origin`, and `Strict-Transport-Security`
-(HSTS, 1y + `includeSubDomains`) — plus a **strong nonce-based
-`Content-Security-Policy`** (no `unsafe-inline`/`unsafe-hashes` in `script-src`;
-per-request `$request_id` nonce, `sub_filter`-injected into every `<script>` tag of
-`index.html`; see `nginx.conf` for the full policy + rationale). COEP/CORP and
-Permissions-Policy remain deferred pending per-UI tuning + live-cluster browser
-validation.
+`Dockerfile` builds the remote and serves `dist/admin/browser` through nginx.
+nginx sends `Access-Control-Allow-Origin "*"` (so the host can fetch
+`remoteEntry.json` and chunks cross-origin), falls back to `/index.html` for the
+SPA, and answers `GET /healthz` with `200`. It also sets the baseline security
+headers on every response (`always`): `X-Content-Type-Options: nosniff`,
+`X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin` and
+`Strict-Transport-Security` (HSTS, 1y + `includeSubDomains`). A **strong
+nonce-based `Content-Security-Policy`** goes with them: no `unsafe-inline` or
+`unsafe-hashes` in `script-src`, and a per-request `$request_id` nonce that
+`sub_filter` injects into every `<script>` tag of `index.html` (`nginx.conf` has
+the full policy and the rationale). COEP/CORP and Permissions-Policy stay
+deferred until per-UI tuning and live-cluster browser validation. The image
+builds with `--base-href=/admin/`. At container start the hook
+`docker-entrypoint.d/50-hug-theme.sh` writes the brand stylesheet from
+`HUG_THEME_CSS` (or the legacy `SNAP_THEME_CSS`) to `/tmp/hug-theme.css` and its
+twin `/tmp/snap-theme.css`; nginx serves them at `/hug-theme.css` and
+`/snap-theme.css` with `Cache-Control: no-store`. With both variables unset, the
+file is empty and the shipped default brand shows.
 
-> ✅ **CSP smoke-verified (2026-07, container from this Dockerfile).** `docker build`
-> + `docker run` of this image, then `curl`: the CSP header is emitted on `/` **and**
-> on SPA-fallback deep links, the header nonce exactly matches the `nonce="…"`
-> injected into all three `index.html` `<script>` tags on the same response, the
-> nonce is fresh per request (two `GET /` = two different nonces), JS bundles are
-> served byte-untouched (`sub_filter` rewrites HTML only; `Content-Type:
-> application/javascript`, zero nonce strings injected into JS), and `/healthz`
-> still returns `200` with the security-header set. What this smoke does NOT cover:
-> real-browser execution of the native-federation module graph under the nonce-CSP
-> (es-module-shims nonce propagation) — that remains on the live-cluster browser
-> validation list.
+> ✅ **CSP smoke-verified (2026-07, container from this Dockerfile).** After
+> `docker build` and `docker run`, `curl` showed: the CSP header on `/` **and** on
+> SPA-fallback deep links; the header nonce matching the `nonce="…"` injected into
+> all three `index.html` `<script>` tags of the same response; a fresh nonce per
+> request (two `GET /` give two nonces); JS bundles served untouched (`sub_filter`
+> rewrites HTML only; `Content-Type: application/javascript`, no nonce strings in
+> JS); and `/healthz` still `200` with the security headers. The smoke does NOT
+> cover real-browser execution of the native-federation module graph under the
+> nonce CSP (es-module-shims nonce propagation). That stays on the live-cluster
+> browser validation list.
 
-The resulting container runs as its own pod in the **hugmesh-frontend**
-namespace, fronted by the **fe-gateway** at `/admin`. The canonical namespaces
-and gateway names are `hugmesh-frontend`/`hugmesh-backend` and
-`hugmesh-pki-gateway`/`hugmesh-be-gateway`/`hugmesh-fe-gateway`, as hardcoded
-in `Dockerfile` and the workload-console / route-access components.
+The container runs as its own pod in the **hugmesh-frontend** namespace, behind
+the **fe-gateway** at `/admin`. The canonical namespaces and gateway names are
+`hugmesh-frontend`/`hugmesh-backend` and
+`hugmesh-pki-gateway`/`hugmesh-be-gateway`/`hugmesh-fe-gateway`. A `Dockerfile`
+comment names the frontend namespace; the workload-console components default to
+`hugmesh-backend`; `route-access.component.ts` lists the three gateways.
 
-CI (`.gitlab-ci.yml`) runs **four stages** on every push and mirror-sync (CI is
-**GitLab** across the platform — there are no GitHub Actions):
+CI (`.gitlab-ci.yml`) has **four stages**. It runs on push and mirror-sync, and
+each job has its own `rules:` (default branch, merge requests, tags; listed per
+job below). CI is **GitLab** across the platform. The one GitHub Actions workflow
+is `.github/workflows/release.yml`: manual (`workflow_dispatch`) only, it builds
+the image and pushes it to GHCR.
 
-1. **`test`** — `ng test` in a `node:24-alpine` + Chromium container, emitting JUnit
-   reports via `karma-junit-reporter`.
-2. **`e2e`** — `e2e:bdd` (`needs: []`, runs in parallel with `test`): installs the
-   `e2e/` Playwright + playwright-bdd harness in a `node:24` container and proves the
-   Gherkin features compile (`bddgen`) and all scenarios are discoverable
-   (`playwright test --list`) with **no live cluster**. Ships dark — see
-   `e2e/README.md`. `allow_failure: true`, so it does **not** gate the image build.
-3. **`build`** — `build:image` (`needs: [test]`) builds and pushes the Docker image to
-   the in-cluster GitLab registry, tagged with the release tag / git SHA plus a
-   moving branch tag. The image build only starts after `test` passes (`e2e:bdd` is
-   not in its `needs`, so it cannot block the build).
-4. **`pentest`** — includes the centralised OWASP harness from `hugmesh-generator`:
-   `pentest:sca` runs Dependency-Check (SCA) and `pentest:dast` runs an authenticated
-   ZAP baseline scan plus custom probes and nuclei templates. Both jobs use
-   `allow_failure: true`, so findings appear in the MR security widget without
-   blocking the build.
+1. **`test`** (default branch, merge requests, tags): `ng test` in a
+   `node:24-alpine` + Chromium container, with JUnit reports from
+   `karma-junit-reporter`.
+2. **`e2e`** (default branch, merge requests): `e2e:bdd` (`needs: []`, parallel
+   with `test`) installs the `e2e/` Playwright + playwright-bdd harness in a
+   `node:24` container. It proves the Gherkin features compile (`bddgen`) and
+   every scenario is discoverable (`playwright test --list`), with **no live
+   cluster**. Ships dark; see `e2e/README.md`. `allow_failure: true`, so it does
+   **not** gate the image build.
+3. **`build`** (default branch, tags): `build:image` (`needs: [test]`) builds the
+   Docker image and pushes it to the in-cluster GitLab registry, tagged with the
+   release tag or git SHA plus a moving branch tag. It starts only after `test`
+   passes. `e2e:bdd` is not in its `needs`, so it cannot block the build.
+4. **`pentest`** (default branch, merge requests): includes the central OWASP
+   harness from `hugmesh-generator`. `pentest:sca` runs Dependency-Check;
+   `pentest:dast` runs an authenticated ZAP baseline scan plus custom probes and
+   nuclei templates. Both use `allow_failure: true`, so findings show in the MR
+   security widget without blocking the build.
 
-The repo's `Makefile` mirrors the `pentest` stage for local use: `make pentest-sca`
-(`npm audit` + optional dockerized OWASP Dependency-Check) runs with no setup;
-`make pentest-dast DAST_TARGET_URL=https://host` delegates to the same
-generator `run-pentest.sh` harness CI uses (ZAP + nuclei), shallow-cloning the
-generator's `tests/pentest` harness if it isn't already checked out as a sibling
-repo.
+The `Makefile` mirrors the `pentest` stage for local use. `make pentest-sca`
+(`npm audit` plus an optional dockerized OWASP Dependency-Check) needs no setup.
+`make pentest-dast DAST_TARGET_URL=https://host` hands off to the same generator
+`run-pentest.sh` harness that CI uses (ZAP + nuclei). If the generator's
+`tests/pentest` harness is not checked out as a sibling repo, it shallow-clones
+it.
 
 ```mermaid
 flowchart LR
@@ -628,6 +653,8 @@ contract tables, not by the Roadmap:
 
 The **Superadmin Service Catalog** UI is **not** part of this remote — it lives in its own
 federated remote (`hugmesh-superadmin-service-catalog-ui`); its data layer is on the
-admin-bff `main` and its infra legs (AddService effector, ArgoCD create/delete,
-✅ Kaniko in-cluster builder (KanikoBuildLauncher — admin-bff PR #152), tailnet superadmin-gateway + federation registration) — all except Kaniko are 🚧 in-flight.
+admin-bff `main`, and so are its AddService effector (ArgoCD create/delete; dark
+unless `app.appstore.effector.enabled`) and ✅ Kaniko in-cluster builder
+(`KanikoBuildLauncher`, admin-bff PR #152; gated by `app.appstore.builder.enabled`).
+Its tailnet superadmin-gateway and federation-registration legs are 🚧 in-flight.
 Readers should not expect those screens here.
