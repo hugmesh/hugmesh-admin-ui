@@ -73,10 +73,9 @@ never leave the cluster.
 ## Current State
 
 The route surface, role gate and BFF contract in this README are **✅ shipped on
-`main`** (Angular 22 native-federation remote, exposed `./routes`). On 2026-10-07
-one PR is open: #19, which makes the SSH-dials tab confirm its capability from
-the response body. Every earlier auth, route, oidc and delegation branch has
-landed, or was a superseded draft absorbed into `main`.
+`main`** (Angular 22 native-federation remote, exposed `./routes`). Every
+auth, route, oidc and delegation branch has landed, or was a superseded draft
+absorbed into `main`.
 
 This UI **deliberately tracks a moving backend** in one place: the auth and
 session bridge, recently unified across the platform.
@@ -102,7 +101,7 @@ session bridge, recently unified across the platform.
 - **Login, session and account logic is moving from admin-bff to user-bff.** The
   shared account, session, MFA and Casdoor-admin code now lives in the
   **`hugmesh-auth-core`** Maven artifact (2.5.1 on `main`; of the BFFs only
-  user-bff, pinned to 2.4.2, and admin-bff, pinned to 2.5.0, consume it).
+  user-bff and admin-bff consume it, both pinned to 2.5.1).
   **Account and session DATA still lives in admin-bff-db**; user-bff reaches it
   through admin-bff `/bff/internal` with `X-Internal-Token`, and over mTLS when
   `hugmesh.mtls.client.enabled=true`.
@@ -620,24 +619,37 @@ flowchart LR
 
 ## Roadmap (not shipped in this repo)
 
-These items are designed or in flight elsewhere in the platform and are expected
-to add surfaces to this remote. **None is shipped here today.** Do not read the
-Routes or BFF contract tables above as covering any of them.
+These items are design-complete or in-flight elsewhere in the platform and are
+expected to add new surfaces to this remote. **None of the items listed here is shipped
+here today.** Do not read the Routes or BFF contract tables above as covering any of them.
 
 - **🚧 Desktop app governance maturity** — UI shipped (above); fleet-side backend effectors (Discover curation sync, remote-install via device-ssh-license, admin-bff effector wiring) continue alongside the generator.
 - **🚧 Notifications EXTERNAL channels** (in-flight). Matrix DM / Akkoma feed / phpBB /
   email adapters atop the shipped in-app notifications MVP. Any admin-side channel /
   preferences configuration UI will land as a future surface.
-- **🚧 Workload Console maturity.** The console is ✅ shipped (above); the
-  superadmin grant-issuance / master-config control plane (`/bff/superadmin/workloads/grants`,
-  `.../config`) continues to harden alongside the admin-bff 110-band changelog.
-- **🔭 Encrypted versioned backups (platform-wide).** Velero + kopia/restic AES
-  repos behind the already-shipped Backup/Recovery console.
-- **🔭 Per-node attached storage / egress VPN / device-license registry maturity** —
-  the consoles are shipped; the fleet-side effectors continue alongside the generator.
 - **🔭 Managed backing-services effector maturity.** The console (above) is ✅ shipped
   and records intent; the generator/effector leg that actually converges a service to
   its managed-cloud target continues alongside the platform's cloud-deploy work.
+
+**Moved out of this list — already on `main`.** These used to be listed above as open; the
+consoles and their client calls ship in this remote, so they are covered by the Routes and BFF
+contract tables, not by the Roadmap:
+
+- **✅ Workload Console grant-issuance / master-config control plane.** `WorkloadConsoleComponent`
+  issues and revokes grants (`POST` / `DELETE /bff/superadmin/workloads/grants`) and toggles the
+  per-domain kill switch (`PUT /bff/superadmin/workloads/config/{domain}`); the step-up token is
+  forwarded on rollout-restart and pod delete (PR #13).
+- **✅ Encrypted versioned backups.** The Backup, Backup history and Cloud backups consoles
+  (`/admin/backup`, `/admin/backups`, `/admin/cloud-backups`) ship here, including the
+  Encryption fieldset and the Encrypted column (`src/app/backup/`, `src/app/cloud-backups/`).
+  The Velero/kopia leg is a platform-side deployment posture, not UI work: the admin-bff
+  `VeleroBackupEffector` ships dark behind `app.backups.effector.enabled` (a created backup set
+  stays `pending` until the operator flips it), and the generator marks it shipped
+  (`hugmesh-generator` `docs/ARCHITECTURE.md`, `docs/CLOUD-BACKUPS.md`).
+- **✅ Per-node attached storage, egress VPN and device-license registry.** All three consoles
+  ship here (`/admin/node-storage`, `/admin/egress-vpn`, `/admin/device-licenses`) and the
+  generator marks egress-VPN and per-node storage shipped (`hugmesh-generator`
+  `docs/ARCHITECTURE.md`). The same correction was made in `hugmesh-admin-bff-api` issue #97.
 
 The **Superadmin Service Catalog** UI is **not** part of this remote — it lives in its own
 federated remote (`hugmesh-superadmin-service-catalog-ui`); its data layer is on the

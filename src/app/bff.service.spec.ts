@@ -4,10 +4,11 @@ import { BffService, RouteDefinition, RouteRule } from './bff.service';
 import { SessionService, HugSession } from './session.service';
 
 /** Minimal fetch Response stub. */
-function jsonResponse(body: unknown, init?: { ok?: boolean; status?: number }): Response {
+function jsonResponse(body: unknown, init?: { ok?: boolean; status?: number; contentType?: string }): Response {
   return {
     ok: init?.ok ?? true,
     status: init?.status ?? 200,
+    headers: new Headers({ 'content-type': init?.contentType ?? 'application/json' }),
     json: async () => body,
   } as unknown as Response;
 }
@@ -375,9 +376,33 @@ describe('BffService', () => {
     it('desktopDialCapability returns true ONLY on a 200 (403/404/503/network → false, no leak)', async () => {
       fetchSpy.and.resolveTo(jsonResponse([]));
       await expectAsync(service.desktopDialCapability()).toBeResolvedTo(true);
+      fetchSpy.and.resolveTo(jsonResponse([], { contentType: 'application/json;charset=UTF-8' }));
+      await expectAsync(service.desktopDialCapability()).toBeResolvedTo(true);
       fetchSpy.and.resolveTo(jsonResponse(null, { ok: false, status: 503 }));
       await expectAsync(service.desktopDialCapability()).toBeResolvedTo(false);
       fetchSpy.and.rejectWith(new Error('down'));
+      await expectAsync(service.desktopDialCapability()).toBeResolvedTo(false);
+    });
+
+    it('desktopDialCapability is false on a 200 that is not a JSON array (SPA fallback, captive portal, wrong shape)', async () => {
+      const html = {
+        ok: true, status: 200,
+        headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }),
+        json: async () => { throw new SyntaxError('Unexpected token <'); },
+      } as unknown as Response;
+      fetchSpy.and.resolveTo(html);
+      await expectAsync(service.desktopDialCapability()).toBeResolvedTo(false);
+      // HTML content type even though the body would parse as an array
+      fetchSpy.and.resolveTo(jsonResponse([], { contentType: 'text/html' }));
+      await expectAsync(service.desktopDialCapability()).toBeResolvedTo(false);
+      // JSON content type but the body is not the list shape desktopDials() expects
+      fetchSpy.and.resolveTo(jsonResponse({ error: 'nope' }));
+      await expectAsync(service.desktopDialCapability()).toBeResolvedTo(false);
+      fetchSpy.and.resolveTo(jsonResponse(null));
+      await expectAsync(service.desktopDialCapability()).toBeResolvedTo(false);
+      // JSON content type but the body does not parse
+      fetchSpy.and.resolveTo({ ok: true, status: 200, headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => { throw new SyntaxError('bad'); } } as unknown as Response);
       await expectAsync(service.desktopDialCapability()).toBeResolvedTo(false);
     });
 

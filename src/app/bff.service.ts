@@ -1740,7 +1740,13 @@ export class BffService {
       const r = await fetch(`${CFG.bff}/bff/superadmin/desktop/dials`, {
         credentials: 'include',
       });
-      return r.ok; // 200 = leg enabled + caller is SUPERADMIN; 403/404/503 → hidden
+      if (!r.ok) return false; // 403/404/503 → hidden
+      // A 2xx is not proof: the ng-serve SPA fallback, a captive portal or a misrouted gateway
+      // row all answer 200 with HTML. Confirm from the body: a JSON content type AND an array
+      // (the shape desktopDials() expects). Anything else → not capable (fail closed).
+      const ct = r.headers?.get('content-type') ?? '';
+      if (!/\bjson\b/i.test(ct)) return false;
+      return Array.isArray(await r.json());
     } catch {
       return false;
     }
