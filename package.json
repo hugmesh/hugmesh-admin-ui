@@ -1,6 +1,6 @@
 {
   "name": "@hugmesh/admin",
-  "version": "0.1.0",
+  "version": "0.3.0-beta.1",
   "description": "Admin console (allowlist, usage, namespace access) — Angular micro-frontend (native-federation remote) for the hugmesh.net host.",
   "license": "MIT",
   "private": true,

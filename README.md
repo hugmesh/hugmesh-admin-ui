@@ -572,8 +572,8 @@ comment names the frontend namespace; the workload-console components default to
 CI (`.gitlab-ci.yml`) has **four stages**. It runs on push and mirror-sync, and
 each job has its own `rules:` (default branch, merge requests, tags; listed per
 job below). CI is **GitLab** across the platform. The one GitHub Actions workflow
-is `.github/workflows/release.yml`: manual (`workflow_dispatch`) only, it builds
-the image and pushes it to GHCR.
+is `.github/workflows/release.yml`, which publishes the image to GHCR (see
+*Releases* below).
 
 1. **`test`** (default branch, merge requests, tags): `ng test` in a
    `node:24-alpine` + Chromium container, with JUnit reports from
@@ -616,6 +616,35 @@ flowchart LR
 ```
 
 **Images carry no KEYS material** — keys are supplied from the USB at first boot.
+
+## Releases
+
+The version lives in `package.json` (and the root entries of
+`package-lock.json`, which must match). The current version is a beta,
+`0.3.0-beta.1`: the console is in the default mesh and has had live checks,
+but nothing is final yet. A fix during the beta raises the last number
+(`-beta.2`, `-beta.3`, ...).
+
+`.github/workflows/release.yml` publishes `ghcr.io/hugmesh/hugmesh-admin-ui`:
+
+| Trigger | Image tags | Also |
+|---|---|---|
+| push to `main` | `main`, `sha-<12 hex>` | |
+| push of tag `v<version>` | `<version>`, `beta` (beta versions only), `sha-<12 hex>` | GitHub Release, marked prerelease and never "latest" |
+| manual run on `main` | same as a push to `main` | |
+| manual run on a `v<version>` tag | re-runs that release; an existing version tag is never rebuilt or overwritten | creates the GitHub Release only if it is missing |
+
+Every run first checks the version (a tag must be exactly `v` + the
+`package.json` version), then runs the unit suite, and only then builds and
+pushes. `latest` is never pushed. To cut a release: bump the version in
+`package.json` and `package-lock.json` in a PR, merge it, then tag the merge
+commit `v<version>` and push the tag.
+
+The jobs run on the self-hosted runner named by the repo variable
+`RUNS_ON_PUBLISH` (a JSON array such as `["self-hosted","Linux","X64"]`) only
+for `main` and `v*` tags; otherwise, and whenever that variable is unset, they
+run on hosted `ubuntu-latest`. The workflow has no pull-request trigger, so it
+never runs code from a fork.
 
 ## Roadmap (not shipped in this repo)
 
