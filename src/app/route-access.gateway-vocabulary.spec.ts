@@ -12,9 +12,9 @@ import { BffService } from './bff.service';
  * to Cassandra — and read by NOBODY. It fails silently, forever, and the console
  * shows it sitting in the table as though it were live.
  *
- * That is what shipped: the console's dropdown offered `snapdragon-pki-gateway` /
- * `snapdragon-be-gateway` / `snapdragon-fe-gateway`, names that no deployed
- * instance has carried since the HugMesh rebrand. Every rule written from this
+ * That is what shipped: the console's dropdown offered pki/be/fe gateway names
+ * under the retired pre-rebrand prefix, names that no deployed instance has
+ * carried since the HugMesh rebrand. Every rule written from this
  * console — including every per-route `mfa_required` floor made editable by the
  * MFA-column change — targeted a gateway that does not exist.
  *
@@ -52,9 +52,6 @@ describe('Gateway-access vocabulary (pinned to the deployed gateway instances)',
     'hugmesh-superadmin-gateway',
   ];
 
-  /** The pre-rebrand prefix. No deployed instance carries it; a rule naming one is inert. */
-  const RETIRED_PREFIX = 'snapdragon-';
-
   let fixture: ComponentFixture<RouteAccessComponent>;
   let component: RouteAccessComponent;
   let bff: jasmine.SpyObj<BffService>;
@@ -85,16 +82,14 @@ describe('Gateway-access vocabulary (pinned to the deployed gateway instances)',
       .toEqual(sorted(DEPLOYED_INSTANCE_NAMES));
   });
 
-  it('names no gateway with the retired snapdragon- prefix (the shipped regression)', () => {
-    const retired = component.gateways.filter((g) => g.startsWith(RETIRED_PREFIX));
-    expect(retired)
-      .withContext('pre-rebrand gateway name(s) — no deployed instance answers to these')
-      .toEqual([]);
-  });
-
-  it('every offered name has the deployed hugmesh-<tier>-gateway shape', () => {
+  // The shipped regression offered names under the retired pre-rebrand prefix.
+  // This shape check rejects that prefix, and any other non-hugmesh prefix, by
+  // name: no deployed instance answers to anything but hugmesh-<tier>-gateway.
+  it('every offered name has the deployed hugmesh-<tier>-gateway shape (no retired pre-rebrand prefix)', () => {
     for (const g of component.gateways) {
-      expect(g).withContext(g).toMatch(/^hugmesh-[a-z0-9]+(-[a-z0-9]+)*-gateway$/);
+      expect(g)
+        .withContext(`${g}: not a hugmesh-<tier>-gateway name; a pre-rebrand or foreign name is never enforced`)
+        .toMatch(/^hugmesh-[a-z0-9]+(-[a-z0-9]+)*-gateway$/);
     }
   });
 
