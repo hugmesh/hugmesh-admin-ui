@@ -625,26 +625,37 @@ The version lives in `package.json` (and the root entries of
 but nothing is final yet. A fix during the beta raises the last number
 (`-beta.2`, `-beta.3`, ...).
 
-`.github/workflows/release.yml` publishes `ghcr.io/hugmesh/hugmesh-admin-ui`:
+`.github/workflows/release.yml` publishes `ghcr.io/hugmesh/hugmesh-admin-ui`.
+The release channel comes from the tag; `scripts/release-channel.sh` decides
+every case and `scripts/test-release-channel.sh` (run first by the version
+job) tests it:
 
 | Trigger | Image tags | Also |
 |---|---|---|
 | push to `main` | `main`, `sha-<12 hex>` | |
-| push of tag `v<version>` | `<version>`, `beta` (beta versions only), `sha-<12 hex>` | GitHub Release, marked prerelease and never "latest" |
-| manual run on `main` | same as a push to `main` | |
-| manual run on a `v<version>` tag | re-runs that release; an existing version tag is never rebuilt or overwritten | creates the GitHub Release only if it is missing |
+| push to `release/X.Y` | `sha-<12 hex>` only | the version must be `X.Y.*` |
+| push of tag `vX.Y.Z-beta.N` (beta) | `X.Y.Z-beta.N`, `beta`, `sha-<12 hex>` | GitHub prerelease, never "latest". The commit must be on `main`. |
+| push of tag `vX.Y.Z` (stable) | `X.Y.Z`, `X.Y`, `latest`, `sha-<12 hex>` | GitHub Release marked "latest". The commit must be on `release/X.Y`. A patch on an older line moves `X.Y` but not `latest`, and its Release is not marked "latest". |
+| manual run on `main`, `release/X.Y` or a `v*` tag | same as the push | for a tag, an existing version tag is never rebuilt or overwritten, and the GitHub Release is created only if it is missing |
+
+Any other tag shape (`-rc.N`, ...) and any other branch is refused.
 
 Every run first checks the version (a tag must be exactly `v` + the
 `package.json` version), then runs the unit suite, and only then builds and
-pushes. `latest` is never pushed. To cut a release: bump the version in
+pushes. `X.Y.Z` and `X.Y.Z-beta.N` are never overwritten; `beta`, `X.Y` and
+`latest` move. Whether `X.Y` and `latest` move is decided again right before
+the push and right before the GitHub Release is created, and every pushed tag
+is checked against the signed digest. To cut a beta: bump the version in
 `package.json` and `package-lock.json` in a PR, merge it, then tag the merge
-commit `v<version>` and push the tag.
+commit `v<version>` and push the tag. A stable `vX.Y.Z` is tagged on its
+`release/X.Y` branch.
 
-The jobs run on the self-hosted runner named by the repo variable
-`RUNS_ON_PUBLISH` (a JSON array such as `["self-hosted","Linux","X64"]`) only
-for `main` and `v*` tags; otherwise, and whenever that variable is unset, they
-run on hosted `ubuntu-latest`. The workflow has no pull-request trigger, so it
-never runs code from a fork.
+The version, test and GitHub Release jobs run on the self-hosted runner named
+by the repo variable `RUNS_ON_PUBLISH` (a JSON array such as
+`["self-hosted","Linux","X64"]`) only for `main` and `v*` tags; otherwise
+(`release/X.Y` branches included), and whenever that variable is unset, they
+run on hosted `ubuntu-latest`. The image job always runs on a hosted runner.
+The workflow has no pull-request trigger, so it never runs code from a fork.
 
 ## Roadmap (not shipped in this repo)
 
