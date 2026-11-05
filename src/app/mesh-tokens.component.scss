@@ -1,0 +1,179 @@
+@use '../styles/tokens' as t;
+
+:host {
+  display: block;
+}
+
+.hug-mesh-tokens {
+  display: block;
+  padding: 1rem;
+  max-width: 72rem;
+
+  .mt-intro,
+  .mt-help {
+    color: var(--hug-text-soft, var(--hug-text));
+    max-width: 65ch;
+  }
+
+  .mt-err {
+    color: var(--hug-error);
+  }
+
+  .mt-dark {
+    padding: 0.75rem 1rem;
+    border: 1px dashed var(--hug-border);
+    border-radius: t.$radius-sm;
+    color: var(--hug-text);
+    max-width: 65ch;
+  }
+
+  label {
+    font-weight: 600;
+    color: var(--hug-text);
+  }
+
+  input,
+  select {
+    background: var(--hug-bg-1);
+    color: var(--hug-text);
+    border: 1px solid var(--hug-border);
+    border-radius: t.$radius-sm;
+    padding: 0.5rem 0.75rem;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  button {
+    background: var(--hug-accent);
+    color: var(--hug-text);
+    border: 1px solid var(--hug-accent-soft);
+    border-radius: t.$radius-sm;
+    padding: 0.4rem 0.8rem;
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  code {
+    font-family: t.$font-mono;
+  }
+
+  // The fingerprint is the trust anchor: large, monospace, never truncated.
+  .mt-issuer {
+    margin-block: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--hug-border);
+    border-radius: t.$radius-md;
+
+    h3 {
+      margin-block-start: 0;
+    }
+  }
+
+  .mt-fp-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .mt-fp {
+    font-size: 1.15rem;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+    padding: 0.35rem 0.6rem;
+    border-radius: t.$radius-sm;
+    background: var(--hug-bg-1);
+  }
+
+  .mt-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.75rem;
+    margin-block: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--hug-border);
+    border-radius: t.$radius-md;
+    max-width: 40rem;
+
+    h3 {
+      margin: 0;
+    }
+  }
+
+  .mt-field {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+
+    > label {
+      min-width: 10rem;
+    }
+  }
+
+  .mt-check > label {
+    min-width: 0;
+  }
+
+  .mt-hint,
+  .mt-copy-note,
+  .mt-meta {
+    color: var(--hug-text-soft, var(--hug-text));
+    font-size: 0.9rem;
+  }
+
+  .mt-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .mt-token-box {
+    margin-block: 1rem;
+    padding: 1rem;
+    border: 2px solid var(--hug-accent-soft, var(--hug-border));
+    border-radius: t.$radius-md;
+
+    h3 {
+      margin-block-start: 0;
+    }
+  }
+
+  // The token is long and has no spaces: wrap anywhere, select as one unit.
+  .mt-token {
+    display: block;
+    padding: 0.75rem;
+    margin-block: 0.5rem;
+    background: var(--hug-bg-1);
+    border-radius: t.$radius-sm;
+    overflow-wrap: anywhere;
+    word-break: break-all;
+    user-select: all;
+    font-size: 0.85rem;
+  }
+
+  .mt-table-wrap {
+    overflow-x: auto;
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+
+    th,
+    td {
+      text-align: start;
+      padding: 0.35rem 0.6rem;
+      border-bottom: 1px solid var(--hug-border);
+      white-space: nowrap;
+    }
+  }
+}

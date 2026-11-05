@@ -39,6 +39,8 @@ import { CloudBackupsComponent } from './cloud-backups/cloud-backups.component';
 import { BackingServicesComponent } from './backing-services/backing-services.component';
 import { ImageGenComponent } from './image-gen/image-gen.component';
 import { MfaSecurityComponent } from './mfa/mfa-security.component';
+import { MeshTokensComponent } from './mesh-tokens.component';
+import { adminGuard } from './admin.guard';
 import { superadminGuard } from './superadmin.guard';
 import { fleetAdminGuard } from './fleet.guard';
 import { gamesServicesGuard } from './games-services.guard';
@@ -93,6 +95,10 @@ import { workloadConsoleGuard } from './workload-console.guard';
  *  it, plus a platform-wide kill switch. ADMIN-reachable like node-storage/device-radios;
  *  the BFF's own list scoping is what differentiates the superadmin cross-domain table from
  *  the admin own-domain toggle — no route guard needed), and
+ *  /admin/mesh-tokens (issue a signed HugMesh mesh-join token — v1, docs/HUGMESH-TOKEN.md in
+ *  hugmesh-generator — for one access domain/role/shell, shown ONCE; leads with the issuer
+ *  fingerprint recipients confirm out of band; ADMIN/SUPERADMIN, step-up gated, ships dark;
+ *  the only route guarded by adminGuard, see GUARD POLICY), and
  *  /admin/egress-vpn (the SUPERADMIN-only Egress VPN console — import provider WireGuard/OpenVPN
  *  configs that nodes use for outgoing public egress, additionally superadmin-guarded), and
  *  /admin/games-services (the games app-store operator console — add/run dockerized FOSS game
@@ -115,7 +121,11 @@ import { workloadConsoleGuard } from './workload-console.guard';
  *     PARENT route (`roles` includes `admin`, read from the HOST's SessionService, which
  *     re-hydrates from `GET /bff/session`); the BFF's role checks on `/bff/admin/**` are the
  *     authority. Mounted bare by the standalone dev shell (`app.routes.ts`) they have none.
- *   - This repo's own `adminGuard` (`admin.guard.ts`) is deliberately NOT on those routes: it
+ *   - EXCEPTION: `mesh-tokens` carries this repo's `adminGuard` (TODO(admin-guard) option (b),
+ *     adopted knowingly for that ONE route: it mints a mesh-join credential, so the refused caller
+ *     should never activate it). Its known costs apply there: a superadmin-ONLY session (no
+ *     `admin` role), a stale/absent `hug.session` mirror, and the dev shell all bounce to `/login`.
+ *   - Elsewhere this repo's own `adminGuard` (`admin.guard.ts`) is deliberately NOT on the routes: it
  *     reads only the `hug.session` localStorage mirror, which the host never writes, so it would
  *     send an admin the host has just admitted (mid-session role grant, or a cookie-only session)
  *     to `/login`, and it would break `/` in the dev shell. See the TODO(admin-guard) on it for
@@ -179,6 +189,11 @@ export const ADMIN_ROUTES: Routes = [
   { path: 'fleet-entitlements', component: FleetEntitlementsComponent, canActivate: [superadminGuard] },
   { path: 'node-storage', component: StoragePoolsComponent },
   { path: 'device-radios', component: DeviceRadiosComponent },
+  // Mesh-token ISSUING (ADMIN/SUPERADMIN) over admin-bff /bff/admin/mesh-tokens: show the issuer
+  // fingerprint, issue a signed HugMesh token (step-up gated, shown once), list the audit. The ONE
+  // route that carries this repo's adminGuard — a knowing adoption of TODO(admin-guard) option (b)
+  // for this route only (see the GUARD POLICY note above); the BFF stays authoritative.
+  { path: 'mesh-tokens', component: MeshTokensComponent, canActivate: [adminGuard] },
   { path: 'domain-capabilities', component: DomainCapabilitiesComponent },
   { path: 'egress-vpn', component: EgressVpnComponent, canActivate: [superadminGuard] },
   { path: 'superadmin/domains', component: SuperadminDomainsComponent, canActivate: [superadminGuard] },

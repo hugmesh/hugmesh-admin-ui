@@ -908,6 +908,70 @@ export class BffService {
     throw await this.bffError(r);
   }
 
+  // ── Mesh-token ISSUING (ADMIN/SUPERADMIN, BFF /bff/admin/mesh-tokens) ──
+  // A HugMesh token (docs/HUGMESH-TOKEN.md in hugmesh-generator) is one signed line that lets a
+  // Studio tray join THIS mesh in one access domain, as one role, with or without shell. The BFF
+  // mints a single-use headscale pre-auth key (tags hard-coded to tag:hugmesh server-side — no
+  // request field can widen them), signs the canonical payload with the mesh's issuer key (which
+  // never leaves the server) and returns the token ONCE. The audit list never carries the token,
+  // the pre-auth key, or a key prefix. SHIPS DARK (app.mesh-token.enabled=false): the issuer
+  // read answers 503 with a sentence naming the switch, which the page renders verbatim.
+  // Issuing requires a fresh step-up: the X-MeshToken-StepUp header OR a fresh Casdoor-MFA
+  // stamp on the session (the shared AbstractStepUpGate contract), detected client-side by the
+  // shared isStepUpRequiredError. Endpoints (admin-bff meshtoken.MeshTokenController):
+  //   GET  /bff/admin/mesh-tokens/issuer → MeshTokenIssuer (503 descriptor while dark)
+  //   POST /bff/admin/mesh-tokens        → MeshTokenIssueResult (X-MeshToken-StepUp)
+  //   GET  /bff/admin/mesh-tokens        → MeshTokenIssued[] (audit; no secret columns)
+
+  /** The issuer descriptor: fingerprint to hand out of band, the mesh, and the domains this
+   *  caller may issue for. Never throws: a 503 (ships dark) becomes `{kind:'dark'}` carrying the
+   *  server's own sentence, any other failure `{kind:'error'}` — the page decides what to show. */
+  async meshTokenIssuer(): Promise<MeshTokenIssuerState> {
+    let r: Response;
+    try {
+      r = await fetch(`${CFG.bff}/bff/admin/mesh-tokens/issuer`, { credentials: 'include' });
+    } catch {
+      return { kind: 'error', status: 0, reason: 'The admin service could not be reached.' };
+    }
+    if (r.ok) {
+      const issuer = (await r.json()) as MeshTokenIssuer;
+      return issuer.enabled === false
+        ? { kind: 'dark', reason: issuer.note ?? '' }
+        : { kind: 'ok', issuer };
+    }
+    const reason = await this.errorOf(r);
+    return r.status === 503
+      ? { kind: 'dark', reason: /^HTTP \d+$/.test(reason) ? '' : reason }
+      : { kind: 'error', status: r.status, reason };
+  }
+
+  /** Issue one token (ADMIN/SUPERADMIN, own domains; step-up gated). The result carries the
+   *  token exactly once — this service never caches it. Throws the BFF {error} on a non-2xx
+   *  (403 step-up / role / own-domain deny, 400 validation, 503 dark). */
+  async issueMeshToken(input: MeshTokenIssueRequest, stepUpToken?: string): Promise<MeshTokenIssueResult> {
+    const headers: Record<string, string> = { 'content-type': 'application/json' };
+    if (stepUpToken) headers['X-MeshToken-StepUp'] = stepUpToken;
+    const r = await fetch(`${CFG.bff}/bff/admin/mesh-tokens`, {
+      method: 'POST', headers, credentials: 'include', cache: 'no-store',
+      body: JSON.stringify(input),
+    });
+    if (r.ok) return r.json();
+    throw await this.bffError(r);
+  }
+
+  /** The issued-token audit (own-domain scoped by the BFF). Degrades to [] on a denied/failed
+   *  read, matching the never-throw list convention ({@link issuedSshKeys}). */
+  async meshTokensIssued(): Promise<MeshTokenIssued[]> {
+    try {
+      const r = await fetch(`${CFG.bff}/bff/admin/mesh-tokens`, { credentials: 'include' });
+      if (!r.ok) return [];
+      const body = await r.json();
+      return Array.isArray(body) ? body : (body?.issued ?? []);
+    } catch {
+      return [];
+    }
+  }
+
   // ── Device PENDING pick-list (machine_key_fp AUTO-CAPTURE; SUPERADMIN assigns) ──
   // The single source of truth for a device's identity is HEADSCALE (it mints the
   // machine keys). The superadmin picks a headscale-ENROLLED node from this pending
@@ -2296,6 +2360,78 @@ export interface AdminSshRevokeResult {
   revoked: boolean;
   id: string;
   dark?: boolean;
+}
+
+// ── Mesh-token issuing DTOs (mirror the admin-bff meshtoken package shapes; camelCase). ──
+/** One domain the caller may issue for, and the login server a token for it carries. */
+export interface MeshTokenDomain {
+  domain: string;
+  loginServer: string;
+}
+
+/** GET /bff/admin/mesh-tokens/issuer — the PUBLIC side of the issuer only. */
+export interface MeshTokenIssuer {
+  enabled: boolean;
+  /** `ssh-ed25519 <base64>` — the issuer line a token carries. */
+  publicKey: string;
+  /** `SHA256:<base64>` as `ssh-keygen -lf` prints it; recipients confirm it out of band. */
+  fingerprint: string;
+  mesh: string;
+  domains: MeshTokenDomain[];
+  maxLifetimeSeconds: number;
+  /** The default lifetime the form should start at (the BFF's own default, 7 days). */
+  defaultLifetimeSeconds?: number;
+  /** The roles THIS caller may grant, as the BFF decided from its own principal (superadmin
+   *  only for a superadmin). Preferred over the client-side session mirror when present. */
+  roles?: MeshTokenRole[];
+  /** Dark-mode sentence when a 200 body says `enabled:false` (null while enabled). */
+  note?: string | null;
+}
+
+/** {@link BffService.meshTokenIssuer}'s never-throw result. */
+export type MeshTokenIssuerState =
+  | { kind: 'ok'; issuer: MeshTokenIssuer }
+  | { kind: 'dark'; reason: string }
+  | { kind: 'error'; status: number; reason: string };
+
+/** The roles a token can grant (HUGMESH-TOKEN.md). Only a superadmin may issue `superadmin`. */
+export type MeshTokenRole = 'user' | 'mod' | 'admin' | 'superadmin';
+
+/** POST /bff/admin/mesh-tokens body. There is deliberately NO tags field: the pre-auth key's
+ *  tags are fixed to tag:hugmesh by the BFF, and role/domain live only in the signed token. */
+export interface MeshTokenIssueRequest {
+  domain: string;
+  role: MeshTokenRole;
+  shell: boolean;
+  lifetimeSeconds: number;
+  nodeName: string;
+}
+
+/** POST /bff/admin/mesh-tokens response. `token` is shown ONCE and never stored anywhere. */
+export interface MeshTokenIssueResult {
+  token: string;
+  id: string;
+  /** Unix seconds (or an ISO-8601 string; the page formats either). */
+  expires: number | string;
+  fingerprint: string;
+  /** Human-readable grant summary, e.g. "join mesh west in example.org as admin with shell". */
+  describe: string;
+}
+
+/** One `mesh_token_issued` audit row. There is no token, pre-auth key or key-prefix field. */
+export interface MeshTokenIssued {
+  id: string;
+  mesh: string;
+  domain: string;
+  role: string;
+  shell: boolean;
+  loginServer: string;
+  issuerFingerprint: string;
+  preauthKeyId?: string | number | null;
+  nodeName?: string | null;
+  issuedBy: string;
+  issuedAt: string;
+  expiresAt: string;
 }
 
 // ── Domain-registry DTOs (mirror the admin-bff domainregistry package shapes) ──

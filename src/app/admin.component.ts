@@ -76,6 +76,7 @@ export class AdminComponent implements OnInit {
     { path: 'fleet-entitlements', label: 'Fleet entitlements', superadminOnly: true },
     { path: 'node-storage', label: 'Node storage' },
     { path: 'device-radios', label: 'Device radios' },
+    { path: 'mesh-tokens', label: 'Mesh tokens' },
     { path: 'domain-capabilities', label: 'Domain capabilities' },
     { path: 'desktop', label: 'Desktop governance' },
     { path: 'egress-vpn', label: 'Egress VPN', superadminOnly: true },
