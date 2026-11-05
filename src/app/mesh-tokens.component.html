@@ -1,0 +1,169 @@
+<section class="hug-mesh-tokens" data-testid="mesh-tokens-view" aria-labelledby="mt-heading">
+  <h2 id="mt-heading">Mesh tokens</h2>
+  <p class="mt-intro">
+    A mesh token is one line of text a HugMesh Studio imports to join this mesh in one access
+    domain, as one role, with or without shell. Each token carries a single-use join key.
+  </p>
+
+  <p *ngIf="view().kind === 'loading'" data-testid="mt-loading" role="status">Loading the issuer…</p>
+
+  <p
+    *ngIf="view().kind === 'dark'"
+    class="mt-dark"
+    data-testid="mt-dark"
+    role="status"
+  >{{ $any(view()).reason }}</p>
+
+  <p
+    *ngIf="view().kind === 'error'"
+    class="mt-err"
+    data-testid="mt-error"
+    role="alert"
+  >{{ $any(view()).reason }}</p>
+
+  <ng-container *ngIf="issuer() as iss">
+    <section class="mt-issuer" data-testid="mt-issuer" aria-labelledby="mt-issuer-heading">
+      <h3 id="mt-issuer-heading">Issuer fingerprint</h3>
+      <div class="mt-fp-row">
+        <code class="mt-fp" data-testid="mt-fingerprint">{{ iss.fingerprint }}</code>
+        <button type="button" data-testid="mt-copy-fingerprint" (click)="copyFingerprint()">Copy</button>
+        <span
+          *ngIf="copyNote()?.target === 'fingerprint'"
+          class="mt-copy-note"
+          data-testid="mt-copy-fingerprint-note"
+          role="status"
+        >{{ copyNote()!.text }}</span>
+      </div>
+      <p class="mt-help" data-testid="mt-fingerprint-help">
+        Give this fingerprint to every recipient yourself, out of band (in person, by phone, or over a
+        channel you already trust), not alongside the token. The Studio shows it the first time a token
+        from this issuer is imported, and the recipient must confirm it matches.
+      </p>
+      <p class="mt-meta">Mesh <strong data-testid="mt-mesh">{{ iss.mesh }}</strong></p>
+    </section>
+
+    <form class="mt-form" data-testid="mt-form" (ngSubmit)="issue()" novalidate autocomplete="off"
+          aria-labelledby="mt-form-heading">
+      <h3 id="mt-form-heading">Issue a token</h3>
+
+      <div class="mt-field">
+        <label for="mt-domain">Domain</label>
+        <select id="mt-domain" name="domain" data-testid="mt-domain" [(ngModel)]="domain">
+          <option *ngFor="let d of iss.domains" [value]="d.domain">{{ d.domain }}</option>
+        </select>
+        <span class="mt-hint" data-testid="mt-login-server">Login server: {{ loginServerFor(domain) || '—' }}</span>
+      </div>
+
+      <div class="mt-field">
+        <label for="mt-role">Role</label>
+        <select id="mt-role" name="role" data-testid="mt-role"
+                [ngModel]="role" (ngModelChange)="onRoleChange($event)">
+          <option *ngFor="let r of roleOptions()" [value]="r">{{ r }}</option>
+        </select>
+      </div>
+
+      <div class="mt-field mt-check">
+        <!-- Plain property bindings, not ngModel: NgModel applies [disabled] asynchronously, and
+             the role gate must flip the box in the same tick the role changes. -->
+        <input id="mt-shell" name="shell" type="checkbox" data-testid="mt-shell"
+               [checked]="shell" (change)="shell = $any($event.target).checked"
+               [disabled]="!shellAllowed()"
+               aria-describedby="mt-shell-help" />
+        <label for="mt-shell">Shell access</label>
+        <span id="mt-shell-help" class="mt-hint">Only the admin and superadmin roles can carry shell.</span>
+      </div>
+
+      <div class="mt-field">
+        <label for="mt-lifetime">Lifetime (days)</label>
+        <input id="mt-lifetime" name="lifetime" type="number" data-testid="mt-lifetime"
+               min="1" [max]="maxDays()" step="1" [(ngModel)]="lifetimeDays" />
+        <span class="mt-hint">Default 7, at most {{ maxDays() }}.</span>
+      </div>
+
+      <div class="mt-field">
+        <label for="mt-node-name">Node name (optional)</label>
+        <input id="mt-node-name" name="mtNodeName" data-testid="mt-node-name" maxlength="63"
+               placeholder="e.g. laptop-ana" [(ngModel)]="nodeName" spellcheck="false" />
+      </div>
+
+      <div class="mt-actions">
+        <button type="submit" data-testid="mt-issue" [disabled]="busy()">Issue token</button>
+      </div>
+
+      <p *ngIf="formError()" class="mt-err" data-testid="mt-form-error" role="alert" aria-live="assertive">
+        {{ formError() }}
+      </p>
+    </form>
+
+    <!-- Inline MFA step-up (an in-flow section, not a modal) for an issue that 403s "requires step-up". -->
+    <hug-mfa-step-up-dialog
+      *ngIf="stepUpChallenge() as challenge"
+      [action]="challenge.action"
+      (satisfied)="onStepUpSatisfied()"
+      (dismissed)="onStepUpDismissed()"
+    ></hug-mfa-step-up-dialog>
+
+    <p
+      *ngIf="note() as n"
+      class="mt-note"
+      data-testid="mt-note"
+      [class.mt-err]="n.kind === 'err'"
+      [attr.role]="n.kind === 'err' ? 'alert' : 'status'"
+      [attr.aria-live]="n.kind === 'err' ? 'assertive' : 'polite'"
+    >{{ n.text }}</p>
+
+    <section *ngIf="revealed() as t" class="mt-token-box" data-testid="mt-token-box"
+             aria-labelledby="mt-token-heading">
+      <h3 id="mt-token-heading">Your token (shown once)</h3>
+      <p class="mt-describe" data-testid="mt-describe">{{ t.describe }}</p>
+      <code class="mt-token" data-testid="mt-token">{{ t.token }}</code>
+      <div class="mt-actions">
+        <button type="button" data-testid="mt-copy-token" (click)="copyToken()">Copy token</button>
+        <button type="button" data-testid="mt-hide-token" (click)="hideToken()">I have copied it — hide</button>
+        <span
+          *ngIf="copyNote()?.target === 'token'"
+          class="mt-copy-note"
+          data-testid="mt-copy-token-note"
+          role="status"
+        >{{ copyNote()!.text }}</span>
+      </div>
+      <p class="mt-meta">
+        Expires {{ formatExpiry(t.expires) }} · id <code>{{ t.id }}</code> · issuer {{ t.fingerprint }}
+      </p>
+    </section>
+
+    <section class="mt-audit" aria-labelledby="mt-audit-heading">
+      <h3 id="mt-audit-heading">Issued tokens</h3>
+      <p class="mt-help">The audit keeps who issued what grant and when. It never keeps the token or its join key.</p>
+      <p *ngIf="!audit().length" data-testid="mt-audit-empty">No tokens issued yet.</p>
+      <div class="mt-table-wrap" *ngIf="audit().length">
+        <table data-testid="mt-audit">
+          <thead>
+            <tr>
+              <th scope="col">Issued</th>
+              <th scope="col">By</th>
+              <th scope="col">Domain</th>
+              <th scope="col">Role</th>
+              <th scope="col">Shell</th>
+              <th scope="col">Node name</th>
+              <th scope="col">Expires</th>
+              <th scope="col">Id</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of audit()" [attr.data-token-id]="row.id">
+              <td>{{ row.issuedAt }}</td>
+              <td>{{ row.issuedBy }}</td>
+              <td>{{ row.domain }}</td>
+              <td>{{ row.role }}</td>
+              <td>{{ row.shell ? 'yes' : 'no' }}</td>
+              <td>{{ row.nodeName || '—' }}</td>
+              <td>{{ row.expiresAt }}</td>
+              <td><code>{{ row.id }}</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </ng-container>
+</section>

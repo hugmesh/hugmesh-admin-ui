@@ -38,6 +38,7 @@ import { AnubisAdminComponent } from './anubis-admin.component';
 import { DesktopGovernanceComponent } from './desktop-governance/desktop-governance.component';
 import { BackingServicesComponent } from './backing-services/backing-services.component';
 import { adminGuard } from './admin.guard';
+import { MeshTokensComponent } from './mesh-tokens.component';
 import { superadminGuard } from './superadmin.guard';
 import { fleetAdminGuard } from './fleet.guard';
 import { gamesServicesGuard } from './games-services.guard';
@@ -98,7 +99,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('superadmin/anubis')!.component).toBe(AnubisAdminComponent);
   });
 
-  it('exposes exactly the forty admin views the host expects (incl. delegation + the roles grant/revoke console + appeals + account-appeals + the self-service security/MFA console + device-licenses + device-pending + phone-fleet + my-fleet + fleet-entitlements + node-storage + device-radios + domain-capabilities + desktop governance + egress-vpn + superadmin/domains + oidc-providers + games-services + superadmin/anubis + cloud-backups + backing-services + image-gen + per-domain themes + the HIDDEN-tier workloads console + its logs/terminal sub-views)', () => {
+  it('exposes exactly the forty-one admin views the host expects (incl. delegation + the roles grant/revoke console + appeals + account-appeals + the self-service security/MFA console + device-licenses + device-pending + phone-fleet + my-fleet + fleet-entitlements + node-storage + device-radios + mesh-tokens + domain-capabilities + desktop governance + egress-vpn + superadmin/domains + oidc-providers + games-services + superadmin/anubis + cloud-backups + backing-services + image-gen + per-domain themes + the HIDDEN-tier workloads console + its logs/terminal sub-views)', () => {
     expect(ADMIN_ROUTES.map((r) => r.path)).toEqual([
       '',
       'usage',
@@ -130,6 +131,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
       'fleet-entitlements',
       'node-storage',
       'device-radios',
+      'mesh-tokens',
       'domain-capabilities',
       'egress-vpn',
       'superadmin/domains',
@@ -305,6 +307,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     'fleet-entitlements': [superadminGuard],
     'node-storage': undefined,
     'device-radios': undefined,
+    'mesh-tokens': [adminGuard],
     'domain-capabilities': undefined,
     'egress-vpn': [superadminGuard],
     'superadmin/domains': [superadminGuard],
@@ -323,10 +326,18 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(actual).toEqual(EXPECTED_GUARDS);
   });
 
-  it('wires adminGuard onto NO route — TODO(admin-guard) is an open decision (it reads only the hug.session mirror), and the README/docblocks say so', () => {
+  it('wires adminGuard onto mesh-tokens ONLY — TODO(admin-guard) option (b) adopted for that one credential-minting route; every other route stays as the README/docblocks say', () => {
     for (const route of ADMIN_ROUTES) {
+      if (route.path === 'mesh-tokens') continue;
       expect(route.canActivate ?? []).withContext(`route '${route.path}'`).not.toContain(adminGuard);
     }
+  });
+
+  it('admin-guards the mesh-tokens issuing console (ADMIN/SUPERADMIN; never stacked with an audience guard)', () => {
+    const mt = byPath('mesh-tokens');
+    expect(mt).toBeDefined();
+    expect(mt!.component).toBe(MeshTokensComponent);
+    expect(mt!.canActivate).toEqual([adminGuard]);
   });
 
   it('declares every route with either a component or children (no dead routes)', () => {
@@ -414,5 +425,19 @@ describe('ADMIN_ROUTES guard wiring (router-level, standalone mount)', () => {
     expect(await navigateAs(['fleet_admin'], '/my-fleet')).toBe('/my-fleet');
     TestBed.resetTestingModule();
     expect(await navigateAs(['games_services_runner'], '/games-services')).toBe('/games-services');
+  });
+
+  it('mesh-tokens: adminGuard admits an admin and an admin+superadmin, and refuses user / no mirror / superadmin-ONLY to /login (the documented option-(b) cost)', async () => {
+    expect(await navigateAs(['admin'], '/mesh-tokens')).toBe('/mesh-tokens');
+    TestBed.resetTestingModule();
+    expect(await navigateAs(['admin', 'superadmin'], '/mesh-tokens')).toBe('/mesh-tokens');
+    TestBed.resetTestingModule();
+    expect(await navigateAs(['user'], '/mesh-tokens')).toBe('/login');
+    TestBed.resetTestingModule();
+    expect(await navigateAs(['mod'], '/mesh-tokens')).toBe('/login');
+    TestBed.resetTestingModule();
+    expect(await navigateAs(null, '/mesh-tokens')).toBe('/login');
+    TestBed.resetTestingModule();
+    expect(await navigateAs(['superadmin'], '/mesh-tokens')).toBe('/login');
   });
 });

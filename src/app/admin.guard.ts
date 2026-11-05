@@ -21,8 +21,9 @@ import { SessionService } from './session.service';
  * `/home?denied=<url>` — sending the latter to the sign-in page was an operator-reported defect
  * there (2026-08-14).
  *
- * TODO(admin-guard): NOT WIRED — no `ADMIN_ROUTES` entry lists this guard (pinned by
- * `admin.routes.spec.ts`), so today it is exercised only by `admin.guard.spec.ts`. The landing
+ * TODO(admin-guard): WIRED ON ONE ROUTE ONLY — `mesh-tokens` (the mesh-token issuing console)
+ * adopts option (b) below knowingly, for that credential-minting route alone; no other
+ * `ADMIN_ROUTES` entry lists this guard (both pinned by `admin.routes.spec.ts`). The landing
  * and every plain console are gated client-side only by the host shell's own `adminGuard` on its
  * `/admin` parent route (the federation exposes only `./routes`, so neither app can import the
  * other's guard), with the BFF as the authority. Wiring THIS guard onto those routes was
