@@ -25,38 +25,44 @@
   @if (loading()) {
     <p class="bs-muted" role="status">Loading catalog…</p>
   } @else {
-    <table class="bs-table" data-testid="backing-services-table">
-      <thead>
-        <tr>
-          <th scope="col">Service</th>
-          <th scope="col">Kind</th>
-          <th scope="col">Tier</th>
-          <th scope="col">Current mode</th>
-          <th scope="col">Endpoint</th>
-          <th scope="col">Managed targets</th>
-          <th scope="col"><span class="bs-sr-only">Actions</span></th>
+    <!--
+      Below the md breakpoint the scss lays each row out as a stacked card (a 7-column table is
+      ~400px of min-content, wider than a phone). Changing a table part's `display` can drop its
+      table semantics in some browsers, so every part names its role explicitly, and each cell
+      carries the column name it shows as a label in the card layout (`data-label`).
+    -->
+    <table class="bs-table" role="table" data-testid="backing-services-table">
+      <thead role="rowgroup">
+        <tr role="row">
+          <th scope="col" role="columnheader">Service</th>
+          <th scope="col" role="columnheader">Kind</th>
+          <th scope="col" role="columnheader">Tier</th>
+          <th scope="col" role="columnheader">Current mode</th>
+          <th scope="col" role="columnheader">Endpoint</th>
+          <th scope="col" role="columnheader">Managed targets</th>
+          <th scope="col" role="columnheader"><span class="bs-sr-only">Actions</span></th>
         </tr>
       </thead>
-      <tbody>
+      <tbody role="rowgroup">
         @for (row of services(); track row.id) {
-          <tr [attr.data-testid]="'backing-services-row-' + row.id">
-            <td>
+          <tr role="row" [attr.data-testid]="'backing-services-row-' + row.id">
+            <td role="cell" data-label="Service">
               <span class="bs-id">{{ row.id }}</span>
               <span class="bs-muted bs-display">{{ row.displayName }}</span>
             </td>
-            <td>{{ row.kind }}</td>
-            <td>
+            <td role="cell" data-label="Kind">{{ row.kind }}</td>
+            <td role="cell" data-label="Tier">
               <span class="bs-tier" [class.bs-tier--docs]="row.docsOnly">tier {{ row.tier }}</span>
             </td>
-            <td>
+            <td role="cell" data-label="Current mode">
               <span class="bs-mode" [class.bs-mode--managed]="row.currentMode === 'managed'"
                     [attr.data-testid]="'backing-services-mode-' + row.id">
                 {{ row.currentMode }}
               </span>
             </td>
-            <td class="bs-endpoint">{{ row.endpoint || '—' }}</td>
-            <td class="bs-muted">{{ row.awsTarget }} / {{ row.azureTarget }}</td>
-            <td class="bs-actions">
+            <td role="cell" data-label="Endpoint"><span class="bs-endpoint">{{ row.endpoint || '—' }}</span></td>
+            <td role="cell" class="bs-muted" data-label="Managed targets">{{ row.awsTarget }} / {{ row.azureTarget }}</td>
+            <td role="cell" class="bs-actions">
               @if (row.docsOnly) {
                 <span class="bs-docs" [attr.data-testid]="'backing-services-docsonly-' + row.id"
                       [title]="row.notes">
