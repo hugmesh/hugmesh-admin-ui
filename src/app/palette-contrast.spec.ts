@@ -38,6 +38,22 @@ import { DomainThemesComponent } from './themes/domain-themes.component';
 import { DomainThemesStore, MESH_DEFAULT_SEGMENT, ThemeRow } from './themes/domain-themes.service';
 import { WorkloadLogsComponent } from './workload-console/workload-logs.component';
 import { WorkloadTerminalComponent } from './workload-console/workload-terminal.component';
+import { AdminTaskWizardComponent } from './admin-task-wizard.component';
+import { ArgocdDashboardComponent } from './argocd-dashboard.component';
+import { BackingServicesComponent } from './backing-services/backing-services.component';
+import { BackupComponent } from './backup/backup.component';
+import { RecoveryComponent } from './backup/recovery.component';
+import { CloudBackupDestinationComponent } from './cloud-backups/cloud-backup-destination.component';
+import { CloudBackupSetsComponent } from './cloud-backups/cloud-backup-sets.component';
+import { CloudBackupTotalComponent } from './cloud-backups/cloud-backup-total.component';
+import { CloudBackupsComponent } from './cloud-backups/cloud-backups.component';
+import { DesktopInstallRequestsComponent } from './desktop-governance/desktop-install-requests.component';
+import { ForumAdminComponent } from './forum-admin/forum-admin.component';
+import { ImageGenComponent } from './image-gen/image-gen.component';
+import { PackageCatalogModalComponent } from './image-gen/package-catalog-modal.component';
+import { MeshTokensComponent } from './mesh-tokens.component';
+import { MfaSecurityComponent } from './mfa/mfa-security.component';
+import { WorkloadConsoleComponent } from './workload-console/workload-console.component';
 
 /**
  * GUI-31: the platform palette, measured the way the admin routes actually paint.
@@ -245,7 +261,113 @@ const CODE_COMPONENTS: Type<unknown>[] = [
   WorkloadTerminalComponent,
 ];
 
+/**
+ * Every component that uses one of the stylesheets GUI-31 touched. The rendered checks above
+ * only see what an empty (no-BFF-data) render shows, so many accent buttons, <code> runs and
+ * accent-coloured text sit behind data. The compiled-stylesheet audit below covers those: it
+ * reads each component's compiled CSS (ɵcmp.styles — what Angular injects for the component,
+ * so it is exactly what reaches the federated page).
+ */
+const STYLED_COMPONENTS: Type<unknown>[] = [
+  AdminComponent, AdminTaskWizardComponent, AnnouncementEditorComponent, AnnouncementListComponent,
+  AnubisAdminComponent, AppealsComponent, ArgocdDashboardComponent, BackingServicesComponent,
+  BackupComponent, CloudBackupCreateComponent, CloudBackupDestinationComponent, CloudBackupSetsComponent,
+  CloudBackupTotalComponent, CloudBackupsComponent, DelegationComponent, DesktopCatalogComponent,
+  DesktopDialsComponent, DesktopGovernanceComponent, DesktopInstallRequestsComponent,
+  DesktopSshTerminalComponent, DesktopSudoComponent, DeviceLicensesComponent, DevicePendingComponent,
+  DeviceRadiosComponent, DomainThemesComponent, EgressVpnComponent, FleetEntitlementsComponent,
+  ForumAdminComponent, ImageGenComponent, ImageGenWorklistWizardComponent, MeshTokensComponent,
+  MfaSecurityComponent, MfaStepUpDialogComponent, MyFleetComponent, NamespaceAccessComponent,
+  PackageCatalogModalComponent, PhoneFleetComponent, RecoveryComponent, RouteAccessComponent,
+  RouteDefinitionsComponent, StoragePoolsComponent, SuperadminDomainsComponent, TestReportsComponent,
+  WorkloadConsoleComponent, WorkloadLogsComponent, WorkloadTerminalComponent,
+];
+
+/** Every component whose TEMPLATE renders <code> (grep '<code' src/app, 2026-11-11). */
+const CODE_TEMPLATE_COMPONENTS: Type<unknown>[] = [
+  AnubisAdminComponent, BackingServicesComponent, DesktopCatalogComponent, DesktopDialsComponent,
+  DesktopInstallRequestsComponent, DevicePendingComponent, EgressVpnComponent, MeshTokensComponent,
+  MfaSecurityComponent, RecoveryComponent, WorkloadConsoleComponent, WorkloadLogsComponent,
+  WorkloadTerminalComponent,
+];
+
+interface CssRule {
+  selector: string;
+  body: string;
+}
+
+/** The flat rules of a component's compiled stylesheets (Sass output: no nesting left). */
+function compiledRules(component: Type<unknown>): CssRule[] {
+  const styles = (component as unknown as { ɵcmp?: { styles?: string[] } }).ɵcmp?.styles ?? [];
+  const rules: CssRule[] = [];
+  for (const css of styles) {
+    const flat = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const m of flat.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      rules.push({ selector: m[1].trim(), body: m[2] });
+    }
+  }
+  return rules;
+}
+
+/** A plain `color:` declaration's value (not border-color / outline-color / ...). */
+function colorDecl(body: string): string | null {
+  const m = body.match(/(?:^|[;\s])color\s*:\s*([^;]+)/);
+  return m ? m[1].trim() : null;
+}
+
+const ACCENT_FILL = /(?:^|[;\s])background(?:-color)?\s*:\s*var\(--hug-accent\s*[,)]/;
+const ACCENT_AS_TEXT = /^var\(--hug-accent\s*[,)]/;
+
 describe('GUI-31 palette contrast (rendered colours, standalone AND federated)', () => {
+  describe('compiled-stylesheet audit (covers controls an empty render does not show)', () => {
+    it('reads compiled CSS for every listed component (guard premise)', () => {
+      for (const component of STYLED_COMPONENTS) {
+        expect(compiledRules(component).length).withContext(`${component.name} compiled rules`).toBeGreaterThan(0);
+      }
+    });
+
+    it('every rule that fills with --hug-accent and sets a text colour uses --hug-accent-on', () => {
+      const bad: string[] = [];
+      let fills = 0;
+      for (const component of STYLED_COMPONENTS) {
+        for (const rule of compiledRules(component)) {
+          if (!ACCENT_FILL.test(rule.body)) continue;
+          const color = colorDecl(rule.body);
+          if (color === null) continue; // a bar/track fill with no text of its own
+          fills++;
+          if (!color.startsWith('var(--hug-accent-on')) bad.push(`${component.name}: ${rule.selector} { color: ${color} }`);
+        }
+      }
+      expect(fills).withContext('labelled accent fills found').toBeGreaterThan(25);
+      expect(bad).toEqual([]);
+    });
+
+    it('no rule paints TEXT in --hug-accent (only fills/borders; --hug-accent-soft is the text token)', () => {
+      const bad: string[] = [];
+      for (const component of STYLED_COMPONENTS) {
+        for (const rule of compiledRules(component)) {
+          const color = colorDecl(rule.body);
+          if (color && (ACCENT_AS_TEXT.test(color) || /var\(--hug-ok,\s*var\(--hug-accent\s*[,)]/.test(color))) {
+            bad.push(`${component.name}: ${rule.selector} { color: ${color} }`);
+          }
+        }
+      }
+      expect(bad).toEqual([]);
+    });
+
+    it('every component whose template renders <code> ships a <code> colour rule on --hug-accent-soft', () => {
+      const missing: string[] = [];
+      for (const component of CODE_TEMPLATE_COMPONENTS) {
+        const ok = compiledRules(component).some((rule) =>
+          rule.selector.split(',').some((sel) => /(^|\s)code(\[_ngcontent-%COMP%\])?$/.test(sel.trim())) &&
+          (colorDecl(rule.body) ?? '').startsWith('var(--hug-accent-soft'),
+        );
+        if (!ok) missing.push(component.name);
+      }
+      expect(missing).toEqual([]);
+    });
+  });
+
   afterEach(() => resetRegime());
 
   describe("this remote's :root accent token", () => {
