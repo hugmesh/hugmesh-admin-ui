@@ -19,7 +19,7 @@
 
     button {
       background: var(--hug-accent, #{t.$neon});
-      color: t.$black;
+      color: var(--hug-accent-on, #fff);
       border: none;
       border-radius: t.$radius-sm;
       padding: 0.5rem 1rem;
@@ -88,7 +88,7 @@
     font-size: 0.72rem;
     font-weight: 700;
     background: var(--hug-accent, #{t.$neon});
-    color: t.$black;
+    color: var(--hug-accent-on, #fff);
   }
 
   .target-badges {

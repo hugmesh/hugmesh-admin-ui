@@ -1,8 +1,11 @@
 @use '../../styles/tokens' as t;
+@use '../../styles/mixins' as m;
 
 :host {
   display: block;
 }
+
+@include m.inline-code;
 
 .hug-recovery {
   display: block;
@@ -64,7 +67,7 @@
     margin-block: 0.5rem;
     color: var(--hug-text, #{t.$offwhite});
 
-    code { color: var(--hug-accent, #{t.$neon-dim}); }
+    code { color: var(--hug-accent-soft, #{t.$neon-dim}); }
     .target { color: var(--hug-text-muted, #{t.$light}); font-size: 0.85rem; }
   }
 
@@ -94,7 +97,7 @@
   button[type='submit'] {
     margin-top: 0.6rem;
     background: var(--hug-accent, #{t.$neon});
-    color: t.$black;
+    color: var(--hug-accent-on, #fff);
     border: none;
     border-radius: t.$radius-sm;
     padding: 0.55rem 1rem;
@@ -140,7 +143,7 @@
     color: var(--hug-text, #{t.$offwhite});
     font-size: 0.9rem;
 
-    strong { color: var(--hug-accent, #{t.$neon-dim}); }
+    strong { color: var(--hug-accent-soft, #{t.$neon-dim}); }
   }
 
   .done {

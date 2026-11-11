@@ -36,7 +36,7 @@
 
   button {
     background: var(--hug-accent);
-    color: var(--hug-text);
+    color: var(--hug-accent-on, #fff);
     border: 1px solid var(--hug-accent-soft);
     border-radius: t.$radius-sm;
     padding: 0.5rem 0.9rem;

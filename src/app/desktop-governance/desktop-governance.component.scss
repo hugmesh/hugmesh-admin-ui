@@ -1,4 +1,5 @@
 @use '../../styles/tokens' as t;
+@use '../../styles/mixins' as m;
 
 :host {
   display: block;
@@ -8,6 +9,10 @@
 .hug-desktop-gov {
   display: block;
   padding: 1rem;
+
+  // Nested, not top-level: DesktopSshTerminalComponent compiles this file under
+  // ViewEncapsulation.None, where a bare `code` rule would restyle the host page.
+  @include m.inline-code;
 
   .dg-intro {
     color: var(--hug-text-soft, var(--hug-text));
@@ -74,7 +79,7 @@
 
   button {
     background: var(--hug-accent);
-    color: var(--hug-text);
+    color: var(--hug-accent-on, #fff);
     border: 1px solid var(--hug-accent-soft);
     border-radius: t.$radius-sm;
     padding: 0.4rem 0.8rem;

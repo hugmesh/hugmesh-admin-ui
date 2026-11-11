@@ -57,7 +57,7 @@
 
   button {
     background: var(--hug-accent);
-    color: var(--hug-text);
+    color: var(--hug-accent-on, #fff);
     border: 1px solid var(--hug-accent-soft);
     border-radius: t.$radius-sm;
     padding: 0.4rem 0.8rem;
@@ -77,7 +77,7 @@
   .sd-status {
     margin-inline: 0.5rem;
     font-weight: 600;
-    color: var(--hug-accent);
+    color: var(--hug-accent-soft);
 
     &.is-disabled {
       color: var(--hug-text-soft, var(--hug-muted));

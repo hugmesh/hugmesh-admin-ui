@@ -185,7 +185,7 @@
 
   button[type='submit'] {
     background: var(--hug-accent, #{t.$neon});
-    color: t.$black;
+    color: var(--hug-accent-on, #fff);
     border: none;
     border-radius: t.$radius-sm;
     padding: 0.55rem 1rem;

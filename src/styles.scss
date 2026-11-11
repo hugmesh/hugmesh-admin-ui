@@ -25,7 +25,14 @@
   --hug-border:      #1e1e32;
   --hug-text:        #e8e8f0; /* 15.9:1 AAA */
   --hug-text-muted:  #a8acc4; /*  8.77:1 AAA — replaces #7070a0 (3.88:1) */
-  --hug-accent:      #7c4dff; /* backgrounds/borders only — 3.22:1 as text */
+  --hug-accent:      #6a3df0; /* fills/borders only, never text. 4.87:1 under
+                               * --hug-text, 5.93:1 under --hug-accent-on;
+                               * 3.32:1 vs #0a0a12 as a border. Was #7c4dff:
+                               * 3.95:1 under --hug-text, below AA. */
+  --hug-accent-on:   #ffffff; /* text ON an accent fill (login-ui's token):
+                               * 5.93:1 here, 4.81:1 on the host's #7c4dff.
+                               * Components spell it var(--hug-accent-on, #fff)
+                               * because the host :root does not define it. */
   --hug-accent-soft: #b388ff; /*  7.38:1 AAA — use this for accent text */
   --hug-success:     #4caf50;
   --hug-error:       #ff6b6b;

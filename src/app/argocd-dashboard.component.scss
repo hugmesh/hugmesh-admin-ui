@@ -61,7 +61,7 @@
     margin: 0 0.85rem 0.85rem;
     align-self: flex-start;
     background: var(--hug-accent, #{t.$neon});
-    color: t.$black;
+    color: var(--hug-accent-on, #fff);
     border: none;
     border-radius: t.$radius-sm;
     padding: 0.4rem 0.8rem;
@@ -146,7 +146,7 @@
       background: var(--hug-bg-2, #{t.$surface});
       color: var(--hug-text, #{t.$offwhite});
 
-      &[data-testid='argocd-sync-confirm'] { background: var(--hug-accent, #{t.$neon}); color: t.$black; border: none; }
+      &[data-testid='argocd-sync-confirm'] { background: var(--hug-accent, #{t.$neon}); color: var(--hug-accent-on, #fff); border: none; }
       &:focus-visible { outline: 2px solid t.$offwhite; outline-offset: 2px; }
     }
   }

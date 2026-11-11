@@ -74,7 +74,7 @@
     button[type='submit'] {
       justify-self: start;
       background: var(--hug-accent, #{t.$neon});
-      color: t.$black;
+      color: var(--hug-accent-on, #fff);
       border: none;
       border-radius: t.$radius-sm;
       padding: 0.5rem 1rem;
@@ -164,7 +164,7 @@
   .link {
     all: unset;
     cursor: pointer;
-    color: var(--hug-accent, #{t.$neon});
+    color: var(--hug-accent-soft, #{t.$neon});
     text-decoration: underline;
     &:focus-visible { outline: 2px solid var(--hug-text, #{t.$offwhite}); outline-offset: 2px; }
   }

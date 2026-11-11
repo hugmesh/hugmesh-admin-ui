@@ -1,8 +1,14 @@
+@use '../../styles/mixins' as m;
+
 .workload-console {
   display: flex;
   flex-direction: column;
   gap: 1rem;
   max-width: 1100px;
+
+  // Nested for the same reason as the table rules below (ViewEncapsulation.None
+  // consumer): a bare `code` rule would leak onto the host page.
+  @include m.inline-code;
 }
 
 .wc-intro,
@@ -94,7 +100,7 @@
 
 .wc-tabs button.active {
   background: var(--hug-accent);
-  color: #fff;
+  color: var(--hug-accent-on, #fff);
 }
 
 .wc-log {

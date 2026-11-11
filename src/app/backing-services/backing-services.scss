@@ -6,10 +6,13 @@
 // Styles for the Managed Backing-Services console. Mirrors the cloud-backups module's
 // token use (../../styles/tokens) so the console matches the platform's dark/neon theme.
 @use '../../styles/tokens' as t;
+@use '../../styles/mixins' as m;
 
 :host {
   display: block;
 }
+
+@include m.inline-code;
 
 .bs-sr-only {
   position: absolute;
@@ -97,7 +100,7 @@
   font-size: 0.85rem;
 
   &--managed {
-    color: var(--hug-accent, #{t.$neon});
+    color: var(--hug-accent-soft, #{t.$neon});
   }
 }
 
@@ -157,7 +160,7 @@
 // ── buttons ──────────────────────────────────────────────────────────────────
 .bs-btn {
   background: var(--hug-accent, #{t.$neon});
-  color: #{t.$black};
+  color: var(--hug-accent-on, #fff);
   border: 1px solid var(--hug-accent, #{t.$neon});
   border-radius: t.$radius-sm;
   padding: 0.45rem 0.9rem;

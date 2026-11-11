@@ -4,9 +4,13 @@
 // surfaces, #222 hover text) under the dark shell — the same defect family as
 // mfa.component.scss (see the branding-baseline mapping documented there).
 // Accent TEXT uses var(--hug-accent-soft) (AAA), never var(--hug-accent).
+@use '../styles/mixins' as m;
+
 :host {
   display: block;
 }
+
+@include m.inline-code;
 
 .intro {
   color: var(--hug-text-muted, #a8acc4);
@@ -31,7 +35,7 @@
   color: var(--hug-text-muted, #a8acc4);
 
   &.active {
-    border-block-end-color: var(--hug-accent, #7c4dff);
+    border-block-end-color: var(--hug-accent, #6a3df0);
     color: var(--hug-accent-soft, #b388ff);
     font-weight: 600;
   }
