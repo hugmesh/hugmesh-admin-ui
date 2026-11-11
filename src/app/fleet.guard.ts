@@ -1,5 +1,6 @@
 import { inject } from '@angular/core';
-import { CanActivateFn, Router } from '@angular/router';
+import { CanActivateFn } from '@angular/router';
+import { refuseNavigation } from './guard-refusal';
 import { SessionService } from './session.service';
 
 /**
@@ -11,15 +12,13 @@ import { SessionService } from './session.service';
  *
  * This is **presentation-only** — the BFF is the authoritative gate: every
  * `/bff/admin/phone-fleet/**` endpoint re-enforces the role AND the per-subject ENTITLEMENT and
- * scopes every read/mutation to `physical_owner = caller AND owner_domain = caller-domain`. A
- * caller without the fleet capability is redirected to `/login`.
+ * scopes every read/mutation to `physical_owner = caller AND owner_domain = caller-domain`.
  *
- * @returns `true` to activate, or a `UrlTree` redirect to `/login` when the capability is absent.
+ * @returns `true` to activate; otherwise {@link refuseNavigation}'s redirect: `/login` when signed
+ *   out, the host's `/home?denied=<url>` notice when signed in without the fleet capability.
  * @see {@link adminGuard} / {@link superadminGuard} — the sibling role guards.
  */
-export const fleetAdminGuard: CanActivateFn = () => {
-  const session = inject(SessionService);
-  const router = inject(Router);
-  if (session.isFleetAdmin()) return true;
-  return router.parseUrl('/login');
+export const fleetAdminGuard: CanActivateFn = (_route, state) => {
+  if (inject(SessionService).isFleetAdmin()) return true;
+  return refuseNavigation(state);
 };

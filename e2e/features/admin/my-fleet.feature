@@ -55,7 +55,7 @@ Feature: My fleet — fleet-owner console (own devices only, entitlement + owner
   Scenario: a no-role user is bounced from the My fleet console (DENY)
     Given "plain-user" has a seeded session
     When "plain-user" navigates to "/admin/my-fleet"
-    Then "plain-user" is redirected to the login page
+    Then "plain-user" is shown the denied notice
 
   # A no-role user genuinely has no FLEET_ADMIN/ADMIN/SUPERADMIN authority, so even the LIST is
   # rejected outright by the coarse path gate: 403 only, never a validation 400.

@@ -99,12 +99,24 @@ Then('{string} sees the {string} console', async ({ user }, username: string, te
 });
 
 Then('{string} is redirected to the login page', async ({ user }, username: string) => {
-  // DENY: adminGuard/superadminGuard/gamesServicesGuard returns
-  // router.parseUrl('/login'), so the URL settles on /login and the console view
-  // never renders.
+  // DENY of a persona the guards read as SIGNED OUT (no hug.session mirror):
+  // refuseNavigation (src/app/guard-refusal.ts) returns /login, so the URL
+  // settles there and the console view never renders. A signed-in persona is
+  // never sent here; assert `is shown the denied notice` for them.
   const page = pageRegistry.get(user(username).username)!;
   await page.waitForURL(/\/login(\?|$)/, { timeout: 15_000 });
   await expect(page).toHaveURL(/\/login(\?|$)/);
+});
+
+Then('{string} is shown the denied notice', async ({ user }, username: string) => {
+  // DENY of a SIGNED-IN persona: every admin-ui guard (via refuseNavigation in
+  // src/app/guard-refusal.ts) and the host shell's own role guards send them to
+  // the host's DENIED_PATH, /home?denied=<attempted url>, where the host renders
+  // its denied notice. Never /login: the sign-in form under a header that still
+  // shows them signed in reads as having been logged out.
+  const page = pageRegistry.get(user(username).username)!;
+  await page.waitForURL((url) => url.pathname === '/home' && url.searchParams.has('denied'), { timeout: 15_000 });
+  await expect(page.locator('[data-testid="login-username"]')).toHaveCount(0);
 });
 
 Then('{string} does not see the {string} console', async ({ user }, username: string, testid: string) => {

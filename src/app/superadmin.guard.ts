@@ -1,5 +1,6 @@
 import { inject } from '@angular/core';
-import { CanActivateFn, Router } from '@angular/router';
+import { CanActivateFn } from '@angular/router';
+import { refuseNavigation } from './guard-refusal';
 import { SessionService } from './session.service';
 
 /**
@@ -16,14 +17,13 @@ import { SessionService } from './session.service';
  * This is **presentation-only** — the BFF enforces `@PreAuthorize("hasRole('SUPERADMIN')")` on
  * every `/bff/superadmin/**` endpoint as the authoritative gate.
  *
- * @returns `true` to activate, or a `UrlTree` redirect to `/login` when the role is absent.
- * @see {@link adminGuard} — the lower-tier `admin`-role guard; defined but NOT wired onto any
- *   route (the plain ROLE_ADMIN routes are gated only by the host's `/admin` guard — see its
- *   TODO).
+ * @returns `true` to activate; otherwise {@link refuseNavigation}'s redirect: `/login` when signed
+ *   out, the host's `/home?denied=<url>` notice when signed in without `superadmin` (e.g. a plain
+ *   admin).
+ * @see {@link adminGuard} — the lower-tier admin/superadmin guard, wired on `mesh-tokens` only
+ *   (the plain ROLE_ADMIN routes are gated only by the host's `/admin` guard — see its TODO).
  */
-export const superadminGuard: CanActivateFn = () => {
-  const session = inject(SessionService);
-  const router = inject(Router);
-  if (session.isSuperadmin()) return true;
-  return router.parseUrl('/login');
+export const superadminGuard: CanActivateFn = (_route, state) => {
+  if (inject(SessionService).isSuperadmin()) return true;
+  return refuseNavigation(state);
 };

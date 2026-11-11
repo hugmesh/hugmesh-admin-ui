@@ -50,7 +50,7 @@ Feature: Fleet provisioning — superadmin owner assignment + fleet entitlements
   Scenario: a domain admin is bounced from the Fleet entitlements console (DENY)
     Given "admin-domain-a" has a seeded session
     When "admin-domain-a" navigates to "/admin/fleet-entitlements"
-    Then "admin-domain-a" is redirected to the login page
+    Then "admin-domain-a" is shown the denied notice
 
   # A domain admin genuinely holds ROLE_ADMIN — yet the entitlement admin surface is
   # hasRole('SUPERADMIN') only, so even the LIST is rejected outright: 403 only, never a 400.

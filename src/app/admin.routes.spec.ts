@@ -46,6 +46,7 @@ import { WorkloadConsoleComponent } from './workload-console/workload-console.co
 import { WorkloadLogsComponent } from './workload-console/workload-logs.component';
 import { WorkloadTerminalComponent } from './workload-console/workload-terminal.component';
 import { workloadConsoleGuard } from './workload-console.guard';
+import { BffService } from './bff.service';
 
 /**
  * These specs lock down the federation contract: `./routes` (exposed under the
@@ -352,13 +353,27 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
   });
 });
 
+/** Write the `hug.session` mirror a persona's login leaves (as the login remote writes it), or, for
+ *  `null`, make sure there is none: a mirror seeded earlier in the same `it` must not leak into a
+ *  "signed out" case. */
+function seedMirror(roles: string[] | null): void {
+  if (!roles) {
+    localStorage.removeItem('hug.session');
+    return;
+  }
+  localStorage.setItem('hug.session', JSON.stringify({
+    id: 'google:e2e@example.test', label: 'e2e', provider: 'google', roles, registrationComplete: true,
+  }));
+}
+
 /**
  * Router-level pin of the two regressions that ruled out wiring adminGuard onto the plain routes
  * as written (see TODO(admin-guard) in admin.guard.ts). ADMIN_ROUTES is mounted exactly as the
  * standalone dev shell mounts it (`app.routes.ts`: `{ path: '', children: ADMIN_ROUTES }`), plus
- * a stub `/login` so a redirect is observable. The REAL guards and the REAL SessionService run,
- * fed by the `hug.session` localStorage mirror (seeded, stale, or absent). No RouterOutlet is
- * rendered, so an activated route does not instantiate its console (none of its BFF calls fire).
+ * stub `/login` and `/home` routes so a redirect is observable. The REAL guards and the REAL
+ * SessionService run, fed by the `hug.session` localStorage mirror (seeded, stale, or absent). No
+ * RouterOutlet is rendered, so an activated route does not instantiate its console (none of its
+ * BFF calls fire).
  *
  * What this can and cannot show: it runs this remote's router config in isolation. It does not
  * load the host shell, so the host's own `/admin` guard (which reads roles hydrated from
@@ -369,7 +384,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
  */
 describe('ADMIN_ROUTES guard wiring (router-level, standalone mount)', () => {
   @Component({ standalone: true, template: '' })
-  class LoginStubComponent {}
+  class StubComponent {}
 
   const KEY = 'hug.session';
   let saved: string | null;
@@ -387,14 +402,11 @@ describe('ADMIN_ROUTES guard wiring (router-level, standalone mount)', () => {
   /** Seed the mirror BEFORE anything injects SessionService (its signal reads the key once, at
    *  construction), then navigate and report where the router settled. `null` = no mirror. */
   async function navigateAs(roles: string[] | null, url: string): Promise<string> {
-    if (roles) {
-      localStorage.setItem(KEY, JSON.stringify({
-        id: 'google:e2e@example.test', label: 'e2e', provider: 'google', roles, registrationComplete: true,
-      }));
-    }
+    seedMirror(roles);
     TestBed.configureTestingModule({
       providers: [provideRouter([
-        { path: 'login', component: LoginStubComponent },
+        { path: 'login', component: StubComponent },
+        { path: 'home', component: StubComponent },
         { path: '', children: ADMIN_ROUTES },
       ])],
     });
@@ -415,8 +427,8 @@ describe('ADMIN_ROUTES guard wiring (router-level, standalone mount)', () => {
     expect(await navigateAs(['user'], '/device-radios')).toBe('/device-radios');
   });
 
-  it('still lets the audience guards refuse: an admin without superadmin is sent to /login from a superadmin-only console', async () => {
-    expect(await navigateAs(['admin'], '/device-licenses')).toBe('/login');
+  it('still lets the audience guards refuse: an admin without superadmin is sent to the denied notice (not /login) from a superadmin-only console', async () => {
+    expect(await navigateAs(['admin'], '/device-licenses')).toBe('/home?denied=%2Fdevice-licenses');
   });
 
   it('still admits each audience to its own console (superadmin, bare fleet_admin, bare games_services_runner)', async () => {
@@ -427,17 +439,138 @@ describe('ADMIN_ROUTES guard wiring (router-level, standalone mount)', () => {
     expect(await navigateAs(['games_services_runner'], '/games-services')).toBe('/games-services');
   });
 
-  it('mesh-tokens: adminGuard admits an admin and an admin+superadmin, and refuses user / no mirror / superadmin-ONLY to /login (the documented option-(b) cost)', async () => {
+  it('mesh-tokens: adminGuard admits admin, admin+superadmin and superadmin-ONLY; sends a signed-in user/mod to the denied notice and a caller with no mirror to /login', async () => {
     expect(await navigateAs(['admin'], '/mesh-tokens')).toBe('/mesh-tokens');
     TestBed.resetTestingModule();
     expect(await navigateAs(['admin', 'superadmin'], '/mesh-tokens')).toBe('/mesh-tokens');
     TestBed.resetTestingModule();
-    expect(await navigateAs(['user'], '/mesh-tokens')).toBe('/login');
+    expect(await navigateAs(['superadmin'], '/mesh-tokens')).toBe('/mesh-tokens');
     TestBed.resetTestingModule();
-    expect(await navigateAs(['mod'], '/mesh-tokens')).toBe('/login');
+    expect(await navigateAs(['user'], '/mesh-tokens')).toBe('/home?denied=%2Fmesh-tokens');
+    TestBed.resetTestingModule();
+    expect(await navigateAs(['mod'], '/mesh-tokens')).toBe('/home?denied=%2Fmesh-tokens');
     TestBed.resetTestingModule();
     expect(await navigateAs(null, '/mesh-tokens')).toBe('/login');
-    TestBed.resetTestingModule();
-    expect(await navigateAs(['superadmin'], '/mesh-tokens')).toBe('/login');
+  });
+});
+
+/**
+ * Where every guarded console sends each seeded persona, with ADMIN_ROUTES mounted under `/admin`
+ * the way the host mounts the remote (so the `?denied=` value is the URL the browser showed). The
+ * role sets are the ones `GET /bff/session` returned for each persona on the local stack during the
+ * 2026-11-11 GUI retest. Before this pin, every SIGNED-IN refusal below went to `/login`: the sign-in
+ * form under a header that still showed the user signed in, which reads as a logout.
+ *
+ * `allowed` = the console activates; `denied` = `/home?denied=<url>` (the host shell's DENIED_PATH
+ * contract, hugmesh-host-shell `guards/role-guard.factory.ts`); `login` = `/login` (no session);
+ * `probe` = workloadConsoleGuard admitted the role and asked the BFF, which (stubbed dark here)
+ * bounced it to `/admin`.
+ */
+describe('ADMIN_ROUTES refusal destinations per persona (router-level, mounted under /admin)', () => {
+  @Component({ standalone: true, template: '' })
+  class StubComponent {}
+
+  const KEY = 'hug.session';
+  let saved: string | null;
+
+  beforeEach(() => {
+    saved = localStorage.getItem(KEY);
+    localStorage.removeItem(KEY);
+  });
+
+  afterEach(() => {
+    if (saved === null) localStorage.removeItem(KEY);
+    else localStorage.setItem(KEY, saved);
+  });
+
+  type Outcome = 'allowed' | 'denied' | 'login' | 'probe';
+
+  const ROUTES = [
+    'backing-services', 'device-licenses', 'device-pending', 'phone-fleet', 'fleet-entitlements',
+    'egress-vpn', 'superadmin/domains', 'superadmin/anubis', 'games-services', 'mesh-tokens',
+    'my-fleet', 'workloads',
+  ] as const;
+  type GuardedRoute = typeof ROUTES[number];
+
+  const SUPERADMIN_ONLY: GuardedRoute[] = [
+    'backing-services', 'device-licenses', 'device-pending', 'phone-fleet', 'fleet-entitlements',
+    'egress-vpn', 'superadmin/domains', 'superadmin/anubis',
+  ];
+  const each = (routes: readonly GuardedRoute[], o: Outcome) => Object.fromEntries(routes.map((r) => [r, o]));
+
+  const PERSONAS: { name: string; roles: string[] | null; expect: Record<GuardedRoute, Outcome> }[] = [
+    {
+      name: 'signed out (no mirror)', roles: null,
+      expect: each(ROUTES, 'login') as Record<GuardedRoute, Outcome>,
+    },
+    {
+      name: 'e2e-user', roles: ['user'],
+      expect: each(ROUTES, 'denied') as Record<GuardedRoute, Outcome>,
+    },
+    {
+      name: 'e2e-mod', roles: ['mod'],
+      expect: each(ROUTES, 'denied') as Record<GuardedRoute, Outcome>,
+    },
+    {
+      name: 'e2e-admin', roles: ['admin', 'user'],
+      expect: { ...each(SUPERADMIN_ONLY, 'denied'), 'games-services': 'denied', 'mesh-tokens': 'allowed', 'my-fleet': 'allowed', workloads: 'probe' } as Record<GuardedRoute, Outcome>,
+    },
+    {
+      name: 'e2e-gamesadmin', roles: ['admin', 'games', 'games_admin', 'user'],
+      expect: { ...each(SUPERADMIN_ONLY, 'denied'), 'games-services': 'denied', 'mesh-tokens': 'allowed', 'my-fleet': 'allowed', workloads: 'probe' } as Record<GuardedRoute, Outcome>,
+    },
+    {
+      name: 'e2e-superadmin', roles: ['superadmin'],
+      expect: { ...each(SUPERADMIN_ONLY, 'allowed'), 'games-services': 'denied', 'mesh-tokens': 'allowed', 'my-fleet': 'allowed', workloads: 'probe' } as Record<GuardedRoute, Outcome>,
+    },
+    {
+      name: 'mesh-operator', roles: ['admin', 'fleet_admin', 'forum', 'games', 'games_admin', 'mastodon', 'matrix', 'mod', 'superadmin', 'user', 'wiki'],
+      expect: { ...each(SUPERADMIN_ONLY, 'allowed'), 'games-services': 'denied', 'mesh-tokens': 'allowed', 'my-fleet': 'allowed', workloads: 'probe' } as Record<GuardedRoute, Outcome>,
+    },
+  ];
+
+  async function settle(roles: string[] | null, route: GuardedRoute): Promise<string> {
+    seedMirror(roles);
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([
+          { path: 'login', component: StubComponent },
+          { path: 'home', component: StubComponent },
+          { path: 'admin', children: ADMIN_ROUTES },
+        ]),
+        // workloadConsoleGuard's server probe, stubbed dark (404 -> null): never a live call.
+        { provide: BffService, useValue: { workloadCapability: () => Promise.resolve(null) } },
+      ],
+    });
+    const router = TestBed.inject(Router);
+    await router.navigateByUrl(`/admin/${route}`);
+    return router.url;
+  }
+
+  function expected(outcome: Outcome, route: GuardedRoute): string {
+    switch (outcome) {
+      case 'allowed': return `/admin/${route}`;
+      case 'denied': return `/home?denied=${encodeURIComponent(`/admin/${route}`)}`;
+      case 'login': return '/login';
+      case 'probe': return '/admin';
+    }
+  }
+
+  for (const p of PERSONAS) {
+    it(`${p.name}: every guarded console lands where the persona's roles say`, async () => {
+      for (const route of ROUTES) {
+        TestBed.resetTestingModule();
+        expect(await settle(p.roles, route)).withContext(`${p.name} -> /admin/${route}`).toBe(expected(p.expect[route], route));
+      }
+    });
+  }
+
+  it('never sends a SIGNED-IN persona to /login from any guarded console', async () => {
+    for (const p of PERSONAS.filter((x) => x.roles !== null)) {
+      for (const route of ROUTES) {
+        TestBed.resetTestingModule();
+        expect(await settle(p.roles, route)).withContext(`${p.name} -> /admin/${route}`).not.toBe('/login');
+      }
+    }
   });
 });

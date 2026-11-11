@@ -188,17 +188,26 @@ the route with a `routerLink`. All of these are ✅ shipped on `main`.
 
 The host route-guards `/admin` behind the Casdoor **admin role**. This repo also
 ships five `CanActivateFn` guards for finer routing inside the remote. One of
-them, `adminGuard`, is attached to no route (see the note below the table). Every
+them, `adminGuard`, is attached to one route only, `mesh-tokens` (see the note
+below the table). Every
 client-side role check is **presentation only**; the BFF and gateway are the
 authority:
 
 | Guard                  | File                          | Allows when                                                                 | Guards |
 | ---------------------- | ----------------------------- | --------------------------------------------------------------------------- | ------ |
-| `adminGuard`           | `src/app/admin.guard.ts`      | `isAdmin()` (`roles` includes `admin`), else `/login`                        | **mesh-tokens only** — option (b) below, adopted for that one credential-minting route; no other route |
-| `superadminGuard`      | `src/app/superadmin.guard.ts` | `isSuperadmin()` (`roles` includes `superadmin`), else `/login`              | device-licenses, device-pending, phone-fleet, fleet-entitlements, egress-vpn, superadmin/domains, superadmin/anubis, backing-services |
-| `fleetAdminGuard`      | `src/app/fleet.guard.ts`      | `isFleetAdmin()` (`roles` includes `fleet_admin`, or `admin`/`superadmin`), else `/login` | my-fleet |
-| `gamesServicesGuard`   | `src/app/games-services.guard.ts` | `isGamesServicesAdmin()` **or** `isGamesServicesRunner()`, else `/login`  | games-services |
-| `workloadConsoleGuard` | `src/app/workload-console.guard.ts` | `admin` or `superadmin` in the session (else `/login`) **and** a live server-confirmed `workloadCapability()` probe (200; otherwise bounced to `/admin`) | workloads + workloads/logs + workloads/terminal |
+| `adminGuard`           | `src/app/admin.guard.ts`      | `isAdmin()` **or** `isSuperadmin()` (`roles` includes `admin` or `superadmin`; admin-bff's RoleHierarchy puts SUPERADMIN above ADMIN), else refused | **mesh-tokens only** — option (b) below, adopted for that one credential-minting route; no other route |
+| `superadminGuard`      | `src/app/superadmin.guard.ts` | `isSuperadmin()` (`roles` includes `superadmin`), else refused               | device-licenses, device-pending, phone-fleet, fleet-entitlements, egress-vpn, superadmin/domains, superadmin/anubis, backing-services |
+| `fleetAdminGuard`      | `src/app/fleet.guard.ts`      | `isFleetAdmin()` (`roles` includes `fleet_admin`, or `admin`/`superadmin`), else refused | my-fleet |
+| `gamesServicesGuard`   | `src/app/games-services.guard.ts` | `isGamesServicesAdmin()` **or** `isGamesServicesRunner()`, else refused   | games-services |
+| `workloadConsoleGuard` | `src/app/workload-console.guard.ts` | `admin` or `superadmin` in the session (else refused) **and** a live server-confirmed `workloadCapability()` probe (200; otherwise bounced to `/admin`) | workloads + workloads/logs + workloads/terminal |
+
+"Refused" is the same for every guard, via `refuseNavigation` in
+`src/app/guard-refusal.ts`, and it matches the host shell's role guards: a
+signed-out caller goes to `/login`, and a signed-in caller without the role
+goes to `/home?denied=<url>`, where the host shows its denied notice naming the
+console. A signed-in user is never sent to the sign-in page. Before 2026-11-11
+every refusal here went to `/login`, which showed the sign-in form under a
+header that still showed the user signed in.
 
 > **Why `adminGuard` is not wired on the plain consoles (open decision).** The one
 > exception is `/admin/mesh-tokens`, which takes the costs listed below on purpose. The landing and the plain
@@ -218,13 +227,15 @@ authority:
 > mid-session role grant (a flow the host supports on purpose; see its
 > `e2e/features/role-change-midsession.feature`), or with a cookie-only session
 > that has no mirror, the host admits an admin to `/admin` and `adminGuard` then
-> sends them to `/login`. The standalone dev shell has no `/login` route and
+> refuses them (to `/home?denied=` with a stale mirror, to `/login` with none).
+> The standalone dev shell has no `/login` or `/home` route and
 > nothing that writes `hug.session`, so `/` would stop rendering there. The
 > owner must choose: **(a)** make this remote's `SessionService` hydrate from
-> `/bff/session`, send a signed-in caller without the role to the host's
-> `/home?denied=` page instead of `/login`, then wire it (never stacked onto the
-> superadmin, fleet, games or workload routes, whose audiences it would narrow to
-> `admin` holders); **(b)** wire it as is and accept both regressions; or **(c)**
+> `/bff/session`, then wire it (never stacked onto the superadmin, fleet, games
+> or workload routes, whose audiences it would narrow to admin and superadmin
+> holders). The other half of (a), sending a signed-in caller without the role to
+> the host's `/home?denied=` page instead of `/login`, is done for every guard;
+> **(b)** wire it as is and accept both regressions; or **(c)**
 > delete it. The details are in the `TODO(admin-guard)` on `adminGuard`. The four
 > wired guards take their role check from the same mirror, so their routes
 > already have the stale-mirror exposure; that predates this change and is

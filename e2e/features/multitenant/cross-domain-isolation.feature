@@ -33,7 +33,7 @@ Feature: Cross-domain isolation — domain admins cannot reach each other's reso
     Given "admin-domain-a" has a seeded session in their own context
     And "admin-domain-b" has a seeded session in their own context
     When "admin-domain-a" navigates to "/device-licenses"
-    Then "admin-domain-a" is redirected to the login page
+    Then "admin-domain-a" is shown the denied notice
     And "admin-domain-b" does not see the "device-licenses-view" console
 
   Scenario: each domain admin reaches only their own admin shell (parallel ALLOW)

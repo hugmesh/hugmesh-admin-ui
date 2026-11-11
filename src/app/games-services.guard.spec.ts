@@ -1,47 +1,44 @@
 import { TestBed } from '@angular/core/testing';
-import { Router, UrlTree } from '@angular/router';
+import { Router, RouterStateSnapshot, UrlTree, provideRouter } from '@angular/router';
 import { gamesServicesGuard } from './games-services.guard';
 import { SessionService } from './session.service';
 
 describe('gamesServicesGuard', () => {
-  let session: jasmine.SpyObj<Pick<SessionService, 'isGamesServicesAdmin' | 'isGamesServicesRunner'>>;
-  let parseUrlSpy: jasmine.Spy;
+  let session: jasmine.SpyObj<Pick<SessionService, 'loggedIn' | 'isGamesServicesAdmin' | 'isGamesServicesRunner'>>;
 
   beforeEach(() => {
     session = jasmine.createSpyObj<SessionService>('SessionService',
-      ['isGamesServicesAdmin', 'isGamesServicesRunner']);
-    parseUrlSpy = jasmine.createSpy('parseUrl').and.callFake((u: string) => ({ url: u } as unknown as UrlTree));
+      ['loggedIn', 'isGamesServicesAdmin', 'isGamesServicesRunner']);
+    session.loggedIn.and.returnValue(true);
+    session.isGamesServicesAdmin.and.returnValue(false);
+    session.isGamesServicesRunner.and.returnValue(false);
     TestBed.configureTestingModule({
-      providers: [
-        { provide: SessionService, useValue: session },
-        { provide: Router, useValue: { parseUrl: parseUrlSpy } },
-      ],
+      providers: [provideRouter([]), { provide: SessionService, useValue: session }],
     });
   });
 
-  function run() {
-    return TestBed.runInInjectionContext(() => gamesServicesGuard(null as never, null as never));
+  function run(url = '/admin/games-services'): true | string {
+    const state = { url } as RouterStateSnapshot;
+    const result = TestBed.runInInjectionContext(() => gamesServicesGuard(null as never, state));
+    return result === true ? true : TestBed.inject(Router).serializeUrl(result as UrlTree);
   }
 
   it('allows activation for a games-services ADMIN', () => {
     session.isGamesServicesAdmin.and.returnValue(true);
-    session.isGamesServicesRunner.and.returnValue(false);
     expect(run()).toBeTrue();
-    expect(parseUrlSpy).not.toHaveBeenCalled();
   });
 
   it('allows activation for a games-services RUNNER', () => {
-    session.isGamesServicesAdmin.and.returnValue(false);
     session.isGamesServicesRunner.and.returnValue(true);
     expect(run()).toBeTrue();
-    expect(parseUrlSpy).not.toHaveBeenCalled();
   });
 
-  it('redirects a caller with neither games-services role to /login', () => {
-    session.isGamesServicesAdmin.and.returnValue(false);
-    session.isGamesServicesRunner.and.returnValue(false);
-    const result = run() as UrlTree;
-    expect(parseUrlSpy).toHaveBeenCalledWith('/login');
-    expect((result as unknown as { url: string }).url).toBe('/login');
+  it('sends a SIGNED-IN caller with neither games-services role to the host denied notice, not /login', () => {
+    expect(run()).toBe('/home?denied=%2Fadmin%2Fgames-services');
+  });
+
+  it('sends a signed-out caller to /login', () => {
+    session.loggedIn.and.returnValue(false);
+    expect(run()).toBe('/login');
   });
 });

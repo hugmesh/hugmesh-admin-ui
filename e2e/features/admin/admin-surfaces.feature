@@ -3,15 +3,16 @@
 # Every console sits behind a client-side guard:
 #   adminGuard               — the admin micro-frontend itself: the HOST shell's
 #                              guard on its /admin mount. admin-ui's own adminGuard
-#                              is NOT wired into admin.routes.ts (see
-#                              TODO(admin-guard) in src/app/admin.guard.ts), so the
-#                              plain consoles have no remote-side guard.
+#                              is wired on mesh-tokens only (see TODO(admin-guard)
+#                              in src/app/admin.guard.ts), so the plain consoles
+#                              have no remote-side guard.
 #   (the rest are admin-ui's own guards, in admin.routes.ts)
 #   superadminGuard          — device-licenses, device-pending, egress-vpn,
 #                              superadmin/domains, superadmin/anubis.
 #   gamesServicesGuard       — games-services (admin OR runner).
-# A guard ALLOW renders the console's *-view; a DENY returns
-# router.parseUrl('/login'), bouncing the user to the login page.
+# A guard ALLOW renders the console's *-view. A DENY of a signed-in user goes
+# to the host's denied notice, /home?denied=<url> (refuseNavigation in
+# src/app/guard-refusal.ts); only a signed-out caller is sent to /login.
 #
 # @cluster — wave 2b-1 ships DARK. These need the host shell serving the federated
 # remote + a live session, so they're tagged @cluster and the config filters them
@@ -37,17 +38,17 @@ Feature: Admin & superadmin console surfaces — per-role ALLOW and DENY
   Scenario: a domain admin is bounced from the Domains console (DENY)
     Given "admin-domain-a" has a seeded session
     When "admin-domain-a" navigates to "/superadmin/domains"
-    Then "admin-domain-a" is redirected to the login page
+    Then "admin-domain-a" is shown the denied notice
 
   Scenario: a domain admin is bounced from the Egress VPN console (DENY)
     Given "admin-domain-a" has a seeded session
     When "admin-domain-a" navigates to "/egress-vpn"
-    Then "admin-domain-a" is redirected to the login page
+    Then "admin-domain-a" is shown the denied notice
 
   Scenario: a domain admin is bounced from Device Pending (DENY)
     Given "admin-domain-a" has a seeded session
     When "admin-domain-a" navigates to "/device-pending"
-    Then "admin-domain-a" is redirected to the login page
+    Then "admin-domain-a" is shown the denied notice
 
   Scenario: a domain admin reaches the OIDC provider-roles console (ALLOW — admin-capable)
     Given "admin-domain-a" has a seeded session
@@ -57,4 +58,4 @@ Feature: Admin & superadmin console surfaces — per-role ALLOW and DENY
   Scenario: a plain user is bounced from every admin surface (DENY floor)
     Given "plain-user" has a seeded session
     When "plain-user" navigates to "/superadmin/domains"
-    Then "plain-user" is redirected to the login page
+    Then "plain-user" is shown the denied notice
