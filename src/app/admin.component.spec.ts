@@ -278,6 +278,77 @@ describe('AdminComponent', () => {
   });
 });
 /**
+ * GUI-10: 'Guided tasks' was listed for every admin although no admin-bff implements
+ * GET /bff/admin/tasks (404 on every deployment), so the entry led to a dead page. It is now
+ * listed only once that endpoint returns a task catalogue; everything else fails closed.
+ */
+describe('AdminComponent menu — Guided tasks gate', () => {
+  let fixture: ComponentFixture<AdminComponent>;
+  let bff: jasmine.SpyObj<BffService>;
+
+  beforeEach(async () => {
+    bff = jasmine.createSpyObj<BffService>('BffService', ['allowlist', 'invite', 'workloadCapability', 'adminTasks']);
+    bff.allowlist.and.resolveTo({ emails: [], discord: [] });
+    bff.workloadCapability.and.resolveTo(null);
+    await TestBed.configureTestingModule({
+      imports: [AdminComponent],
+      providers: [
+        { provide: BffService, useValue: bff },
+        { provide: SessionService, useValue: { isSuperadmin: signal(true), isFleetAdmin: signal(true) } },
+        provideRouter([]),
+      ],
+    }).compileComponents();
+    fixture = TestBed.createComponent(AdminComponent);
+  });
+
+  async function render(): Promise<HTMLElement> {
+    fixture.detectChanges();
+    await fixture.whenStable();
+    // ngOnInit awaits three BFF calls in a row; let the whole chain settle.
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  it('leaves Guided tasks out of the menu when the catalogue is missing (404)', async () => {
+    bff.adminTasks.and.resolveTo({ state: 'unavailable' });
+    const el = await render();
+    expect(bff.adminTasks).toHaveBeenCalled();
+    expect(el.querySelector('[data-menu="usage"]')).withContext('the rest of the menu renders').not.toBeNull();
+    expect(el.querySelector('[data-menu="tasks"]')).toBeNull();
+    expect(el.textContent).not.toContain('Guided tasks');
+  });
+
+  it('leaves Guided tasks out of the menu when the catalogue load fails', async () => {
+    bff.adminTasks.and.resolveTo({ state: 'error', status: 500 });
+    const el = await render();
+    expect(el.querySelector('[data-menu="tasks"]')).toBeNull();
+  });
+
+  it('leaves Guided tasks out of the menu when the probe throws', async () => {
+    bff.adminTasks.and.rejectWith(new Error('boom'));
+    const el = await render();
+    expect(el.querySelector('[data-menu="tasks"]')).toBeNull();
+  });
+
+  it('lists Guided tasks once the catalogue loads', async () => {
+    bff.adminTasks.and.resolveTo({ state: 'ok', tasks: [] });
+    const el = await render();
+    const link = el.querySelector('[data-menu="tasks"]');
+    expect(link).withContext('guided tasks menu link').not.toBeNull();
+    expect(link!.textContent).toContain('Guided tasks');
+  });
+
+  it('keeps the tasks gate independent of the workload-console probe', async () => {
+    bff.workloadCapability.and.resolveTo({ enabled: true, readOnly: true, domain: 'd' });
+    bff.adminTasks.and.resolveTo({ state: 'unavailable' });
+    const el = await render();
+    expect(el.querySelector('[data-menu="workloads"]')).withContext('workload probe passed').not.toBeNull();
+    expect(el.querySelector('[data-menu="tasks"]')).withContext('tasks probe failed').toBeNull();
+  });
+});
+
+/**
  * Regression coverage for a real bug: the menu's routerLink used
  * `['/', item.path]`, an ABSOLUTE navigation from the router root (e.g.
  * `/usage`) rather than a link relative to where AdminComponent is actually

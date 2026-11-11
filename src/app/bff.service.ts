@@ -423,9 +423,32 @@ export class BffService {
   }
 
   // ── Unified admin-task wizard (validate → preview → apply per step) ──
-  async adminTasks(): Promise<TaskDef[]> {
-    const r = await fetch(`${CFG.bff}/bff/admin/tasks`, { credentials: 'include' });
-    return r.ok ? (await r.json()).tasks : [];
+  /** Load the guided-task catalogue (`GET /bff/admin/tasks`). It tells three cases apart,
+   *  which the old `TaskDef[]` return folded into one empty list:
+   *   - `unavailable`: a 404, which means no admin-bff on this deployment serves the
+   *     surface. A 2xx that is not the task JSON (an SPA fallback or a misrouted
+   *     gateway row answering HTML) means the same thing, as in desktopDialCapability.
+   *   - `error`: the surface answered with any other failure, or the network failed (status 0).
+   *   - `ok`: a real catalogue, which may be empty.
+   *  The wizard page and the admin landing menu both key off this result, so a deployment
+   *  without the backend never advertises the console. */
+  async adminTasks(): Promise<AdminTasksLoad> {
+    let r: Response;
+    try {
+      r = await fetch(`${CFG.bff}/bff/admin/tasks`, { credentials: 'include' });
+    } catch {
+      return { state: 'error', status: 0 };
+    }
+    if (r.status === 404) return { state: 'unavailable' };
+    if (!r.ok) return { state: 'error', status: r.status };
+    const ct = r.headers?.get('content-type') ?? '';
+    if (!/\bjson\b/i.test(ct)) return { state: 'unavailable' };
+    try {
+      const tasks = (await r.json())?.tasks;
+      return Array.isArray(tasks) ? { state: 'ok', tasks: tasks as TaskDef[] } : { state: 'unavailable' };
+    } catch {
+      return { state: 'unavailable' };
+    }
   }
   async validateStep(taskId: string, stepId: string, input: Record<string, unknown>): Promise<ValidationResult> {
     return this.taskPhase<ValidationResult>(taskId, stepId, 'validate', input,
@@ -2113,6 +2136,12 @@ export interface FieldDef {
 }
 export interface StepDef { id: string; title: string; fields: FieldDef[]; }
 export interface TaskDef { id: string; title: string; description: string; steps: StepDef[]; }
+/** Result of {@link BffService.adminTasks}: a catalogue (`ok`), no backend for the surface on
+ *  this deployment (`unavailable`), or a failed load (`error`; status 0 = network failure). */
+export type AdminTasksLoad =
+  | { state: 'ok'; tasks: TaskDef[] }
+  | { state: 'unavailable' }
+  | { state: 'error'; status: number };
 export interface FieldError { field: string; message: string; }
 export interface ValidationResult { valid: boolean; errors: FieldError[]; warnings: string[]; }
 export interface PreviewResult { summary: string; changes: string[]; validation: ValidationResult; }

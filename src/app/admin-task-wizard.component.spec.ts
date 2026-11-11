@@ -24,7 +24,7 @@ describe('AdminTaskWizardComponent', () => {
   beforeEach(async () => {
     bff = jasmine.createSpyObj<BffService>('BffService',
       ['adminTasks', 'validateStep', 'previewStep', 'applyStep']);
-    bff.adminTasks.and.resolveTo([gatewayRoute]);
+    bff.adminTasks.and.resolveTo({ state: 'ok', tasks: [gatewayRoute] });
     await TestBed.configureTestingModule({
       imports: [AdminTaskWizardComponent],
       providers: [{ provide: BffService, useValue: bff }],
@@ -187,6 +187,60 @@ describe('AdminTaskWizardComponent', () => {
       const apply = el.querySelector<HTMLButtonElement>('[data-testid="wizard-apply"]')!;
       expect(apply.getAttribute('aria-describedby')).toBe('wizard-apply-help');
       expect(el.querySelector('#wizard-apply-help')!.textContent).toContain('Commits');
+    });
+  });
+
+  // GUI-10: no admin-bff implements GET /bff/admin/tasks, so on a real deployment the load
+  // answers 404. The page used to fold that into "No admin tasks available." The three
+  // outcomes must read differently, and the page testid stays (route-matrix + shot harness).
+  describe('catalogue load states', () => {
+    const q = (sel: string) => (fixture.nativeElement as HTMLElement).querySelector(sel);
+    const text = () => ((fixture.nativeElement as HTMLElement).textContent ?? '').replace(/\s+/g, ' ');
+
+    it('says the feature is not available on this deployment when the catalogue is missing (404)', async () => {
+      bff.adminTasks.and.resolveTo({ state: 'unavailable' });
+      await init();
+      expect(q('[data-testid="task-wizard-view"]')).withContext('the page itself still renders').not.toBeNull();
+      const notice = q('[data-testid="task-wizard-unavailable"]');
+      expect(notice).withContext('unavailable notice').not.toBeNull();
+      expect(notice!.getAttribute('role')).toBe('status');
+      expect(text()).toContain('not available on this deployment');
+      expect(text()).not.toContain('No admin tasks available');
+      expect(q('[data-testid="task-list"]')).withContext('no empty task list for a missing backend').toBeNull();
+      expect(q('[data-testid="task-wizard-error"]')).toBeNull();
+    });
+
+    it('reports a failed load as an error, naming the status, not as an empty catalogue', async () => {
+      bff.adminTasks.and.resolveTo({ state: 'error', status: 502 });
+      await init();
+      const err = q('[data-testid="task-wizard-error"]');
+      expect(err).withContext('load error').not.toBeNull();
+      expect(err!.getAttribute('role')).toBe('alert');
+      expect(err!.textContent).toContain('HTTP 502');
+      expect(text()).not.toContain('No admin tasks available');
+      expect(text()).not.toContain('not available on this deployment');
+    });
+
+    it('names a network failure (status 0) as such', async () => {
+      bff.adminTasks.and.resolveTo({ state: 'error', status: 0 });
+      await init();
+      expect(q('[data-testid="task-wizard-error"]')!.textContent).toContain('network error');
+    });
+
+    it('keeps "No admin tasks available." for a real, empty catalogue', async () => {
+      bff.adminTasks.and.resolveTo({ state: 'ok', tasks: [] });
+      await init();
+      expect(q('[data-testid="task-list"]')).not.toBeNull();
+      expect(q('[data-testid="task-wizard-empty"]')!.textContent).toContain('No admin tasks available.');
+      expect(q('[data-testid="task-wizard-unavailable"]')).toBeNull();
+    });
+
+    it('shows a loading line, not an empty-catalogue message, while the load is in flight', async () => {
+      bff.adminTasks.and.returnValue(new Promise(() => { /* never settles */ }));
+      fixture.detectChanges();
+      expect(q('[data-testid="task-wizard-loading"]')).withContext('loading line').not.toBeNull();
+      expect(text()).not.toContain('No admin tasks available');
+      expect(text()).not.toContain('not available on this deployment');
     });
   });
 });

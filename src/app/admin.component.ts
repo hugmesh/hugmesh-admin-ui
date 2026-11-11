@@ -10,8 +10,12 @@ import { SessionService } from './session.service';
  *  `fleetOnly` item is shown only when the session carries the fleet capability
  *  (fleet_admin/admin/superadmin — see {@link SessionService.isFleetAdmin}); a
  *  `hidden` item belongs to the HIDDEN tier — it is surfaced ONLY when a server-confirmed
- *  capability probe passes (e.g. the Workload Console, gated on an active grant). */
-interface AdminMenuItem { path: string; label: string; superadminOnly?: boolean; fleetOnly?: boolean; hidden?: boolean; }
+ *  capability probe passes (e.g. the Workload Console, gated on an active grant); a
+ *  `needsTaskCatalogue` item is shown only once `GET /bff/admin/tasks` returned a task
+ *  catalogue (no admin-bff implements it yet, so on most deployments it stays out of the menu). */
+interface AdminMenuItem {
+  path: string; label: string; superadminOnly?: boolean; fleetOnly?: boolean; hidden?: boolean; needsTaskCatalogue?: boolean;
+}
 
 /**
  * Admin micro-frontend (own repo: hugmesh-admin-ui). Visible only to Casdoor
@@ -46,6 +50,8 @@ export class AdminComponent implements OnInit {
    *   (fleet_admin/admin/superadmin — the "My fleet" owner console).
    * - `hidden` items: the HIDDEN tier — only surfaced when a server-confirmed capability probe
    *   passes (the workload console is the first example; the route guard is the authoritative gate).
+   * - `needsTaskCatalogue` items: shown only once the guided-task catalogue loaded (see
+   *   `tasksVisible`). The route itself stays mounted and explains the missing backend.
    */
   private readonly allMenu: ReadonlyArray<AdminMenuItem> = [
     { path: 'usage', label: 'Usage analytics' },
@@ -56,7 +62,7 @@ export class AdminComponent implements OnInit {
     { path: 'routes', label: 'Route definitions' },
     { path: 'isos', label: 'ISO downloads' },
     { path: 'argocd', label: 'ArgoCD' },
-    { path: 'tasks', label: 'Guided tasks' },
+    { path: 'tasks', label: 'Guided tasks', needsTaskCatalogue: true },
     { path: 'backup', label: 'Backup' },
     { path: 'recovery', label: 'Recovery' },
     { path: 'backups', label: 'Backups history' },
@@ -90,6 +96,11 @@ export class AdminComponent implements OnInit {
    *  route is ALSO grant-guarded, so this only governs the menu's discoverability. */
   readonly workloadVisible = signal(false);
 
+  /** Whether the Guided tasks console has a backend on this deployment: true only when
+   *  `GET /bff/admin/tasks` answered with a task catalogue. A 404 (no admin-bff serves it),
+   *  any other failure, or a probe error keeps the entry out of the menu. */
+  readonly tasksVisible = signal(false);
+
   /** The menu the current session may see: superadmin-only items appear only for a
    *  superadmin (defence-in-depth — the route itself is superadmin-guarded too); HIDDEN-tier
    *  items appear only when their server-confirmed capability is present. */
@@ -98,6 +109,7 @@ export class AdminComponent implements OnInit {
       if (item.superadminOnly && !this.session.isSuperadmin()) return false;
       if (item.fleetOnly && !this.session.isFleetAdmin()) return false;
       if (item.hidden && !this.workloadVisible()) return false;
+      if (item.needsTaskCatalogue && !this.tasksVisible()) return false;
       return true;
     }));
 
@@ -128,6 +140,12 @@ export class AdminComponent implements OnInit {
     } catch {
       // If the probe throws, treat it as absent — never let a network error reveal the feature.
       this.workloadVisible.set(false);
+    }
+    // Guided tasks: list the entry only when the catalogue loads. Same fail-closed rule.
+    try {
+      this.tasksVisible.set((await this.bff.adminTasks()).state === 'ok');
+    } catch {
+      this.tasksVisible.set(false);
     }
   }
 
