@@ -1,6 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { SessionService } from './session.service';
 import { BffHttpError, STEP_UP_SIGNAL_HEADER } from './mfa/step-up-error';
+import { BatchImageSpec as ApiBatchImageSpec } from './api/models/batch-image-spec';
+import { SCHEMA_IMAGE_PLATFORMS } from './image-gen/image-platforms.generated';
 
 const CFG = {
   // Bare references (no globalThis/typeof guard) throw ReferenceError: nothing
@@ -2852,11 +2854,22 @@ export interface ImageBuildEvent {
 }
 
 // ── Worklist batch DTOs (admin-bff imagegen batch trigger, item 1) ────────────
-/** The six ENUMERATED generator platforms (worklist WorklistEntry.platform), which REPLACE
- *  the old free-text hardware class. Mirrors BatchImageSpec.hardwareClass @Pattern + the
- *  worklist.v1 schema enum — a build is rejected 400 for anything off this list. */
-export const IMAGE_PLATFORMS = ['x86', 'rpi5', 'frite', 'jetson', 'orangepi5', 'orangepizero2'] as const;
-export type ImagePlatform = (typeof IMAGE_PLATFORMS)[number];
+/** The ENUMERATED generator platforms (worklist WorklistEntry.platform), which REPLACE the old
+ *  free-text hardware class. Not a hand list: the type is the generated client's
+ *  BatchImageSpec.hardwareClass union, and the runtime list is generated from the same openapi.json
+ *  enum (scripts/gen-image-platforms.mjs, run by `npm run gen`). The BFF reads that enum from the
+ *  generator worklist schema it vendors and refuses anything off it with a 400, so a new platform
+ *  arrives here by regenerating the client. Which of these the image worker can BUILD is a separate
+ *  question, answered in image-gen/worklist-entry.model.ts. */
+export type ImagePlatform = ApiBatchImageSpec['hardwareClass'];
+export const IMAGE_PLATFORMS: readonly ImagePlatform[] = SCHEMA_IMAGE_PLATFORMS;
+
+/** Compile-time parity: the generated runtime list and the generated client type must name exactly
+ *  the same platforms. If openapi.json is regenerated without `npm run gen` (or the other way
+ *  round), the build fails here instead of offering a platform the BFF refuses. */
+type SamePlatforms<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+const PLATFORM_LIST_MATCHES_CLIENT: SamePlatforms<(typeof SCHEMA_IMAGE_PLATFORMS)[number], ImagePlatform> = true;
+void PLATFORM_LIST_MATCHES_CLIENT;
 
 /** One entry of a worklist batch — a single image (one per role × platform). Mirrors the
  *  admin-bff {@code BatchImageSpec} record VERBATIM. There is intentionally NO domain field:
