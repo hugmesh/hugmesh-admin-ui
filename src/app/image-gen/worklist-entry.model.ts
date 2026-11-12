@@ -102,11 +102,65 @@ export const IMAGE_TYPE_OPTIONS: ReadonlyArray<{ value: ImageType; label: string
   { value: 'client', label: 'Client' },
 ];
 
-/** Platform options for the per-entry select (bare enum tokens — NOT the catalog's rich
- *  platform_labels, which are catalog CONTENT owned by the catalog modal; these six tokens are
- *  the frozen schema enum and safe to enumerate here). */
-export const PLATFORM_OPTIONS: ReadonlyArray<{ value: ImagePlatform; label: string }> =
-  IMAGE_PLATFORMS.map((p) => ({ value: p, label: p }));
+/**
+ * The platforms the image worker can BUILD today: the generator's image-gen Job worker
+ * (docker/build-image.sh) has a builder for each, on the spec channel this wizard uses and on the
+ * legacy channel. This is an allowlist on purpose. The BFF accepts every schema platform, and a
+ * platform can reach the schema (and so this picker) before the worker has a builder for it; such a
+ * platform is offered GREYED with a reason, never as a choice that fails hours into a Job. Add a
+ * platform here only in the change that proves the worker builds it.
+ */
+export const WORKER_BUILDABLE_PLATFORMS: ReadonlySet<string> = new Set([
+  'x86',
+  'rpi5',
+  'frite',
+  'jetson',
+  'orangepi5',
+  'orangepizero2',
+  'orangepizero2w',
+  'orangepizero3',
+  'orangepi3-lts',
+  'orangepi4-lts',
+]);
+
+/** The one reason a schema platform is greyed: the image worker has no builder for it yet. */
+export const NOT_BUILDABLE_REASON = 'The image worker has no builder for this platform yet.';
+
+/** One option of the per-entry platform select. A greyed option is shown but cannot be picked,
+ *  and carries the inline reason shown beside the control. */
+export interface PlatformOption {
+  value: ImagePlatform;
+  label: string;
+  /** False when the image worker cannot build this platform: the option is greyed. */
+  buildable: boolean;
+  /** Why the option is greyed; null when it is buildable. */
+  reason: string | null;
+}
+
+/** Build the platform options: every platform the BFF accepts, in its order, each one greyed with
+ *  a reason unless the image worker can build it. Fails closed: absent from the allowlist = greyed. */
+export function platformOptionsFor(
+  platforms: readonly ImagePlatform[],
+  buildable: ReadonlySet<string>,
+): ReadonlyArray<PlatformOption> {
+  return platforms.map((p) => {
+    const ok = buildable.has(p);
+    return {
+      value: p,
+      label: ok ? p : `${p} (not buildable yet)`,
+      buildable: ok,
+      reason: ok ? null : NOT_BUILDABLE_REASON,
+    };
+  });
+}
+
+/** Platform options for the per-entry select (bare enum tokens, NOT the catalog's rich
+ *  platform_labels, which are catalog CONTENT owned by the catalog modal). The list is every
+ *  platform the BFF accepts (generated from its spec); the worker allowlist only greys. */
+export const PLATFORM_OPTIONS: ReadonlyArray<PlatformOption> = platformOptionsFor(
+  IMAGE_PLATFORMS,
+  WORKER_BUILDABLE_PLATFORMS,
+);
 
 /** Encrypt-root options for the desktop home sub-form. */
 export const ENCRYPT_ROOT_OPTIONS: ReadonlyArray<EncryptRoot> = ['default', 'on', 'off'];

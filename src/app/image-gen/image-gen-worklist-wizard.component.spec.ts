@@ -1,8 +1,14 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ImageGenWorklistWizardComponent } from './image-gen-worklist-wizard.component';
 import { ImageGenStore } from './image-gen-store.service';
-import { BffService, DomainResponse, ImageBuildBatchResult, WorklistEnvelope } from '../bff.service';
-import { buildWorklistEnvelope, newEntry } from './worklist-entry.model';
+import { BffService, DomainResponse, IMAGE_PLATFORMS, ImageBuildBatchResult, WorklistEnvelope } from '../bff.service';
+import {
+  NOT_BUILDABLE_REASON,
+  WORKER_BUILDABLE_PLATFORMS,
+  buildWorklistEnvelope,
+  newEntry,
+  platformOptionsFor,
+} from './worklist-entry.model';
 
 function domain(clusterDomain: string, over: Partial<DomainResponse> = {}): DomainResponse {
   return {
@@ -138,11 +144,99 @@ describe('ImageGenWorklistWizardComponent', () => {
       expect(component.canAddEntry()).toBeFalse();
     });
 
-    it('offers ONLY the six enumerated platforms (no free-text hardware class)', async () => {
+    it('renders an option for every platform the BFF accepts, none greyed while the worker builds them all', async () => {
       await init();
-      expect(component.platformOptions.map((p) => p.value)).toEqual([
-        'x86', 'rpi5', 'frite', 'jetson', 'orangepi5', 'orangepizero2',
-      ]);
+      const el: HTMLElement = fixture.nativeElement;
+      const key = component.entries()[0].key;
+      const select = el.querySelector<HTMLSelectElement>(`select[data-platform="${key}"]`)!;
+      expect(select).not.toBeNull();
+      expect(Array.from(select.options).map((o) => o.value)).toEqual([...IMAGE_PLATFORMS]);
+      // The newer schema platforms are offered, not just the original six.
+      for (const p of ['orangepizero2w', 'orangepizero3', 'orangepi3-lts', 'orangepi4-lts']) {
+        expect(Array.from(select.options).some((o) => o.value === p)).withContext(p).toBeTrue();
+      }
+      const greyed = IMAGE_PLATFORMS.filter((p) => !WORKER_BUILDABLE_PLATFORMS.has(p));
+      expect(Array.from(select.options).filter((o) => o.disabled).map((o) => o.value)).toEqual(greyed);
+      if (greyed.length === 0) expect(el.querySelector(`[data-platform-greyed="${key}"]`)).toBeNull();
+    });
+
+    it('lets a newer schema platform through to the envelope', async () => {
+      await init();
+      component.entries.set([newEntry({ targetUser: 'a@acme', role: 'laptop', imageType: 'client', platform: 'orangepi4-lts' })]);
+      expect(component.entriesValid()).toBeTrue();
+      const env = buildWorklistEnvelope(component.entries(), [], 1);
+      expect(env.entries[0].hardwareClass).toBe('orangepi4-lts');
+    });
+  });
+
+  // ── GREYED platforms (schema platform the image worker cannot build) ──────
+  describe('greyed platforms', () => {
+    const GREYED = 'orangepi3-lts' as const;
+
+    beforeEach(() => configure());
+
+    function greyOne(): void {
+      // Stand in a worker allowlist that lacks one schema platform.
+      component.platformOptions = platformOptionsFor(
+        IMAGE_PLATFORMS,
+        new Set(IMAGE_PLATFORMS.filter((p) => p !== GREYED)),
+      );
+    }
+
+    it('shows the platform greyed (disabled option) with its reason inline beside the control', async () => {
+      greyOne();
+      await init();
+      const el: HTMLElement = fixture.nativeElement;
+      const key = component.entries()[0].key;
+      const select = el.querySelector<HTMLSelectElement>(`select[data-platform="${key}"]`)!;
+      const opt = Array.from(select.options).find((o) => o.value === GREYED)!;
+      expect(opt).toBeDefined();
+      expect(opt.disabled).toBeTrue();
+      expect(opt.getAttribute('data-greyed')).toBe('true');
+      expect(opt.getAttribute('title')).toBe(NOT_BUILDABLE_REASON);
+      expect(opt.textContent).toContain('not buildable');
+      // Every other platform stays selectable.
+      expect(Array.from(select.options).filter((o) => o.disabled).length).toBe(1);
+      const hint = el.querySelector(`[data-platform-greyed="${key}"]`);
+      expect(hint).not.toBeNull();
+      expect(hint!.textContent).toContain(GREYED);
+      expect(hint!.textContent).toContain(NOT_BUILDABLE_REASON);
+      // No modal: the reason is an inline label, never a dialog.
+      expect(el.querySelector('dialog, [role="dialog"]')).toBeNull();
+    });
+
+    it('BLOCKS next() for an entry on a greyed platform, naming the platform and the reason', async () => {
+      greyOne();
+      await init();
+      component.entries.set([newEntry({ targetUser: 'a@acme', role: 'laptop', imageType: 'client', platform: GREYED })]);
+      fixture.detectChanges();
+      expect(component.entriesValid()).toBeFalse();
+      component.next();
+      expect(component.stepIndex()).toBe(0);
+      expect(component.error()).toContain(GREYED);
+      expect(component.error()).toContain(NOT_BUILDABLE_REASON);
+      const why = fixture.nativeElement.querySelector(`[data-platform-reason="${component.entries()[0].key}"]`);
+      expect(why).not.toBeNull();
+      expect(why.textContent).toContain(NOT_BUILDABLE_REASON);
+    });
+
+    it('never POSTs a batch holding a greyed platform (a catalog pick cannot slip one through)', async () => {
+      greyOne();
+      await init();
+      component.entries.set([newEntry({ targetUser: 'a@acme', role: 'laptop', imageType: 'client' })]);
+      component.applyCatalogSelection(component.entries()[0].key, {
+        role: 'laptop', platform: GREYED, imageClass: 'desktop',
+      });
+      await component.build();
+      expect(bff.submitWorklistBatch).not.toHaveBeenCalled();
+      expect(component.submitted()).toBeFalse();
+      expect(component.error()).toContain(GREYED);
+    });
+
+    it('fails closed for a platform the picker does not offer at all', async () => {
+      await init();
+      expect(component.platformBuildable('toaster')).toBeFalse();
+      expect(component.platformBuildable('x86')).toBeTrue();
     });
   });
 

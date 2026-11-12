@@ -85,9 +85,24 @@
                     [name]="'platform-' + e.key"
                   >
                     @for (p of platformOptions; track p.value) {
-                      <option [value]="p.value">{{ p.label }}</option>
+                      <option
+                        [value]="p.value"
+                        [disabled]="!p.buildable"
+                        [attr.data-greyed]="p.buildable ? null : 'true'"
+                        [attr.title]="p.reason"
+                      >{{ p.label }}</option>
                     }
                   </select>
+                  @if (platformReason(e); as why) {
+                    <span class="field-error" role="alert" [attr.data-platform-reason]="e.key">{{ why }}</span>
+                  } @else if (greyedPlatforms().length > 0) {
+                    <span class="hint" [attr.data-platform-greyed]="e.key">
+                      Greyed:
+                      @for (g of greyedPlatforms(); track g.value; let last = $last) {
+                        {{ g.value }} ({{ g.reason }}){{ last ? '' : ';' }}
+                      }
+                    </span>
+                  }
                 </div>
 
                 <div class="field">

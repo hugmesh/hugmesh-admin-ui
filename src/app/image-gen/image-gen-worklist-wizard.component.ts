@@ -14,6 +14,7 @@ import {
   ImageClass,
   MAX_ENTRIES,
   PLATFORM_OPTIONS,
+  PlatformOption,
   WorklistEntry,
   WorklistEntrySelection,
   WorklistUser,
@@ -72,7 +73,9 @@ export class ImageGenWorklistWizardComponent implements OnInit {
 
   readonly maxEntries = MAX_ENTRIES;
   readonly imageTypeOptions = IMAGE_TYPE_OPTIONS;
-  readonly platformOptions = PLATFORM_OPTIONS;
+  /** Every platform the BFF accepts; the ones the image worker cannot build are greyed with a
+   *  reason. Not readonly so a test can stand in a table with a greyed platform. */
+  platformOptions: ReadonlyArray<PlatformOption> = PLATFORM_OPTIONS;
   readonly encryptRootOptions = ENCRYPT_ROOT_OPTIONS;
 
   /** The wizard steps, in order (visual rail + a11y progress). */
@@ -230,7 +233,31 @@ export class ImageGenWorklistWizardComponent implements OnInit {
   // ── validation ────────────────────────────────────────────────────────────
   private entryValid(e: WorklistEntry): boolean {
     const t = e.targetUser.trim();
-    return t.length > 0 && t.length <= 400 && TARGET_USER_RE.test(t) && e.role.trim().length > 0;
+    return (
+      t.length > 0 &&
+      t.length <= 400 &&
+      TARGET_USER_RE.test(t) &&
+      e.role.trim().length > 0 &&
+      this.platformBuildable(e.platform)
+    );
+  }
+
+  /** True only for a platform this picker offers AND the image worker can build. Fails closed: a
+   *  platform missing from the options (a stale selection, a catalog pick) is not buildable. */
+  platformBuildable(platform: string): boolean {
+    return this.platformOptions.some((o) => o.value === platform && o.buildable);
+  }
+
+  /** The inline reason shown beside an entry's platform select when its platform is greyed. */
+  platformReason(e: WorklistEntry): string | null {
+    if (this.platformBuildable(e.platform)) return null;
+    const o = this.platformOptions.find((x) => x.value === e.platform);
+    return `${e.platform}: ${o?.reason ?? 'not a platform the admin BFF accepts.'}`;
+  }
+
+  /** The greyed options, for the hint under the select (empty when every platform builds). */
+  greyedPlatforms(): ReadonlyArray<PlatformOption> {
+    return this.platformOptions.filter((o) => !o.buildable);
   }
 
   entriesValid(): boolean {
@@ -257,10 +284,12 @@ export class ImageGenWorklistWizardComponent implements OnInit {
 
   private stepError(step: StepId): string {
     switch (step) {
-      case 'images':
-        return this.entries().length > MAX_ENTRIES
-          ? `A batch may build at most ${MAX_ENTRIES} images.`
-          : 'Every image needs a valid target user (letters, digits, . _ @ / -) and a role.';
+      case 'images': {
+        if (this.entries().length > MAX_ENTRIES) return `A batch may build at most ${MAX_ENTRIES} images.`;
+        const greyed = this.entries().find((e) => !this.platformBuildable(e.platform));
+        if (greyed) return `Pick another platform: ${this.platformReason(greyed)}`;
+        return 'Every image needs a valid target user (letters, digits, . _ @ / -) and a role.';
+      }
       case 'users':
         return 'Every named user needs a domain.';
       default:
