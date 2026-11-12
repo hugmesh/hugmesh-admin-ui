@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { BffService, TaskDef, StepDef, FieldDef, ValidationResult, PreviewResult, ApplyResult } from './bff.service';
+import { BffService, AdminTasksLoad, TaskDef, StepDef, FieldDef, ValidationResult, PreviewResult, ApplyResult } from './bff.service';
 
 /**
  * Admin "Guided tasks" wizard (ROLE_ADMIN only, route-guarded). A step/task UX over
@@ -13,6 +13,12 @@ import { BffService, TaskDef, StepDef, FieldDef, ValidationResult, PreviewResult
  * <p>Wraps the existing cluster-admin operations (gateway-route, RBAC/route-access,
  * Casdoor user) behind one guided flow, reusing the BFF's ReservedNames validation
  * (a reserved path/username is surfaced as an inline field error before apply).
+ *
+ * <p>No admin-bff implements /bff/admin/tasks yet, so on most deployments the catalogue
+ * answers 404. The page then says the feature is not available on this deployment, rather
+ * than "No admin tasks available" (which reads as an empty catalogue). A failed load gets
+ * its own message. The host submenu and the admin landing menu only list this console
+ * once the catalogue loads, but the route stays mounted so a direct link explains itself.
  *
  * <p>a11y: the wizard is keyboard operable (native form controls + buttons), each
  * field has a &lt;label for&gt;, inline errors are in role=alert live regions, and
@@ -28,7 +34,20 @@ import { BffService, TaskDef, StepDef, FieldDef, ValidationResult, PreviewResult
 export class AdminTaskWizardComponent implements OnInit {
   private readonly bff = inject(BffService);
 
-  readonly tasks = signal<TaskDef[]>([]);
+  /** The catalogue load; null while the request is in flight. */
+  readonly load = signal<AdminTasksLoad | null>(null);
+  /** The tasks offered by the catalogue (empty unless the load succeeded). */
+  readonly tasks = computed<TaskDef[]>(() => {
+    const l = this.load();
+    return l?.state === 'ok' ? l.tasks : [];
+  });
+  /** True when this deployment has no backend for the guided-task surface (404). */
+  readonly unavailable = computed(() => this.load()?.state === 'unavailable');
+  /** The failed load's HTTP status (0 = network failure), or null when the load did not fail. */
+  readonly loadError = computed<number | null>(() => {
+    const l = this.load();
+    return l?.state === 'error' ? l.status : null;
+  });
   readonly task = signal<TaskDef | null>(null);
   readonly stepIndex = signal(0);
   /** Per-step form input, keyed by field key. Reset when a task is chosen. */
@@ -47,7 +66,7 @@ export class AdminTaskWizardComponent implements OnInit {
     return !!t && this.stepIndex() >= t.steps.length - 1;
   });
 
-  async ngOnInit(): Promise<void> { this.tasks.set(await this.bff.adminTasks()); }
+  async ngOnInit(): Promise<void> { this.load.set(await this.bff.adminTasks()); }
 
   /** Choose a task → reset the wizard to its first step. */
   chooseTask(id: string): void {

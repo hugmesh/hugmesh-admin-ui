@@ -37,6 +37,19 @@
     .empty { color: var(--hug-text-muted, #{t.$muted}); }
   }
 
+  // Catalogue load states (loading / not on this deployment / failed).
+  .load-state { color: var(--hug-text-muted, #{t.$muted}); }
+  .unavailable {
+    margin: 0.75rem 0;
+    padding: 0.9rem;
+    border: 1px solid var(--hug-border, #{t.$mid});
+    border-radius: t.$radius-card;
+    background: var(--hug-bg-1, #{t.$surface});
+    .unavailable-title { margin: 0 0 0.35rem; font-weight: 700; color: var(--hug-text, #{t.$offwhite}); }
+    .unavailable-detail { margin: 0; color: var(--hug-text-muted, #{t.$muted}); font-size: 0.9rem; }
+  }
+  .load-error { color: var(--hug-error, #{t.$pastel-rose}); font-weight: 600; }
+
   .link-back {
     all: unset;
     cursor: pointer;

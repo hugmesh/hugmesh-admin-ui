@@ -3,16 +3,35 @@
 
   <!-- Task picker. -->
   <div class="task-picker" *ngIf="!task()">
-    <p id="wizard-pick-label">Choose a task to start a guided, validated flow.</p>
-    <ul class="task-list" data-testid="task-list" aria-labelledby="wizard-pick-label">
-      <li *ngFor="let t of tasks()" [attr.data-task]="t.id">
-        <button type="button" [attr.data-choose]="t.id" (click)="chooseTask(t.id)">
-          <span class="task-title">{{ t.title }}</span>
-          <span class="task-desc">{{ t.description }}</span>
-        </button>
-      </li>
-      <li *ngIf="!tasks().length" class="empty">No admin tasks available.</li>
-    </ul>
+    <p *ngIf="!load()" class="load-state" data-testid="task-wizard-loading" role="status" aria-live="polite">
+      Loading admin tasks…
+    </p>
+
+    <!-- 404: no admin-bff on this deployment serves the catalogue. Not an empty list. -->
+    <div *ngIf="unavailable()" class="unavailable" data-testid="task-wizard-unavailable" role="status">
+      <p class="unavailable-title">Guided tasks are not available on this deployment.</p>
+      <p class="unavailable-detail">
+        This mesh's admin service does not provide the guided-task catalogue. Make these changes
+        in the individual admin consoles instead: Route definitions, Route access and Roles.
+      </p>
+    </div>
+
+    <p *ngIf="loadError() !== null" class="load-error" data-testid="task-wizard-error" role="alert">
+      Could not load the admin tasks ({{ loadError() ? 'HTTP ' + loadError() : 'network error' }}). Try again later.
+    </p>
+
+    <ng-container *ngIf="load()?.state === 'ok'">
+      <p id="wizard-pick-label">Choose a task to start a guided, validated flow.</p>
+      <ul class="task-list" data-testid="task-list" aria-labelledby="wizard-pick-label">
+        <li *ngFor="let t of tasks()" [attr.data-task]="t.id">
+          <button type="button" [attr.data-choose]="t.id" (click)="chooseTask(t.id)">
+            <span class="task-title">{{ t.title }}</span>
+            <span class="task-desc">{{ t.description }}</span>
+          </button>
+        </li>
+        <li *ngIf="!tasks().length" class="empty" data-testid="task-wizard-empty">No admin tasks available.</li>
+      </ul>
+    </ng-container>
   </div>
 
   <!-- Wizard for the chosen task. -->
