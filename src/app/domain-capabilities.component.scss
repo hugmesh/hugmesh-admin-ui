@@ -11,6 +11,17 @@
   font-size: 0.9rem;
 }
 
+// A select is as wide as its longest option ("Mesh radio self-registration
+// (user-mesh-devices)" is ~366px), and the host shell sizes a routed view to fit
+// its content, so on a 390px phone the view came out 392px wide. A percentage
+// width lets the select shrink with the page (it then contributes no fixed
+// minimum), and max-content keeps it at its natural width, beside the label,
+// wherever it fits.
+.dc-capability-picker select {
+  width: 100%;
+  max-width: max-content;
+}
+
 .dc-error {
   color: var(--hug-error);
   font-weight: 600;

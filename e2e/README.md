@@ -44,6 +44,7 @@ with the deepest cross-user and DENY coverage:
 | MUTATION | `features/admin/role-grant.feature` | `POST/DELETE /bff/admin/roles/{roleName}/{user}`: an admin grants then revokes `ROLE_MATRIX`; a mod's grant POST → 403 |
 | MUTATION | `features/admin/superadmin-domains.feature` | Domains console: a superadmin registers a domain through the console; a domain admin's create POST → 403 |
 | EVERY-FUNCTION | `features/admin/theme-editor-axes.feature` | `@offline` the Themes editor offers the ramp, style and nav-decoration choices; one `@fixme` scenario records the missing background-effect axis (host-shell issue 19) |
+| LAYOUT | `features/admin/phone-width.feature` | `@cluster` at a 390x844 phone the page does not scroll sideways (`scrollWidth` = `clientWidth`) on `/admin/backing-services`, `/admin/domain-capabilities` and `/admin/docs` (api-docs navigator stacked above its pane). Cluster-only: the overflow needs the host shell's routed-view sizing, which the standalone dev shell does not have; the karma spec `src/app/phone-width.spec.ts` is the CI gate |
 
 ## Two lanes: `@offline` (default, runs on `ng serve`) and `@cluster` (dark)
 
@@ -97,7 +98,7 @@ the default lane is empty or holds the `@offline` scenarios.
 `@skip` drops a scenario from generation entirely (`bddgen` emits 0 specs for
 it), so a `@skip`-tagged suite cannot be *discovered*. `@cluster` is a plain
 filter tag: the no-filter validation below generates and lists every scenario
-(**178 today across 34 files**), which proves the Gherkin compiles, while the
+(**181 today across 35 files**), which proves the Gherkin compiles, while the
 default config keeps the `@cluster` ones dark and surfaces the `@offline` lane.
 
 ## Structural validation (no cluster, no browser)
