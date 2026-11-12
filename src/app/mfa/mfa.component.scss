@@ -8,15 +8,19 @@
 // light-theme fallback (#fff surfaces, #fff8e1 step-up panel) under the dark
 // shell's inherited near-white --hug-text — white-on-white controls on a
 // security-critical surface. Mapping applied (branding baseline fix recipe):
-//   --snap-color-primary #1565c0 → var(--hug-accent) backgrounds w/ --hug-text text
+//   --snap-color-primary #1565c0 → var(--hug-accent) backgrounds w/ --hug-accent-on text
 //   --snap-color-error   #b00020 → var(--hug-error)
 //   --snap-color-warn    #f57c00 → var(--hug-warning, #ffb74d) on var(--hug-bg-1)
 //   --snap-color-surface #fff    → var(--hug-bg-1)
 //   --snap-color-border  #ccc    → var(--hug-border)
 // Accent-colored TEXT always uses var(--hug-accent-soft) (7.38:1 AAA), never
-// var(--hug-accent) (3.22:1 as text). The regression guard lives in
-// mfa-security.component.spec.ts ("renders on the --hug-* palette").
+// var(--hug-accent) (below AA as text). The regression guards live in
+// mfa-security.component.spec.ts ("renders on the --hug-* palette") and
+// palette-contrast.spec.ts (rendered ratios, standalone and under the host).
 @use '../../styles/tokens' as t;
+@use '../../styles/mixins' as m;
+
+@include m.inline-code;
 
 .hug-mfa {
   display: block;
@@ -89,8 +93,8 @@
 }
 
 .mfa-btn.primary {
-  background: var(--hug-accent, #7c4dff);
-  color: var(--hug-text, #e8e8f0);
+  background: var(--hug-accent, #6a3df0);
+  color: var(--hug-accent-on, #fff);
   border-color: transparent;
 }
 

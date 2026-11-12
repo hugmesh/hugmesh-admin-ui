@@ -56,7 +56,7 @@
     padding: 0.1rem 0.4rem;
     border-radius: t.$radius-sm;
 
-    &:hover { color: var(--hug-accent, #{t.$neon}); }
+    &:hover { color: var(--hug-accent-soft, #{t.$neon}); }
     &:focus-visible { outline: 2px solid var(--hug-text, #{t.$offwhite}); outline-offset: 2px; }
   }
 }
@@ -121,7 +121,7 @@
 .pkg-locked {
   font-size: 0.72rem;
   font-weight: 700;
-  color: var(--hug-accent, #{t.$neon});
+  color: var(--hug-accent-soft, #{t.$neon});
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
@@ -191,7 +191,7 @@
 
     &.primary {
       background: var(--hug-accent, #{t.$neon});
-      color: t.$black;
+      color: var(--hug-accent-on, #fff);
       border: none;
       font-weight: 600;
     }

@@ -205,7 +205,10 @@ export function buildPreviewDoc(title: string, bodyHtml: string): string {
   body { margin: 0; font-family: Arial, Helvetica, sans-serif; line-height: 1.5; }
   .announcement-root { padding: 1rem; }
   .announcement-title { margin-top: 0; }
-  a { color: #7c4dff; }
+  /* The preview follows the OS scheme (color-scheme above), so the link needs a
+     colour per scheme: #6a3df0 is 5.93:1 on the light canvas, #b388ff 7.0:1 on
+     the dark one. The old single #7c4dff was 3.89:1 on the dark canvas. */
+  a { color: light-dark(#6a3df0, #b388ff); }
   img { max-width: 100%; height: auto; }
 </style></head>
 <body><div class="announcement-root">${heading}${safeBody}</div></body></html>`;

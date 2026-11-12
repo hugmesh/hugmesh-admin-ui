@@ -1,8 +1,11 @@
 @use '../styles/tokens' as t;
+@use '../styles/mixins' as m;
 
 :host {
   display: block;
 }
+
+@include m.inline-code;
 
 .hug-egress-vpn {
   display: block;
@@ -53,7 +56,7 @@
 
   button {
     background: var(--hug-accent);
-    color: var(--hug-text);
+    color: var(--hug-accent-on, #fff);
     border: 1px solid var(--hug-accent-soft);
     border-radius: t.$radius-sm;
     padding: 0.4rem 0.8rem;

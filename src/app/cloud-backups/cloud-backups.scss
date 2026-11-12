@@ -182,7 +182,7 @@
 }
 
 .cb-this {
-  color: var(--hug-accent, #{t.$neon});
+  color: var(--hug-accent-soft, #{t.$neon});
   font-weight: 700;
 }
 
@@ -203,7 +203,7 @@
 
   &--total {
     border-color: var(--hug-accent, #{t.$neon});
-    color: var(--hug-accent, #{t.$neon});
+    color: var(--hug-accent-soft, #{t.$neon});
   }
 }
 
@@ -214,7 +214,7 @@
 // ── buttons ──────────────────────────────────────────────────────────────────
 .cb-btn {
   background: var(--hug-accent, #{t.$neon});
-  color: #{t.$black};
+  color: var(--hug-accent-on, #fff);
   border: 1px solid var(--hug-accent, #{t.$neon});
   border-radius: t.$radius-sm;
   padding: 0.45rem 0.9rem;

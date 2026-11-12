@@ -10,7 +10,8 @@ h2 {
 }
 
 .hint {
-  color: t.$muted;
+  // --hug-text-muted, not t.$muted: #777 measured 2.78:1 on the shell's panel.
+  color: var(--hug-text-muted, #a8acc4);
   margin: 0 0 1rem;
   max-width: 60ch;
 }
@@ -137,7 +138,7 @@ fieldset.editor {
     }
 
     small {
-      color: t.$muted;
+      color: var(--hug-text-muted, #a8acc4);
     }
   }
 

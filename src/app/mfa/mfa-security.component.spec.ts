@@ -163,13 +163,14 @@ describe('MfaSecurityComponent', () => {
 
     it('the :root --hug-* contract is actually loaded (guard premise)', () => {
       const accent = getComputedStyle(document.documentElement).getPropertyValue('--hug-accent').trim();
-      expect(accent).withContext('src/styles.scss must define the --hug-* contract').toBe('#7c4dff');
+      expect(accent).withContext('src/styles.scss must define the --hug-* contract').toBe('#6a3df0');
     });
 
-    it('primary buttons carry the --hug-accent background with --hug-text labels', () => {
+    it('primary buttons carry the --hug-accent background with --hug-accent-on labels', () => {
       const s = styleOf('mfa-security-add'); // .mfa-btn.primary
-      expect(s.backgroundColor).toBe('rgb(124, 77, 255)'); // --hug-accent
-      expect(s.color).toBe('rgb(232, 232, 240)'); // --hug-text
+      expect(s.backgroundColor).toBe('rgb(106, 61, 240)'); // --hug-accent
+      // --hug-accent-on, not --hug-text: #e8e8f0 on the accent was 3.95:1 (GUI-31).
+      expect(s.color).toBe('rgb(255, 255, 255)');
     });
 
     it('plain buttons sit on the --hug-bg-1 panel tone — never a light fallback', () => {

@@ -132,7 +132,7 @@
       cursor: pointer;
 
       &[data-testid='wizard-next'],
-      &[data-testid='wizard-apply'] { background: var(--hug-accent, #{t.$neon}); color: t.$black; border: none; }
+      &[data-testid='wizard-apply'] { background: var(--hug-accent, #{t.$neon}); color: var(--hug-accent-on, #fff); border: none; }
       &:disabled { opacity: t.$opacity-muted; cursor: not-allowed; }
       &:focus-visible { outline: 2px solid t.$offwhite; outline-offset: 2px; }
     }

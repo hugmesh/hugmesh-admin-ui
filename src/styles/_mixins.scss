@@ -35,3 +35,18 @@
   border-radius: t.$radius-page;
   display: block;
 }
+
+// Inline <code> on the admin's dark panels. Mounted under the hugmesh.net host
+// the page carries Bootstrap's global `code { color: var(--bs-code-color) }`
+// (#d63384: 4.1:1 on opaque --hug-bg-1, 2.6-3.1:1 as delivered on the shell's
+// translucent panels), and the remote's own src/styles.scss is never linked
+// there, so the override has to ship in COMPONENT styles. Include it in every
+// stylesheet whose template renders <code>; inside the root wrapper class when
+// the file is also compiled under ViewEncapsulation.None, so the rule cannot
+// leak onto the host page. --hug-accent-soft is the contract's accent-as-text
+// token (7.0:1 on --hug-bg-1); the user-ui card editor uses the same.
+@mixin inline-code {
+  code {
+    color: var(--hug-accent-soft, #b388ff);
+  }
+}
