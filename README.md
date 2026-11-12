@@ -389,6 +389,17 @@ After submit, `ImageGenStore` opens **one SSE reader per build** in the batch (a
 screen shows one live card per image, and one broken stream never disturbs its
 siblings.
 
+**Platforms (from the BFF, greyed when the worker cannot build them):** each entry's
+platform select lists every platform the admin BFF accepts for a batch image, in the
+BFF's order. That is the `BatchImageSpec.hardwareClass` enum in `openapi.json`, which the
+BFF reads from the generator worklist schema it vendors. There is no hand list: a new
+platform arrives by regenerating the client (`npm run gen:spec`). A platform can reach the
+schema before the generator's image worker has a builder for it. `WORKER_BUILDABLE_PLATFORMS`
+(`worklist-entry.model.ts`) lists what the worker builds today, and any other schema platform
+is shown greyed: a disabled option marked "not buildable yet", with the reason in a label under
+the select. An entry on a greyed or unknown platform blocks Next and Build. Today the worker
+builds all ten schema platforms, so nothing is greyed.
+
 **Package selection (role-aware tiers, ✅ shipped PR #77):** each entry's "Edit
 packages" opens `PackageCatalogModalComponent`, which shows the BFF's gate-grouped
 package catalog as a tree. If the catalog has a generator-emitted
@@ -480,6 +491,13 @@ The generated output **is committed** there (per-controller services and models)
 was the first consumer; `DomainThemesStore` (`DomainThemeAdminControllerService`)
 is the second. The catch-all `BffService` stays hand-written against the shared
 API contract until it migrates too.
+
+`npm run gen` also runs `scripts/gen-image-platforms.mjs`, which writes the runtime list of
+batch-image platforms (`src/app/image-gen/image-platforms.generated.ts`) from the same
+`openapi.json` enum. ng-openapi-gen emits that inline enum as a type union only. A compile-time
+check fails the build if the list and the generated type differ, and a spec compares both
+with `openapi.json`. `node scripts/gen-image-platforms.mjs --check` reports drift without
+writing.
 
 `gen:spec` defaults to the committed spec of the sibling checkout,
 `../hugmesh-admin-bff-api/src/main/resources/openapi/openapi.json`. Set
