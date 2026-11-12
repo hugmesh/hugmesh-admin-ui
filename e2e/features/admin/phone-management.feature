@@ -36,7 +36,7 @@ Feature: Phone device management + lockout — superadmin managed/BYOD + lock co
   Scenario: a domain admin is bounced from the Phone fleet console (DENY)
     Given "admin-domain-a" has a seeded session
     When "admin-domain-a" navigates to "/admin/phone-fleet"
-    Then "admin-domain-a" is redirected to the login page
+    Then "admin-domain-a" is shown the denied notice
 
   # A domain admin genuinely holds ROLE_ADMIN — not a no-role probe — yet the lock mutation is
   # hasRole('SUPERADMIN') only, so the write is rejected outright: 403, never a validation 400.

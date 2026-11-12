@@ -46,7 +46,7 @@ Feature: Phone fleet console — superadmin-only read-only MDM phone registry
   Scenario: a domain admin is bounced from the Phone fleet console (DENY)
     Given "admin-domain-a" has a seeded session
     When "admin-domain-a" navigates to "/admin/phone-fleet"
-    Then "admin-domain-a" is redirected to the login page
+    Then "admin-domain-a" is shown the denied notice
 
   # A domain admin genuinely holds ROLE_ADMIN — this is not a no-role probe — yet the
   # phone-devices read is hasRole('SUPERADMIN') only, so even the LIST is rejected

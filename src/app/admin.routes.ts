@@ -123,13 +123,18 @@ import { workloadConsoleGuard } from './workload-console.guard';
  *     authority. Mounted bare by the standalone dev shell (`app.routes.ts`) they have none.
  *   - EXCEPTION: `mesh-tokens` carries this repo's `adminGuard` (TODO(admin-guard) option (b),
  *     adopted knowingly for that ONE route: it mints a mesh-join credential, so the refused caller
- *     should never activate it). Its known costs apply there: a superadmin-ONLY session (no
- *     `admin` role), a stale/absent `hug.session` mirror, and the dev shell all bounce to `/login`.
+ *     should never activate it). It admits `admin` OR `superadmin` (admin-bff's RoleHierarchy).
+ *     Its known costs apply there: a stale `hug.session` mirror is refused to the host's
+ *     `/home?denied=` notice, an absent one to `/login`, and the dev shell has neither route.
  *   - Elsewhere this repo's own `adminGuard` (`admin.guard.ts`) is deliberately NOT on the routes: it
  *     reads only the `hug.session` localStorage mirror, which the host never writes, so it would
- *     send an admin the host has just admitted (mid-session role grant, or a cookie-only session)
- *     to `/login`, and it would break `/` in the dev shell. See the TODO(admin-guard) on it for
+ *     refuse an admin the host has just admitted (mid-session role grant, or a cookie-only
+ *     session), and it would break `/` in the dev shell. See the TODO(admin-guard) on it for
  *     the decision that has to come first.
+ *   - EVERY guard here refuses through `refuseNavigation` (`guard-refusal.ts`), the host shell's
+ *     contract: signed out -> `/login`; signed in without the role -> `/home?denied=<url>`, where
+ *     the host renders its denied notice. A signed-in caller is never sent to the sign-in page.
+ *     (workloadConsoleGuard's second refusal, role held but no live grant, goes to `/admin`.)
  *   - A route whose audience is NOT "holders of the `admin` role" carries its OWN guard:
  *     superadminGuard, fleetAdminGuard (also admits a bare `fleet_admin`), gamesServicesGuard
  *     (admits a bare `games_services_admin`/`games_services_runner`) and workloadConsoleGuard
@@ -191,8 +196,9 @@ export const ADMIN_ROUTES: Routes = [
   { path: 'device-radios', component: DeviceRadiosComponent },
   // Mesh-token ISSUING (ADMIN/SUPERADMIN) over admin-bff /bff/admin/mesh-tokens: show the issuer
   // fingerprint, issue a signed HugMesh token (step-up gated, shown once), list the audit. The ONE
-  // route that carries this repo's adminGuard — a knowing adoption of TODO(admin-guard) option (b)
-  // for this route only (see the GUARD POLICY note above); the BFF stays authoritative.
+  // route that carries this repo's adminGuard (admin OR superadmin) — a knowing adoption of
+  // TODO(admin-guard) option (b) for this route only (see the GUARD POLICY note above); the BFF
+  // stays authoritative.
   { path: 'mesh-tokens', component: MeshTokensComponent, canActivate: [adminGuard] },
   { path: 'domain-capabilities', component: DomainCapabilitiesComponent },
   { path: 'egress-vpn', component: EgressVpnComponent, canActivate: [superadminGuard] },

@@ -32,7 +32,7 @@ Feature: Games-services console — guard ALLOW for both roles, create gated to 
   Scenario: a plain user is bounced from the games-services console (DENY)
     Given "plain-user" has a seeded session
     When "plain-user" navigates to "/games-services"
-    Then "plain-user" is redirected to the login page
+    Then "plain-user" is shown the denied notice
 
   # ── The OTHER games surface: the SUPERADMIN-only GLOBAL catalog + per-domain
   # offers at /bff/superadmin/games-services/** (admin-bff
