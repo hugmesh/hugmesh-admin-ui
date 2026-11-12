@@ -178,6 +178,48 @@
         }
       }
     },
+    "/bff/superadmin/optional-services/{slug}" : {
+      "put" : {
+        "tags" : [ "optional-service-superadmin-controller" ],
+        "summary" : "Enable or disable an optional service",
+        "operationId" : "optionalServicesSetEnabled",
+        "parameters" : [ {
+          "name" : "slug",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "maxLength" : 64,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SetOptionalServiceEnabledRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "object"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/bff/superadmin/games-services/offers/{domain}/{slug}" : {
       "put" : {
         "tags" : [ "games-catalog-superadmin-controller" ],
@@ -551,6 +593,45 @@
         }
       }
     },
+    "/bff/admin/tor/nodes/{nodeFp}/upstream" : {
+      "put" : {
+        "tags" : [ "tor-admin-controller" ],
+        "summary" : "Set node upstream",
+        "operationId" : "torSetNodeUpstream",
+        "parameters" : [ {
+          "name" : "nodeFp",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TorUpstreamRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TorNodeConfig"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/bff/admin/themes/{domain}" : {
       "get" : {
         "tags" : [ "domain-theme-admin-controller" ],
@@ -700,6 +781,55 @@
         "responses" : {
           "200" : {
             "description" : "OK"
+          }
+        }
+      }
+    },
+    "/bff/admin/mfa/role-policy/{role}" : {
+      "put" : {
+        "tags" : [ "role-mfa-policy-controller" ],
+        "summary" : "Set a role MFA policy",
+        "operationId" : "roleMfaPolicySet",
+        "parameters" : [ {
+          "name" : "role",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "maxLength" : 64,
+            "minLength" : 0,
+            "pattern" : "[A-Za-z0-9_-]+",
+            "type" : "string"
+          }
+        }, {
+          "name" : "domain",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "maxLength" : 255,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SetRoleMfaPolicyRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RoleMfaPolicy"
+                }
+              }
+            }
           }
         }
       }
@@ -1513,6 +1643,27 @@
             "minLength" : 0,
             "type" : "string"
           }
+        }, {
+          "name" : "X-ServiceStore-StepUp",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "bff_session",
+          "in" : "cookie",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "Authorization",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "requestBody" : {
           "content" : {
@@ -1628,6 +1779,27 @@
           "schema" : {
             "maxLength" : 36,
             "minLength" : 0,
+            "type" : "string"
+          }
+        }, {
+          "name" : "X-ServiceStore-StepUp",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "bff_session",
+          "in" : "cookie",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "Authorization",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
             "type" : "string"
           }
         } ],
@@ -2173,6 +2345,13 @@
         "summary" : "Session out",
         "operationId" : "authSessionOut",
         "parameters" : [ {
+          "name" : "bff_session",
+          "in" : "cookie",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "name" : "Authorization",
           "in" : "header",
           "required" : false,
@@ -2467,6 +2646,59 @@
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/LocalLoginRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "object"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bff/internal/usage" : {
+      "post" : {
+        "tags" : [ "internal-account-controller" ],
+        "operationId" : "recordUsage",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RecordUsageRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        }
+      }
+    },
+    "/bff/internal/tor/onions" : {
+      "post" : {
+        "tags" : [ "tor-internal-controller" ],
+        "summary" : "Report node onions",
+        "operationId" : "torInternalReportOnions",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TorOnionReportRequest"
               }
             }
           },
@@ -2787,6 +3019,64 @@
         "responses" : {
           "204" : {
             "description" : "No Content"
+          }
+        }
+      }
+    },
+    "/bff/internal/aio-triage/ingest" : {
+      "post" : {
+        "tags" : [ "aio-triage-ingest-controller" ],
+        "summary" : "Ingest a collected infra/NIDS signal batch for edge-AI triage",
+        "operationId" : "aioTriageIngest",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AioTriageIngestRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "object"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bff/internal/accounts/{id}/restart-onboarding" : {
+      "post" : {
+        "tags" : [ "internal-account-controller" ],
+        "operationId" : "restartOnboarding",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountOut"
+                }
+              }
+            }
           }
         }
       }
@@ -3717,6 +4007,144 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ModerationDecisionDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bff/admin/mesh-tokens" : {
+      "get" : {
+        "tags" : [ "mesh-token-controller" ],
+        "summary" : "The mesh-token audit trail (never a token or key)",
+        "operationId" : "meshTokenList",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "object"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "mesh-token-controller" ],
+        "summary" : "Issue one HugMesh token (returned once, never stored)",
+        "operationId" : "meshTokenIssue",
+        "parameters" : [ {
+          "name" : "X-MeshToken-StepUp",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "bff_session",
+          "in" : "cookie",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "Authorization",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MeshTokenIssueRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "object"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bff/admin/matrix/deactivations/propose" : {
+      "post" : {
+        "tags" : [ "matrix-admin-deactivate-controller" ],
+        "summary" : "Propose a one-way Matrix account deactivate (step 1 of 2)",
+        "operationId" : "matrixDeactivatePropose",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MatrixDeactivateProposeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "object"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bff/admin/matrix/deactivations/confirm" : {
+      "post" : {
+        "tags" : [ "matrix-admin-deactivate-controller" ],
+        "summary" : "Confirm a proposed Matrix account deactivate (step 2 of 2)",
+        "operationId" : "matrixDeactivateConfirm",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MatrixDeactivateConfirmRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "object"
+                  }
                 }
               }
             }
@@ -5713,6 +6141,28 @@
         }
       }
     },
+    "/bff/superadmin/optional-services" : {
+      "get" : {
+        "tags" : [ "optional-service-superadmin-controller" ],
+        "summary" : "Optional-services catalogue + toggleability",
+        "operationId" : "optionalServicesCatalogue",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "object"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/bff/superadmin/fleet-entitlements" : {
       "get" : {
         "tags" : [ "fleet-entitlement-superadmin-controller" ],
@@ -6174,6 +6624,13 @@
           "name" : "handle",
           "in" : "path",
           "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "domain",
+          "in" : "query",
+          "required" : false,
           "schema" : {
             "type" : "string"
           }
@@ -6773,6 +7230,57 @@
         }
       }
     },
+    "/bff/admin/tor/nodes" : {
+      "get" : {
+        "tags" : [ "tor-admin-controller" ],
+        "summary" : "List node onions",
+        "operationId" : "torListNodes",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/TorNodeView"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bff/admin/tor/export" : {
+      "get" : {
+        "tags" : [ "tor-admin-controller" ],
+        "summary" : "Export",
+        "operationId" : "torExport",
+        "parameters" : [ {
+          "name" : "node",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SignedTorExport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/bff/admin/themes" : {
       "get" : {
         "tags" : [ "domain-theme-admin-controller" ],
@@ -7092,6 +7600,57 @@
         "tags" : [ "oidc-provider-roles-controller" ],
         "summary" : "List provider roles",
         "operationId" : "oidcProviderRolesListProviderRoles",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "object"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bff/admin/mfa/role-policy" : {
+      "get" : {
+        "tags" : [ "role-mfa-policy-controller" ],
+        "summary" : "List role MFA policies",
+        "operationId" : "roleMfaPolicyList",
+        "parameters" : [ {
+          "name" : "domain",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "maxLength" : 255,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RoleMfaPolicyList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bff/admin/mesh-tokens/issuer" : {
+      "get" : {
+        "tags" : [ "mesh-token-controller" ],
+        "summary" : "The mesh-token issuer: public key, fingerprint, domains and roles this caller may issue",
+        "operationId" : "meshTokenIssuer",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -8824,6 +9383,20 @@
           }
         }
       },
+      "SetOptionalServiceEnabledRequest" : {
+        "required" : [ "enabled" ],
+        "type" : "object",
+        "properties" : {
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "reason" : {
+            "maxLength" : 512,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        }
+      },
       "GameDomainOfferRequest" : {
         "type" : "object",
         "properties" : {
@@ -9075,6 +9648,41 @@
           }
         }
       },
+      "TorUpstreamRequest" : {
+        "type" : "object",
+        "properties" : {
+          "upstream" : {
+            "maxLength" : 300,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        }
+      },
+      "TorNodeConfig" : {
+        "type" : "object",
+        "properties" : {
+          "machineKeyFp" : {
+            "type" : "string"
+          },
+          "upstreamManaged" : {
+            "type" : "boolean"
+          },
+          "upstream" : {
+            "type" : "string"
+          },
+          "configGeneration" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "updatedBy" : {
+            "type" : "string"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
       "DomainThemeRequest" : {
         "required" : [ "preset" ],
         "type" : "object",
@@ -9160,6 +9768,67 @@
           }
         }
       },
+      "SetRoleMfaPolicyRequest" : {
+        "type" : "object",
+        "properties" : {
+          "required" : {
+            "type" : "boolean"
+          },
+          "methods" : {
+            "maxItems" : 3,
+            "minItems" : 0,
+            "type" : "array",
+            "items" : {
+              "maxLength" : 16,
+              "minLength" : 0,
+              "type" : "string"
+            }
+          },
+          "graceSeconds" : {
+            "maximum" : 2592000,
+            "minimum" : 0,
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "RoleMfaPolicy" : {
+        "type" : "object",
+        "properties" : {
+          "domain" : {
+            "type" : "string"
+          },
+          "role" : {
+            "type" : "string"
+          },
+          "required" : {
+            "type" : "boolean"
+          },
+          "methods" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "graceSeconds" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "fromRow" : {
+            "type" : "boolean"
+          },
+          "floor" : {
+            "type" : "boolean"
+          },
+          "updatedBy" : {
+            "type" : "string"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
       "AppearanceDefaultUpdate" : {
         "required" : [ "prefs" ],
         "type" : "object",
@@ -9224,6 +9893,11 @@
           },
           "enabled" : {
             "type" : "boolean"
+          },
+          "idp" : {
+            "maxLength" : 16,
+            "minLength" : 0,
+            "type" : "string"
           }
         }
       },
@@ -9277,6 +9951,15 @@
           "lastReconciledGeneration" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "idp" : {
+            "type" : "string"
+          },
+          "selinuxLevel" : {
+            "type" : "string"
+          },
+          "selinuxLevelPg" : {
+            "type" : "string"
           }
         }
       },
@@ -10262,6 +10945,50 @@
           }
         }
       },
+      "RecordUsageRequest" : {
+        "required" : [ "action", "handle" ],
+        "type" : "object",
+        "properties" : {
+          "handle" : {
+            "maxLength" : 400,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "roles" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "action" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        }
+      },
+      "TorOnionReportRequest" : {
+        "required" : [ "machineKeyFp" ],
+        "type" : "object",
+        "properties" : {
+          "machineKeyFp" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "primary" : {
+            "maxLength" : 62,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "domains" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
       "CreateSessionRequest" : {
         "required" : [ "accountId" ],
         "type" : "object",
@@ -10397,11 +11124,6 @@
           },
           "vaultRef" : {
             "maxLength" : 512,
-            "minLength" : 0,
-            "type" : "string"
-          },
-          "k8sSecretName" : {
-            "maxLength" : 253,
             "minLength" : 0,
             "type" : "string"
           },
@@ -10637,6 +11359,37 @@
           "expiresInSeconds" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }
+      },
+      "AioTriageIngestRequest" : {
+        "required" : [ "adminSubjects", "domain", "eventKey", "signals" ],
+        "type" : "object",
+        "properties" : {
+          "domain" : {
+            "maxLength" : 64,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "adminSubjects" : {
+            "maxItems" : 100,
+            "minItems" : 0,
+            "type" : "array",
+            "items" : {
+              "maxLength" : 255,
+              "minLength" : 0,
+              "type" : "string"
+            }
+          },
+          "eventKey" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "signals" : {
+            "maxLength" : 16384,
+            "minLength" : 0,
+            "type" : "string"
           }
         }
       },
@@ -11035,6 +11788,61 @@
           }
         }
       },
+      "MeshTokenIssueRequest" : {
+        "required" : [ "domain", "role" ],
+        "type" : "object",
+        "properties" : {
+          "domain" : {
+            "maxLength" : 253,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "role" : {
+            "maxLength" : 16,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "shell" : {
+            "type" : "boolean"
+          },
+          "lifetimeSeconds" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "nodeName" : {
+            "maxLength" : 63,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        }
+      },
+      "MatrixDeactivateProposeRequest" : {
+        "required" : [ "mxid" ],
+        "type" : "object",
+        "properties" : {
+          "mxid" : {
+            "maxLength" : 255,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        }
+      },
+      "MatrixDeactivateConfirmRequest" : {
+        "required" : [ "mxid" ],
+        "type" : "object",
+        "properties" : {
+          "mxid" : {
+            "maxLength" : 255,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "token" : {
+            "maxLength" : 128,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        }
+      },
       "TriggerImageBuildRequest" : {
         "required" : [ "imageType", "targetUser" ],
         "type" : "object",
@@ -11078,8 +11886,8 @@
           },
           "hardwareClass" : {
             "minLength" : 1,
-            "pattern" : "x86|rpi5|frite|jetson|orangepi5|orangepizero2",
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "x86", "rpi5", "frite", "jetson", "orangepi5", "orangepizero2", "orangepizero2w", "orangepizero3", "orangepi3-lts", "orangepi4-lts" ]
           },
           "sshKeysAllowed" : {
             "type" : "boolean"
@@ -11397,6 +12205,11 @@
           },
           "enabled" : {
             "type" : "boolean"
+          },
+          "idp" : {
+            "maxLength" : 16,
+            "minLength" : 0,
+            "type" : "string"
           }
         }
       },
@@ -12111,6 +12924,15 @@
             "maxLength" : 1024,
             "minLength" : 0,
             "type" : "string"
+          },
+          "notifyChannels" : {
+            "maxItems" : 8,
+            "minItems" : 0,
+            "type" : "array",
+            "items" : {
+              "pattern" : "^[a-z][a-z-]{0,31}$",
+              "type" : "string"
+            }
           }
         }
       },
@@ -12446,6 +13268,97 @@
           }
         }
       },
+      "TorNodeView" : {
+        "type" : "object",
+        "properties" : {
+          "node" : {
+            "type" : "string"
+          },
+          "hostname" : {
+            "type" : "string"
+          },
+          "residencyDomain" : {
+            "type" : "string"
+          },
+          "registered" : {
+            "type" : "boolean"
+          },
+          "primary" : {
+            "type" : "string"
+          },
+          "domains" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "upstreamManaged" : {
+            "type" : "boolean"
+          },
+          "upstream" : {
+            "type" : "string"
+          },
+          "configGeneration" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "lastReportedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "reportCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "SignedTorExport" : {
+        "type" : "object",
+        "properties" : {
+          "body" : {
+            "$ref" : "#/components/schemas/TorExportBody"
+          },
+          "contentHash" : {
+            "type" : "string"
+          },
+          "signature" : {
+            "type" : "string"
+          },
+          "publicKey" : {
+            "type" : "string"
+          },
+          "signed" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "TorExportBody" : {
+        "type" : "object",
+        "properties" : {
+          "node" : {
+            "type" : "string"
+          },
+          "generation" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "upstreamManaged" : {
+            "type" : "boolean"
+          },
+          "upstream" : {
+            "type" : "string"
+          },
+          "domainsManaged" : {
+            "type" : "boolean"
+          },
+          "domains" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
       "TestRun" : {
         "type" : "object",
         "properties" : {
@@ -12604,6 +13517,20 @@
             "type" : "array",
             "items" : {
               "type" : "string"
+            }
+          }
+        }
+      },
+      "RoleMfaPolicyList" : {
+        "type" : "object",
+        "properties" : {
+          "domain" : {
+            "type" : "string"
+          },
+          "policies" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RoleMfaPolicy"
             }
           }
         }
@@ -12829,6 +13756,15 @@
           "generation" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "idp" : {
+            "type" : "string"
+          },
+          "selinuxLevel" : {
+            "type" : "string"
+          },
+          "selinuxLevelPg" : {
+            "type" : "string"
           }
         }
       },
