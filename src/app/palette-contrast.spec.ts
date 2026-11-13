@@ -301,7 +301,10 @@ function compiledRules(component: Type<unknown>): CssRule[] {
   const styles = (component as unknown as { ɵcmp?: { styles?: string[] } }).ɵcmp?.styles ?? [];
   const rules: CssRule[] = [];
   for (const css of styles) {
-    const flat = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    // Angular 22.2 compiles custom properties as var(--%NS%name) and its DOM renderer
+    // replaces %NS% with the CSS_VAR_NAMESPACE (empty unless provideCssVarNamespacing() is
+    // used, which this app does not). Do the same here, so the audit reads what is injected.
+    const flat = css.replace(/%NS%/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
     for (const m of flat.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
       rules.push({ selector: m[1].trim(), body: m[2] });
     }
