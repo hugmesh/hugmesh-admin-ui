@@ -57,29 +57,8 @@ export class DomainThemesComponent implements OnInit {
   readonly draftSecondary = signal('');
 
   /** The row currently open in the editor. */
-  /** Domains an admin has started a theme for but not yet saved (local only). */
-  readonly pendingDomains = signal<string[]>([]);
-  readonly newDomain = signal('');
-  readonly newDomainError = signal('');
-
-  /**
-   * What the table shows: the stored rows, with the MESH DEFAULT always present (a
-   * mesh that never saved one used to show "No themes configured yet" and nothing to
-   * click, so no theme could be set at all from the web UI), plus any domain added
-   * here and not yet saved.
-   */
-  readonly rows = computed<ThemeRow[]>(() => {
-    const stored = this.store.themes();
-    const out: ThemeRow[] = [];
-    if (!stored.some((t) => t.isDefault)) out.push(blankRow(null));
-    out.push(...stored);
-    const have = new Set(stored.filter((t) => !t.isDefault).map((t) => t.domain));
-    for (const d of this.pendingDomains()) if (!have.has(d)) out.push(blankRow(d));
-    return out;
-  });
-
   readonly current = computed(() =>
-    this.rows().find((t) => this.keyOf(t) === this.editing()) ?? null,
+    this.store.themes().find((t) => this.keyOf(t) === this.editing()) ?? null,
   );
 
   /**
@@ -149,23 +128,6 @@ export class DomainThemesComponent implements OnInit {
     this.editing.set(null);
   }
 
-  /** Start a theme for a domain that has none yet. Domains are registry-sanitized
-   *  ([a-z0-9-]), the same shape the BFF's path segment takes. */
-  addDomain(input?: HTMLInputElement): void {
-    const d = this.newDomain().trim().toLowerCase();
-    if (!/^[a-z0-9][a-z0-9-]*$/.test(d) || d.length > 63) {
-      this.newDomainError.set('A domain is lowercase letters, digits and hyphens, e.g. "brandx".');
-      return;
-    }
-    this.newDomainError.set('');
-    if (!this.pendingDomains().includes(d)) this.pendingDomains.update((l) => [...l, d]);
-    this.newDomain.set('');
-    // ngModel does not repaint a value it already wrote, so clear the box directly too.
-    if (input) input.value = '';
-    const row = this.rows().find((t) => !t.isDefault && t.domain === d);
-    if (row) this.open(row);
-  }
-
   async save(): Promise<void> {
     const row = this.current();
     if (!row || this.saving()) return;
@@ -184,10 +146,7 @@ export class DomainThemesComponent implements OnInit {
         ...(this.draftPrimary().trim() ? { primaryHex: this.draftPrimary().trim() } : {}),
         ...(this.draftSecondary().trim() ? { secondaryHex: this.draftSecondary().trim() } : {}),
       });
-      if (ok) {
-        this.editing.set(null);
-        this.pendingDomains.update((l) => l.filter((d) => d !== row.domain));
-      }
+      if (ok) this.editing.set(null);
     } finally {
       this.saving.set(false);
     }
@@ -201,16 +160,4 @@ export class DomainThemesComponent implements OnInit {
     this.confirmingClear.set(null);
     await this.store.clear(t.isDefault ? '' : (t.domain ?? ''));
   }
-}
-
-/** An unsaved row: the mesh default (domain null) or a newly added domain. */
-function blankRow(domain: string | null): ThemeRow {
-  return {
-    isDefault: domain === null,
-    domain: domain ?? undefined,
-    preset: '',
-    ramp: 'dark',
-    style: 'soft',
-    decor: 'none',
-  } as ThemeRow;
 }

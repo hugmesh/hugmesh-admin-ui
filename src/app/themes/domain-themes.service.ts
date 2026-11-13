@@ -11,11 +11,7 @@ import { DomainTheme } from '../api/models/domain-theme';
  * underscore is what makes this safe. It must stay identical to
  * `DomainThemeAdminController.DEFAULT_SEGMENT` and the Studio's `DEFAULT_SEGMENT`.
  */
-import { THEME_PRESETS, THEME_RAMPS, ThemePresetEntry } from './theme-catalogue';
-
 export const MESH_DEFAULT_SEGMENT = '_default';
-
-const PRESET_BY_ID = new Map(THEME_PRESETS.map((p) => [p.id, p] as const));
 
 /**
  * The time-of-day ramps and shape styles, mirroring the closed vocabularies the BFF
@@ -28,9 +24,9 @@ const PRESET_BY_ID = new Map(THEME_PRESETS.map((p) => [p.id, p] as const));
  * out-of-vocabulary value with a 400 naming the field, so a stale UI fails loudly here
  * rather than silently rendering a fallback theme.
  */
-// Vendored from the generator (theme-catalogue.ts), so the ramp list and the preset
-// catalogue cannot drift from what the Studio renders. Includes the high-contrast ramps.
-export const RAMPS = THEME_RAMPS;
+export const RAMPS = [
+  'dark', 'light', 'dawn', 'morning', 'afternoon', 'dusk', 'evening', 'midnight',
+] as const;
 export const STYLES = ['soft', 'sharp', 'outlined', 'elevated', 'flat', 'glass'] as const;
 
 /**
@@ -87,22 +83,9 @@ export class DomainThemesStore {
   /** Every preset id already in use somewhere on the mesh, for the suggestion list.
    *  The authoritative catalogue lives in the Studio (it owns the colour data), so this
    *  is a convenience, never a constraint — the field stays free text. */
-  /** Every preset the generator ships (by id), plus any stored id the vendored
-   *  catalogue does not know (a newer Studio may have written it), so an existing row
-   *  never loses its value from the picker. */
-  readonly knownPresets = computed(() => {
-    const catalogue = THEME_PRESETS.map((p) => p.id);
-    const known = new Set(catalogue);
-    const extra = this.themes().map((t) => t.preset).filter((p): p is string => !!p && !known.has(p));
-    return [...catalogue, ...[...new Set(extra)].sort()];
-  });
-
-  /** Human label for a preset id ("Nature: Aurora · Fog"), or the id itself. */
-  presetLabel(id: string | null | undefined): string {
-    if (!id) return '';
-    const p: ThemePresetEntry | undefined = PRESET_BY_ID.get(id);
-    return p ? `${p.group}: ${p.label}` : id;
-  }
+  readonly knownPresets = computed(() =>
+    [...new Set(this.themes().map((t) => t.preset).filter(Boolean))].sort() as string[],
+  );
 
   /** The mesh-default row, if the caller may see it. */
   readonly meshDefault = computed(() => this.themes().find((t) => t.isDefault) ?? null);
