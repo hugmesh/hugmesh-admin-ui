@@ -64,9 +64,9 @@
     </tbody>
   </table>
 
-  <form class="add-domain" (ngSubmit)="addDomain()" data-testid="add-domain-form">
+  <form class="add-domain" (ngSubmit)="addDomain(newDomainInput)" data-testid="add-domain-form">
     <label for="theme-new-domain">Give a domain its own theme</label>
-    <input id="theme-new-domain" type="text" name="newDomain" [ngModel]="newDomain()"
+    <input #newDomainInput id="theme-new-domain" type="text" name="newDomain" [ngModel]="newDomain()"
            (ngModelChange)="newDomain.set($event)" placeholder="brandx"
            autocomplete="off" spellcheck="false"
            [attr.aria-invalid]="newDomainError() ? 'true' : null"
@@ -74,7 +74,9 @@
            data-testid="add-domain-input" />
     <button type="submit" data-testid="add-domain">Add domain theme</button>
     <p id="theme-new-domain-help" class="hint">A domain without its own theme inherits the mesh default.</p>
-    <p id="theme-new-domain-error" class="error" role="alert" data-testid="add-domain-error">{{ newDomainError() }}</p>
+    @if (newDomainError()) {
+      <p id="theme-new-domain-error" class="error" role="alert" data-testid="add-domain-error">{{ newDomainError() }}</p>
+    }
   </form>
 }
 

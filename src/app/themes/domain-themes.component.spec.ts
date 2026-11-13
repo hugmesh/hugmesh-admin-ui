@@ -279,6 +279,8 @@ describe('DomainThemesComponent', () => {
       (el(fixture, 'add-domain') as HTMLButtonElement).click();
       fixture.detectChanges();
       expect(el(fixture, 'theme-row-brandx')).withContext('the new domain is listed').toBeTruthy();
+      expect((el(fixture, 'add-domain-input') as HTMLInputElement).value).withContext('the box clears').toBe('');
+      expect(el(fixture, 'add-domain-error')).withContext('no empty error line').toBeNull();
       expect(el(fixture, 'theme-editor')).withContext('and its editor is open').toBeTruthy();
       const preset = el(fixture, 'field-preset') as HTMLInputElement;
       await fixture.whenStable();

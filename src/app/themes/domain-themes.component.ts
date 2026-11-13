@@ -151,7 +151,7 @@ export class DomainThemesComponent implements OnInit {
 
   /** Start a theme for a domain that has none yet. Domains are registry-sanitized
    *  ([a-z0-9-]), the same shape the BFF's path segment takes. */
-  addDomain(): void {
+  addDomain(input?: HTMLInputElement): void {
     const d = this.newDomain().trim().toLowerCase();
     if (!/^[a-z0-9][a-z0-9-]*$/.test(d) || d.length > 63) {
       this.newDomainError.set('A domain is lowercase letters, digits and hyphens, e.g. "brandx".');
@@ -160,6 +160,8 @@ export class DomainThemesComponent implements OnInit {
     this.newDomainError.set('');
     if (!this.pendingDomains().includes(d)) this.pendingDomains.update((l) => [...l, d]);
     this.newDomain.set('');
+    // ngModel does not repaint a value it already wrote, so clear the box directly too.
+    if (input) input.value = '';
     const row = this.rows().find((t) => !t.isDefault && t.domain === d);
     if (row) this.open(row);
   }
