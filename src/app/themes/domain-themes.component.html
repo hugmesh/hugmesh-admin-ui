@@ -26,10 +26,10 @@
       </tr>
     </thead>
     <tbody>
-      @for (t of store.themes(); track keyOf(t)) {
+      @for (t of rows(); track keyOf(t)) {
         <tr [class.is-default]="t.isDefault" [attr.data-testid]="'theme-row-' + keyOf(t)">
           <th scope="row">{{ label(t) }}</th>
-          <td>{{ t.preset || '—' }}</td>
+          <td [attr.title]="t.preset || null">{{ store.presetLabel(t.preset) || '—' }}</td>
           <td>{{ t.ramp }}</td>
           <td>{{ t.style }}</td>
           <td>
@@ -60,11 +60,24 @@
             }
           </td>
         </tr>
-      } @empty {
-        <tr><td colspan="7">No themes configured yet.</td></tr>
       }
     </tbody>
   </table>
+
+  <form class="add-domain" (ngSubmit)="addDomain(newDomainInput)" data-testid="add-domain-form">
+    <label for="theme-new-domain">Give a domain its own theme</label>
+    <input #newDomainInput id="theme-new-domain" type="text" name="newDomain" [ngModel]="newDomain()"
+           (ngModelChange)="newDomain.set($event)" placeholder="brandx"
+           autocomplete="off" spellcheck="false"
+           [attr.aria-invalid]="newDomainError() ? 'true' : null"
+           aria-describedby="theme-new-domain-help theme-new-domain-error"
+           data-testid="add-domain-input" />
+    <button type="submit" data-testid="add-domain">Add domain theme</button>
+    <p id="theme-new-domain-help" class="hint">A domain without its own theme inherits the mesh default.</p>
+    @if (newDomainError()) {
+      <p id="theme-new-domain-error" class="error" role="alert" data-testid="add-domain-error">{{ newDomainError() }}</p>
+    }
+  </form>
 }
 
 @if (current(); as row) {
@@ -81,10 +94,12 @@
            silently exclude a preset the Studio already ships. -->
       <datalist id="theme-presets">
         @for (p of store.knownPresets(); track p) {
-          <option [value]="p"></option>
+          <option [value]="p">{{ store.presetLabel(p) }}</option>
         }
       </datalist>
-      <small>Preset ids come from the Studio's theme catalogue.</small>
+      <small>{{ store.knownPresets().length }} presets from the Studio's theme catalogue,
+        including WebGL backgrounds, high-contrast sets and themes that change the font.
+        @if (draftPreset().trim()) { Chosen: {{ store.presetLabel(draftPreset().trim()) }}. }</small>
     </div>
 
     <div class="field">

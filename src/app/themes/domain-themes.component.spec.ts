@@ -32,6 +32,7 @@ describe('DomainThemesComponent', () => {
     loading: ReturnType<typeof signal<boolean>>;
     error: ReturnType<typeof signal<string>>;
     knownPresets: () => string[];
+    presetLabel: (id: string | null | undefined) => string;
     refresh: jasmine.Spy;
     save: jasmine.Spy;
     clear: jasmine.Spy;
@@ -55,6 +56,7 @@ describe('DomainThemesComponent', () => {
       loading: signal(false),
       error: signal(''),
       knownPresets: () => ['nord', 'pride'],
+      presetLabel: (id) => id ?? '',
       refresh: jasmine.createSpy('refresh').and.resolveTo(undefined),
       save: jasmine.createSpy('save').and.resolveTo(true),
       clear: jasmine.createSpy('clear').and.resolveTo(true),
@@ -254,5 +256,53 @@ describe('DomainThemesComponent', () => {
     store.error.set('You do not have permission to save the theme for domain \'brandy\'.');
     f.detectChanges();
     expect(el(f, 'themes-error')!.textContent).toContain('do not have permission');
+  });
+
+  // ── an empty mesh can still be themed (the table used to be a dead end) ──────
+  describe('with nothing stored yet', () => {
+    it('still shows the mesh default row, editable by a superadmin', () => {
+      const fixture = setup([], true);
+      const edit = el(fixture, 'edit-' + MESH_DEFAULT_SEGMENT) as HTMLButtonElement;
+      expect(edit).withContext('the mesh default row must exist with nothing stored').toBeTruthy();
+      expect(edit.disabled).toBeFalse();
+      edit.click();
+      fixture.detectChanges();
+      expect(el(fixture, 'theme-editor')).toBeTruthy();
+    });
+
+    it('adds a domain and opens its editor; saving it goes to that domain', async () => {
+      const fixture = setup([]);
+      await fixture.whenStable(); // ngModel registers asynchronously
+      const input = el(fixture, 'add-domain-input') as HTMLInputElement;
+      input.value = 'brandx';
+      input.dispatchEvent(new Event('input'));
+      (el(fixture, 'add-domain') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(el(fixture, 'theme-row-brandx')).withContext('the new domain is listed').toBeTruthy();
+      expect((el(fixture, 'add-domain-input') as HTMLInputElement).value).withContext('the box clears').toBe('');
+      expect(el(fixture, 'add-domain-error')).withContext('no empty error line').toBeNull();
+      expect(el(fixture, 'theme-editor')).withContext('and its editor is open').toBeTruthy();
+      const preset = el(fixture, 'field-preset') as HTMLInputElement;
+      await fixture.whenStable();
+      preset.value = 'aurora-waves';
+      preset.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      (el(fixture, 'save-theme') as HTMLButtonElement).click();
+      await fixture.whenStable();
+      expect(store.save).toHaveBeenCalledWith('brandx', jasmine.objectContaining({ preset: 'aurora-waves' }));
+    });
+
+    it('refuses a domain that is not registry-shaped, in words', async () => {
+      const fixture = setup([]);
+      await fixture.whenStable();
+      const input = el(fixture, 'add-domain-input') as HTMLInputElement;
+      input.value = 'Brand X!';
+      input.dispatchEvent(new Event('input'));
+      (el(fixture, 'add-domain') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(fixture.componentInstance.newDomain()).withContext('the typed value reached the model').toBe('Brand X!');
+      expect(el(fixture, 'add-domain-error')!.textContent).toContain('lowercase');
+      expect(el(fixture, 'theme-editor')).toBeNull();
+    });
   });
 });
