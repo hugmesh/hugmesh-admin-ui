@@ -39,16 +39,21 @@
   </form>
 
   <form (ngSubmit)="inviteDiscord()" novalidate>
-    <label for="admin-discord">Discord username to invite</label>
+    <label for="admin-discord">Discord user ID or username to invite</label>
     <input
       id="admin-discord"
       data-testid="admin-discord"
       [(ngModel)]="discord"
       name="discord"
-      placeholder="discord-username"
+      placeholder="Discord user ID (or username)"
       [attr.aria-invalid]="discordError() ? 'true' : null"
-      [attr.aria-describedby]="discordError() ? 'admin-discord-error' : null"
+      [attr.aria-describedby]="discordError() ? 'admin-discord-hint admin-discord-error' : 'admin-discord-hint'"
     />
+    <small id="admin-discord-hint" data-testid="admin-discord-hint" class="field-hint">
+      Prefer the user ID (in Discord, turn on Developer Mode, then Copy User ID). An ID cannot be
+      changed or taken by someone else; a username can be, so an invite under one only lets the
+      person create a new account and cannot be tied to a specific existing account.
+    </small>
     <button data-testid="admin-invite-discord" type="submit">Invite Discord</button>
     <span
       *ngIf="discordError()"

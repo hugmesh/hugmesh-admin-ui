@@ -289,7 +289,7 @@ cookie auth and error handling of the rest of `BffService`.
 
 | Module                  | Endpoint(s)                                                | Notes |
 | ----------------------- | ---------------------------------------------------------- | ----- |
-| Registration allowlist  | `GET/POST /bff/admin/allowlist`                            | Invite by Gmail address or Discord username; the BFF invites the identity in Casdoor via the pki gateway. |
+| Registration allowlist  | `GET/POST /bff/admin/allowlist`                            | Invite by Gmail address or Discord user ID (preferred; a username also works but cannot name an account); the BFF invites the identity in Casdoor via the pki gateway. |
 | Usage analytics         | `GET /bff/admin/usage` (+ Uptrace link)                    | Aggregated by the BFF from ClickHouse (events arrive via Kafka in prod). |
 | Namespace access        | `GET/POST/DELETE /bff/admin/namespace-access`, `GET /bff/me/namespaces` | Grant users access to cluster namespaces (maps to Casdoor groups + k8s RBAC server-side); scopes what each user sees in observability. |
 | Route **access**        | `GET/POST/DELETE /bff/admin/route-access`                 | Per-gateway role→URL allow/deny rules. Persisted in admin-bff Postgres (`gateway_route_access`, the source of truth) and mirrored to a Cassandra table the gateways poll; `GatewayRouteAccessFilter` in each gateway caches the rules and denies external access unless the caller's Casdoor roles match. Role-based locking of known services only — no arbitrary URLs. |
