@@ -52,6 +52,28 @@ describe('AdminComponent', () => {
     expect(el.querySelector('[data-menu="forum"]')).not.toBeNull();
   });
 
+  it('asks for a Discord user ID first and explains why (an ID cannot be taken, a username can)', () => {
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('label[for="admin-discord"]')?.textContent?.trim())
+      .toBe('Discord user ID or username to invite');
+    const hint = el.querySelector('[data-testid="admin-discord-hint"]') as HTMLElement;
+    expect(hint.textContent).toContain('Prefer the user ID');
+    expect(hint.textContent).toContain('cannot be tied to a specific existing account');
+    // the input is described by the hint, so a screen reader reads it with the field
+    expect(el.querySelector('#admin-discord')?.getAttribute('aria-describedby'))
+      .toBe('admin-discord-hint');
+  });
+
+  it('asks for the same thing when the Discord field is left empty', () => {
+    fixture.detectChanges();
+    const c = fixture.componentInstance as unknown as { discord: string; inviteDiscord(): unknown;
+      discordError(): string };
+    c.discord = '   ';
+    c.inviteDiscord();
+    expect(c.discordError()).toBe('Enter a Discord user ID or username to invite.');
+  });
+
   it('renders the Appeals menu item (the appeals-decide console) for an ADMIN', () => {
     superadmin.set(false);
     fixture.detectChanges();

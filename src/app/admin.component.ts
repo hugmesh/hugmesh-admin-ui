@@ -115,7 +115,7 @@ export class AdminComponent implements OnInit {
 
   /** Gmail address input for the allowlist invite form (ngModel-bound plain property). */
   email = '';
-  /** Discord username input for the allowlist invite form (ngModel-bound plain property). */
+  /** Discord user ID (preferred) or username input for the allowlist invite form (ngModel-bound plain property). */
   discord = '';
   /** Current email allowlist entries, loaded from `GET /bff/admin/allowlist`. */
   readonly emails = signal<string[]>([]);
@@ -171,12 +171,12 @@ export class AdminComponent implements OnInit {
   }
 
   /**
-   * Invite a Discord username to the registration allowlist (`POST /bff/admin/allowlist/invite`).
+   * Invite a Discord user ID (preferred) or username to the registration allowlist (`POST /bff/admin/allowlist/invite`).
    * Normalises the input to lowercase before sending.
    * Refreshes the allowlist from the BFF response.
    */
   async inviteDiscord(): Promise<void> {
-    if (!this.discord.trim()) { this.discordError.set('Enter a Discord username to invite.'); return; }
+    if (!this.discord.trim()) { this.discordError.set('Enter a Discord user ID or username to invite.'); return; }
     this.discordError.set('');
     this.refresh(await this.bff.invite('discord', this.discord.trim().toLowerCase())); this.discord = '';
   }
