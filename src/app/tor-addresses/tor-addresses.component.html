@@ -1,0 +1,54 @@
+<section class="tor-addresses" data-testid="tor-addresses">
+  <h2>Tor addresses</h2>
+  <p class="lead">Each domain's own onion address on the mesh's Tor nodes. A new address
+    replaces the old one for everyone; the mesh's own address is not replaced here.</p>
+
+  @if (loadError()) {
+    <p class="error" role="alert" data-testid="tor-load-error">{{ loadError() }}</p>
+  }
+
+  @if (primary().length) {
+    <div class="primary" data-testid="tor-primary">
+      <span class="label">The mesh's own address</span>
+      @for (p of primary(); track p) { <code>{{ p }}</code> }
+    </div>
+  }
+
+  @if (loaded() && !loadError() && !rows().length) {
+    <p class="empty" data-testid="tor-empty">No domain has a Tor address of its own yet.</p>
+  }
+
+  @for (row of rows(); track row.domain) {
+    <div class="row" [attr.data-testid]="'tor-row-' + row.domain">
+      <div class="head">
+        <span class="domain">{{ row.domain }}</span>
+        <button type="button" class="ask" [attr.data-testid]="'tor-ask-' + row.domain"
+                [disabled]="busy()" (click)="ask(row.domain)">New address…</button>
+      </div>
+      <div class="addresses">
+        @for (a of row.addresses; track a) { <code>{{ a }}</code> }
+      </div>
+
+      @if (asking() === row.domain) {
+        <div class="confirm" [attr.data-testid]="'tor-confirm-' + row.domain">
+          <p class="warn">{{ warning }}</p>
+          <label><span>Type <strong>{{ row.domain }}</strong> to confirm</span>
+            <input type="text" [(ngModel)]="typed" [attr.data-testid]="'tor-typed-' + row.domain"
+                   autocomplete="off" spellcheck="false" />
+          </label>
+          <div class="buttons">
+            <button type="button" class="go" [attr.data-testid]="'tor-go-' + row.domain"
+                    [disabled]="!confirmed(row.domain) || busy()" (click)="renew(row.domain)">Make a new address</button>
+            <button type="button" (click)="cancel()" [attr.data-testid]="'tor-cancel-' + row.domain">Cancel</button>
+          </div>
+        </div>
+      }
+      @if (notice()[row.domain]) {
+        <p class="notice" role="status" [attr.data-testid]="'tor-notice-' + row.domain">{{ notice()[row.domain] }}</p>
+      }
+      @if (error()[row.domain]) {
+        <p class="error" role="alert" [attr.data-testid]="'tor-error-' + row.domain">Not changed: {{ error()[row.domain] }}</p>
+      }
+    </div>
+  }
+</section>
