@@ -1031,6 +1031,30 @@ export class BffService {
     throw await this.bffError(r);
   }
 
+  // ── Tor addresses (hugmesh-generator#652; BFF /bff/admin/tor) ──────────────────
+  // GET  /bff/admin/tor/nodes                         → TorNodeView[] (role-redacted: a
+  //       domain ADMIN sees only their own domain's onion)
+  // POST /bff/admin/tor/domains/{domain}/new-address  {confirm} → {domain, requestCount}
+  //       (ADMIN for their own domain, SUPERADMIN for any; 422/403/422/409 refusals)
+
+  /** Every Tor node's reported onions, as the BFF lets this caller see them. */
+  async torNodes(): Promise<TorNodeView[]> {
+    const r = await fetch(`${CFG.bff}/bff/admin/tor/nodes`, { credentials: 'include' });
+    if (r.ok) return ((await r.json()) as TorNodeView[]) ?? [];
+    throw await this.bffError(r);
+  }
+
+  /** Ask for a new onion address for one domain; `confirm` is the domain key, retyped. */
+  async torRequestNewAddress(domain: string, confirm: string): Promise<TorNewAddressResult> {
+    const r = await fetch(`${CFG.bff}/bff/admin/tor/domains/${encodeURIComponent(domain)}/new-address`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' }, credentials: 'include',
+      body: JSON.stringify({ confirm }),
+    });
+    if (r.ok) return (await r.json()) as TorNewAddressResult;
+    throw await this.bffError(r);
+  }
+
   // ── Egress-VPN console (SUPERADMIN-only, BFF /bff/admin/egress-vpn) ────────────
   // Admins/superadmins import provider-downloaded VPN configs (ProtonVPN WireGuard
   // .conf first-class; OpenVPN .ovpn fallback) that mesh NODES use for OUTGOING /
@@ -3234,4 +3258,26 @@ export interface FleetEntitlement {
   seats?: number | null;
   expiresAt?: string | null;
   updatedAt: string;
+}
+
+/** One Tor node's reported onions (admin-bff TorNodeView), redacted for a domain ADMIN. */
+export interface TorNodeView {
+  node: string;
+  hostname?: string | null;
+  residencyDomain?: string | null;
+  registered: boolean;
+  primary?: string | null;
+  domains?: Record<string, string> | null;
+  upstreamManaged?: boolean;
+  upstream?: string | null;
+  configGeneration?: number;
+  lastReportedAt?: string | null;
+  reportCount?: number;
+}
+
+/** The answer to a new-address request (admin-bff TorRotationResult). */
+export interface TorNewAddressResult {
+  domain: string;
+  requestCount: number;
+  status: string;
 }

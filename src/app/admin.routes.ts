@@ -36,6 +36,7 @@ import { WorkloadConsoleComponent } from './workload-console/workload-console.co
 import { WorkloadLogsComponent } from './workload-console/workload-logs.component';
 import { WorkloadTerminalComponent } from './workload-console/workload-terminal.component';
 import { CloudBackupsComponent } from './cloud-backups/cloud-backups.component';
+import { TorAddressesComponent } from './tor-addresses/tor-addresses.component';
 import { BackingServicesComponent } from './backing-services/backing-services.component';
 import { ImageGenComponent } from './image-gen/image-gen.component';
 import { MfaSecurityComponent } from './mfa/mfa-security.component';
@@ -201,6 +202,9 @@ export const ADMIN_ROUTES: Routes = [
   // stays authoritative.
   { path: 'mesh-tokens', component: MeshTokensComponent, canActivate: [adminGuard] },
   { path: 'domain-capabilities', component: DomainCapabilitiesComponent },
+  // Tor addresses (hugmesh-generator#652): each domain's onion and a new-address request;
+  // the BFF scopes it (a domain ADMIN to their own domain, a SUPERADMIN to every domain).
+  { path: 'tor-addresses', component: TorAddressesComponent },
   { path: 'egress-vpn', component: EgressVpnComponent, canActivate: [superadminGuard] },
   { path: 'superadmin/domains', component: SuperadminDomainsComponent, canActivate: [superadminGuard] },
   { path: 'oidc-providers', component: OidcProviderRolesComponent },

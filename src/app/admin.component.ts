@@ -84,6 +84,7 @@ export class AdminComponent implements OnInit {
     { path: 'device-radios', label: 'Device radios' },
     { path: 'mesh-tokens', label: 'Mesh tokens' },
     { path: 'domain-capabilities', label: 'Domain capabilities' },
+    { path: 'tor-addresses', label: 'Tor addresses' },
     { path: 'desktop', label: 'Desktop governance' },
     { path: 'egress-vpn', label: 'Egress VPN', superadminOnly: true },
     { path: 'superadmin/domains', label: 'Domains', superadminOnly: true },

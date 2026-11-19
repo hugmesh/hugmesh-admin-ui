@@ -100,7 +100,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     expect(byPath('superadmin/anubis')!.component).toBe(AnubisAdminComponent);
   });
 
-  it('exposes exactly the forty-one admin views the host expects (incl. delegation + the roles grant/revoke console + appeals + account-appeals + the self-service security/MFA console + device-licenses + device-pending + phone-fleet + my-fleet + fleet-entitlements + node-storage + device-radios + mesh-tokens + domain-capabilities + desktop governance + egress-vpn + superadmin/domains + oidc-providers + games-services + superadmin/anubis + cloud-backups + backing-services + image-gen + per-domain themes + the HIDDEN-tier workloads console + its logs/terminal sub-views)', () => {
+  it('exposes exactly the forty-two admin views the host expects (incl. delegation + the roles grant/revoke console + appeals + account-appeals + the self-service security/MFA console + device-licenses + device-pending + phone-fleet + my-fleet + fleet-entitlements + node-storage + device-radios + mesh-tokens + domain-capabilities + tor-addresses + desktop governance + egress-vpn + superadmin/domains + oidc-providers + games-services + superadmin/anubis + cloud-backups + backing-services + image-gen + per-domain themes + the HIDDEN-tier workloads console + its logs/terminal sub-views)', () => {
     expect(ADMIN_ROUTES.map((r) => r.path)).toEqual([
       '',
       'usage',
@@ -134,6 +134,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
       'device-radios',
       'mesh-tokens',
       'domain-capabilities',
+      'tor-addresses',
       'egress-vpn',
       'superadmin/domains',
       'oidc-providers',
@@ -310,6 +311,7 @@ describe('ADMIN_ROUTES (exposed ./routes federation contract)', () => {
     'device-radios': undefined,
     'mesh-tokens': [adminGuard],
     'domain-capabilities': undefined,
+    'tor-addresses': undefined,
     'egress-vpn': [superadminGuard],
     'superadmin/domains': [superadminGuard],
     'oidc-providers': undefined,

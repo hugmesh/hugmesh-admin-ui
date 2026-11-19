@@ -1,0 +1,13 @@
+.tor-addresses { max-width: 60rem; }
+.lead { color: var(--hug-muted, #555); }
+.primary, .row { border: 1px solid var(--hug-border, #ccc); border-radius: 6px; padding: 0.75rem; margin: 0.75rem 0; }
+.primary .label { display: block; font-weight: 600; margin-bottom: 0.25rem; }
+.head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.domain { font-weight: 600; }
+code { display: block; overflow-wrap: anywhere; user-select: all; margin-top: 0.25rem; }
+.confirm { margin-top: 0.75rem; }
+.confirm label { display: flex; flex-direction: column; gap: 0.25rem; max-width: 24rem; }
+.buttons { display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap; }
+.warn { color: var(--hug-warn, #8a4b00); }
+.error { color: var(--hug-error, #b00020); }
+.notice { color: var(--hug-ok, #1b5e20); }
